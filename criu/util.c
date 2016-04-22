@@ -451,6 +451,17 @@ int criu_get_image_dir(void)
 	return get_service_fd(IMG_FD_OFF);
 }
 
+int disable_service_fd(enum sfd_type type)
+{
+	int fd;
+
+	fd = get_service_fd(type);
+	if (fd < 0)
+		return 0;
+
+	clear_bit(type, sfd_map);
+	return 0;
+}
 int close_service_fd(enum sfd_type type)
 {
 	int fd;
@@ -641,9 +652,6 @@ int cr_system_userns(int in, int out, int err, char *cmd,
 		    move_img_fd(&err, STDIN_FILENO))
 			goto out_chld;
 
-		if (stop_log_fd)
-			log_fini();
-
 		if (in < 0) {
 			close(STDIN_FILENO);
 		} else {
@@ -659,6 +667,9 @@ int cr_system_userns(int in, int out, int err, char *cmd,
 
 		if (reopen_fd_as_nocheck(STDERR_FILENO, err))
 			goto out_chld;
+
+		if (stop_log_fd)
+			log_disable();
 
 		execvp(cmd, argv);
 

@@ -134,6 +134,11 @@ int log_init_by_pid(void)
 	return log_init(path);
 }
 
+void log_disable(void)
+{
+	disable_service_fd(LOG_FD_OFF);
+}
+
 void log_fini(void)
 {
 	close_service_fd(LOG_FD_OFF);
