@@ -641,9 +641,6 @@ int cr_system_userns(int in, int out, int err, char *cmd,
 		    move_img_fd(&err, STDIN_FILENO))
 			goto out_chld;
 
-		if (stop_log_fd)
-			log_fini();
-
 		if (in < 0) {
 			close(STDIN_FILENO);
 		} else {
@@ -659,6 +656,9 @@ int cr_system_userns(int in, int out, int err, char *cmd,
 
 		if (reopen_fd_as_nocheck(STDERR_FILENO, err))
 			goto out_chld;
+
+		if (stop_log_fd)
+			clear_bit(LOG_FD_OFF, sfd_map);
 
 		execvp(cmd, argv);
 
