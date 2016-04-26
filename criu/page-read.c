@@ -6,6 +6,7 @@
 #include "cr_options.h"
 #include "servicefd.h"
 #include "page-read.h"
+#include "page-xfer.h"
 
 #include "protobuf.h"
 #include "images/pagemap.pb-c.h"
@@ -193,6 +194,13 @@ static int read_pagemap_page(struct page_read *pr, unsigned long vaddr, int nr, 
 			vaddr += p_nr * PAGE_SIZE;
 			buf += p_nr * PAGE_SIZE;
 		} while (nr);
+	} else if (pr->xfer) {
+		pr_debug("\tpr%u Read %d remote pages %lx\n", pr->id, nr, vaddr);
+		ret = page_xfer_read_pages(pr->xfer, vaddr, nr, buf);
+		if (ret) {
+			pr_err("cannot get remote pages\n");
+			return -1;
+		}
 	} else {
 		int fd = img_raw_fd(pr->pi);
 		off_t current_vaddr = lseek(fd, 0, SEEK_CUR);
@@ -237,6 +245,11 @@ static void close_page_read(struct page_read *pr)
 	close_image(pr->pmi);
 	if (pr->pi)
 		close_image(pr->pi);
+
+	if (pr->xfer) {
+		pr->xfer->close(pr->xfer);
+		free(pr->xfer);
+	}
 }
 
 static int try_open_parent(int dfd, int pid, struct page_read *pr, int pr_flags)
@@ -301,8 +314,22 @@ int open_page_read_at(int dfd, int pid, struct page_read *pr, int pr_flags)
 
 	pr->pe = NULL;
 	pr->parent = NULL;
+	pr->xfer = NULL;
 	pr->bunch.iov_len = 0;
 	pr->bunch.iov_base = NULL;
+
+	if (pr_flags & PR_REMOTE) {
+		pr->xfer = malloc(sizeof(*pr->xfer));
+		if (!pr->xfer) {
+			pr_err("failed to reseve memory for page-xfer\n");
+			return -1;
+		}
+
+		if (open_page_xfer(pr->xfer, CR_FD_PAGEMAP, pid)) {
+			pr_err("failed to open page-xfer\n");
+			return -1;
+		}
+	}
 
 	pr->pmi = open_image_at(dfd, i_typ, O_RSTR, (long)pid);
 	if (!pr->pmi)
@@ -318,17 +345,29 @@ int open_page_read_at(int dfd, int pid, struct page_read *pr, int pr_flags)
 		return -1;
 	}
 
-	pr->pi = open_pages_image_at(dfd, flags, pr->pmi);
-	if (!pr->pi) {
-		close_page_read(pr);
-		return -1;
+	if (pr_flags & PR_REMOTE) {
+		PagemapHead *h;
+		if (pb_read_one(pr->pmi, &h, PB_PAGEMAP_HEAD) < 0) {
+			pr_err("%s: pb_read_one\n", __func__);
+			return -1;
+		}
+		pagemap_head__free_unpacked(h, NULL);
+
+		pr->skip_pages = NULL;
+	} else {
+		pr->pi = open_pages_image_at(dfd, flags, pr->pmi);
+		if (!pr->pi) {
+			close_page_read(pr);
+			return -1;
+		}
+
+		pr->skip_pages = skip_pagemap_pages;
 	}
 
 	pr->get_pagemap = get_pagemap;
 	pr->put_pagemap = put_pagemap;
 	pr->read_pages = read_pagemap_page;
 	pr->close = close_page_read;
-	pr->skip_pages = skip_pagemap_pages;
 	pr->id = ids++;
 
 	pr_debug("Opened page read %u (parent %u)\n",

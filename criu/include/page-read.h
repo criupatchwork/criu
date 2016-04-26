@@ -40,6 +40,8 @@
  * All this is implemented in read_pagemap_page.
  */
 
+struct page_xfer;
+
 struct page_read {
 	/*
 	 * gets next vaddr:len pair to work on.
@@ -56,6 +58,8 @@ struct page_read {
 	/* Private data of reader */
 	struct cr_img *pmi;
 	struct cr_img *pi;
+
+	struct page_xfer *xfer;		/* for remote page reader */
 
 	PagemapEntry *pe;		/* current pagemap we are on */
 	struct page_read *parent;	/* parent pagemap (if ->in_parent
@@ -74,6 +78,8 @@ struct page_read {
 
 #define PR_TYPE_MASK	0x3
 #define PR_MOD		0x4	/* Will need to modify */
+
+#define PR_REMOTE	0x8	/* will read pages from remote host */
 
 /*
  * -1 -- error

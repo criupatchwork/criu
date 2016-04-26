@@ -453,10 +453,13 @@ static int restore_priv_vma_content(void)
 	unsigned int nr_lazy = 0;
 	unsigned long va;
 	struct page_read pr;
+	int pr_flags = PR_TASK;
 
 	vma = list_first_entry(vmas, struct vma_area, list);
 
-	ret = open_page_read(current->pid.virt, &pr, PR_TASK);
+	if (opts.use_page_client)
+		pr_flags |= PR_REMOTE;
+	ret = open_page_read(current->pid.virt, &pr, pr_flags);
 	if (ret <= 0)
 		return -1;
 

@@ -86,6 +86,7 @@ struct cr_options {
 	struct list_head	join_ns;
 	char			*libdir;
 	bool			use_page_server;
+	bool			use_page_client;
 	unsigned short		port;
 	char			*addr;
 	int			ps_socket;

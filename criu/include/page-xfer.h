@@ -17,6 +17,10 @@ struct page_xfer {
 	int (*write_pages)(struct page_xfer *self, int pipe, unsigned long len);
 	/* transfers one hole -- vaddr:len entry w/o pages */
 	int (*write_hole)(struct page_xfer *self, struct iovec *iov);
+
+	int (*read_pages)(struct page_xfer *self, unsigned long vaddr,
+			  int nr, void *buf);
+
 	void (*close)(struct page_xfer *self);
 
 	/* private data for every page-xfer engine */
@@ -43,5 +47,8 @@ extern int connect_to_page_server(void);
 extern int disconnect_from_page_server(void);
 
 extern int check_parent_page_xfer(int fd_type, long id);
+
+extern int page_xfer_read_pages(struct page_xfer *xfer, unsigned long vaddr,
+				int nr, void *buf);
 
 #endif /* __CR_PAGE_XFER__H__ */

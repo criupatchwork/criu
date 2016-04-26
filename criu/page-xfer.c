@@ -13,6 +13,7 @@
 #include "image.h"
 #include "page-xfer.h"
 #include "page-pipe.h"
+#include "page-read.h"
 #include "util.h"
 #include "protobuf.h"
 #include "images/pagemap.pb-c.h"
@@ -43,6 +44,8 @@ static int open_page_local_xfer(struct page_xfer *xfer, int fd_type, long id);
 #define PS_IOV_OPEN	3
 #define PS_IOV_OPEN2	4
 #define PS_IOV_PARENT	5
+#define PS_IOV_OPEN3	6
+#define PS_IOV_GET	7
 
 #define PS_IOV_FLUSH		0x1023
 #define PS_IOV_FLUSH_N_CLOSE	0x1024
@@ -112,6 +115,24 @@ static int page_server_open(int sk, struct page_server_iov *pi)
 	return 0;
 }
 
+static int page_server_open3(int sk, struct page_server_iov *pi)
+{
+	int type;
+	long id;
+	char has_parent = 23;
+
+	type = decode_pm_type(pi->dst_id);
+	id = decode_pm_id(pi->dst_id);
+	pr_debug("Opening %d/%ld\n", type, id);
+
+	if (write(sk, &has_parent, 1) != 1) {
+		pr_perror("Unable to send reponse");
+		return -1;
+	}
+
+	return 0;
+}
+
 static int prep_loc_xfer(struct page_server_iov *pi)
 {
 	if (cxfer.dst_id != pi->dst_id) {
@@ -176,6 +197,57 @@ static int page_server_hole(int sk, struct page_server_iov *pi)
 	return 0;
 }
 
+static int page_server_get(int sk, struct page_server_iov *pi)
+{
+	struct page_read page_read;
+	struct iovec iov;
+	unsigned long len;
+	int type, id, ret;
+	char *buf;
+
+	type = decode_pm_type(pi->dst_id);
+	id = decode_pm_id(pi->dst_id);
+	pr_debug("Get %d/%d\n", type, id);
+
+	len = pi->nr_pages * PAGE_SIZE;
+	buf = malloc(len);
+	if (!buf) {
+		pr_err("allocation failed\n");
+		return -1;
+	}
+
+	open_page_read(id, &page_read, PR_TASK);
+
+	ret = page_read.get_pagemap(&page_read, &iov);
+	pr_debug("get_pagemap ret %d\n", ret);
+	if (ret <= 0)
+		return ret;
+
+	ret = seek_pagemap_page(&page_read, pi->vaddr, true);
+	pr_debug("seek_pagemap_page ret 0x%x\n", ret);
+	if (ret <= 0)
+		return ret;
+
+	ret = page_read.read_pages(&page_read, pi->vaddr, pi->nr_pages, buf);
+	if (ret < 0) {
+		pr_err("%s: read_pages: %d\n", __func__, ret);
+		goto out;
+	}
+
+	ret = write(sk, buf, len);
+	if (ret != len) {
+		pr_err("%s: Can't send the pages:%d\n", __func__, ret);
+		ret = -1;
+		goto out;
+	}
+
+	page_read.close(&page_read);
+	ret = 0;
+out:
+	free(buf);
+	return ret;
+}
+
 static int page_server_check_parent(int sk, struct page_server_iov *pi);
 
 static int page_server_serve(int sk)
@@ -221,6 +293,9 @@ static int page_server_serve(int sk)
 		case PS_IOV_OPEN2:
 			ret = page_server_open(sk, &pi);
 			break;
+		case PS_IOV_OPEN3:
+			ret = page_server_open3(sk, &pi);
+			break;
 		case PS_IOV_PARENT:
 			ret = page_server_check_parent(sk, &pi);
 			break;
@@ -229,6 +304,9 @@ static int page_server_serve(int sk)
 			break;
 		case PS_IOV_HOLE:
 			ret = page_server_hole(sk, &pi);
+			break;
+		case PS_IOV_GET:
+			ret = page_server_get(sk, &pi);
 			break;
 		case PS_IOV_FLUSH:
 		case PS_IOV_FLUSH_N_CLOSE:
@@ -322,8 +400,10 @@ static int page_server_sk = -1;
 
 int connect_to_page_server(void)
 {
-	if (!opts.use_page_server)
+	if (!(opts.use_page_server || opts.use_page_client)) {
+		pr_err("mutually exclusive page-server and page-client options\n");
 		return 0;
+	}
 
 	if (opts.ps_socket != -1) {
 		page_server_sk = opts.ps_socket;
@@ -332,8 +412,11 @@ int connect_to_page_server(void)
 	}
 
 	page_server_sk = setup_tcp_client(opts.addr);
-	if (page_server_sk == -1)
+	if (page_server_sk == -1) {
+		pr_err("setup_tcp_client\n");
 		return -1;
+	}
+
 out:
 	/*
 	 * CORK the socket at the very beginning. As per ANK
@@ -431,6 +514,33 @@ static int write_hole_to_server(struct page_xfer *xfer, struct iovec *iov)
 	return 0;
 }
 
+static int read_pages_from_server(struct page_xfer *xfer, unsigned long vaddr,
+				  int nr, void *buf)
+{
+	struct page_server_iov pi;
+	unsigned long len;
+	int ret;
+
+	pi.cmd = PS_IOV_GET;
+	pi.dst_id = xfer->dst_id;
+	pi.nr_pages = nr;
+	pi.vaddr = vaddr;
+	len = nr * page_size();
+
+	if (write(xfer->sk, &pi, sizeof(pi)) != sizeof(pi)) {
+		pr_perror("Can't write GET cmd to server");
+		return -1;
+	}
+
+	ret = recv(xfer->sk, buf, len, MSG_WAITALL);
+	if (ret != len) {
+		pr_err("%s: recv failed: %d\n", __func__, ret);
+		return -1;
+	}
+
+	return 0;
+}
+
 static void close_server_xfer(struct page_xfer *xfer)
 {
 	xfer->sk = -1;
@@ -445,6 +555,7 @@ static int open_page_server_xfer(struct page_xfer *xfer, int fd_type, long id)
 	xfer->write_pagemap = write_pagemap_to_server;
 	xfer->write_pages = write_pages_to_server;
 	xfer->write_hole = write_hole_to_server;
+	xfer->read_pages = read_pages_from_server;
 	xfer->close = close_server_xfer;
 	xfer->dst_id = encode_pm_id(fd_type, id);
 	xfer->parent = NULL;
@@ -469,6 +580,46 @@ static int open_page_server_xfer(struct page_xfer *xfer, int fd_type, long id)
 
 	if (has_parent)
 		xfer->parent = (void *) 1; /* This is required for generate_iovs() */
+
+	return 0;
+}
+
+static void close_client_xfer(struct page_xfer *xfer)
+{
+	close(xfer->sk);
+}
+
+static int open_page_client_xfer(struct page_xfer *xfer, int fd_type, long id)
+{
+	struct page_server_iov pi;
+	char has_parent;
+
+	connect_to_page_server();
+
+	xfer->sk = page_server_sk;
+	xfer->read_pages = read_pages_from_server;
+	xfer->close = close_client_xfer;
+	xfer->dst_id = encode_pm_id(fd_type, id);
+	xfer->parent = NULL;
+
+	pi.cmd = PS_IOV_OPEN3;
+	pi.dst_id = xfer->dst_id;
+	pi.vaddr = 0;
+	pi.nr_pages = 0;
+
+	if (write(xfer->sk, &pi, sizeof(pi)) != sizeof(pi)) {
+		pr_perror("Can't write to page server");
+		return -1;
+	}
+
+	/* Push the command NOW */
+	tcp_nodelay(xfer->sk, true);
+
+	if (read(xfer->sk, &has_parent, 1) != 1) {
+		pr_perror("The page server doesn't answer");
+		return -1;
+	}
+	pr_debug("has_parent=%d\n", has_parent);
 
 	return 0;
 }
@@ -703,6 +854,8 @@ int open_page_xfer(struct page_xfer *xfer, int fd_type, long id)
 {
 	if (opts.use_page_server)
 		return open_page_server_xfer(xfer, fd_type, id);
+	else if (opts.use_page_client)
+		return open_page_client_xfer(xfer, fd_type, id);
 	else
 		return open_page_local_xfer(xfer, fd_type, id);
 }
@@ -784,4 +937,10 @@ int check_parent_page_xfer(int fd_type, long id)
 		return check_parent_server_xfer(fd_type, id);
 	else
 		return check_parent_local_xfer(fd_type, id);
+}
+
+int page_xfer_read_pages(struct page_xfer *xfer, unsigned long vaddr,
+			 int nr, void *buf)
+{
+	return xfer->read_pages ? xfer->read_pages(xfer, vaddr, nr, buf) : -1;
 }
