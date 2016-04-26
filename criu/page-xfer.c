@@ -241,7 +241,14 @@ static int page_server_get(int sk, struct page_server_iov *pi)
 		goto out;
 	}
 
-	page_read.close(&page_read);
+	/*
+	 * If running in page_client mode, the network connection should
+	 * not be closed immediately. Page client mode will make multiple
+	 * requests and only once all pages have been transfered the
+	 * connection should be finally closed.
+	 */
+	if (!opts.use_page_client)
+		page_read.close(&page_read);
 	ret = 0;
 out:
 	free(buf);
@@ -433,7 +440,7 @@ int disconnect_from_page_server(void)
 	int32_t status = -1;
 	int ret = -1;
 
-	if (!opts.use_page_server)
+	if (!opts.use_page_server && !opts.use_page_client)
 		return 0;
 
 	if (page_server_sk == -1)
@@ -594,7 +601,8 @@ static int open_page_client_xfer(struct page_xfer *xfer, int fd_type, long id)
 	struct page_server_iov pi;
 	char has_parent;
 
-	connect_to_page_server();
+	if (page_server_sk == -1)
+		connect_to_page_server();
 
 	xfer->sk = page_server_sk;
 	xfer->read_pages = read_pages_from_server;

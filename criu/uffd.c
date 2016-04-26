@@ -25,6 +25,7 @@
 #include "include/mem.h"
 #include "include/uffd.h"
 #include "include/util-pie.h"
+#include "include/page-xfer.h"
 #include "include/pstree.h"
 #include "include/crtools.h"
 #include "include/cr_options.h"
@@ -113,7 +114,7 @@ static int send_uffd(int sendfd, int pid)
 	int ret = -1;
 	struct sockaddr_un sun;
 
-	if (!opts.addr) {
+	if (!opts.lazy_address) {
 		pr_info("Please specify a file name for the unix domain socket\n");
 		pr_info("used to communicate between the lazy-pages server\n");
 		pr_info("and the restore process. Use the --address option like\n");
@@ -124,7 +125,7 @@ static int send_uffd(int sendfd, int pid)
 	if (sendfd < 0)
 		return -1;
 
-	if (strlen(opts.addr) >= sizeof(sun.sun_path)) {
+	if (strlen(opts.lazy_address) >= sizeof(sun.sun_path)) {
 		return -1;
 	}
 
@@ -133,10 +134,10 @@ static int send_uffd(int sendfd, int pid)
 
 	memset(&sun, 0, sizeof(sun));
 	sun.sun_family = AF_UNIX;
-	strcpy(sun.sun_path, opts.addr);
-	len = offsetof(struct sockaddr_un, sun_path) + strlen(opts.addr);
+	strcpy(sun.sun_path, opts.lazy_address);
+	len = offsetof(struct sockaddr_un, sun_path) + strlen(opts.lazy_address);
 	if (connect(fd, (struct sockaddr *) &sun, len) < 0) {
-		pr_perror("connect to %s failed", opts.addr);
+		pr_perror("connect to %s failed", opts.lazy_address);
 		goto out;
 	}
 
@@ -195,19 +196,19 @@ static int server_listen(struct sockaddr_un *saddr)
 	int fd;
 	int len;
 
-	if (strlen(opts.addr) >= sizeof(saddr->sun_path)) {
+	if (strlen(opts.lazy_address) >= sizeof(saddr->sun_path)) {
 		return -1;
 	}
 
 	if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0)
 		return -1;
 
-	unlink(opts.addr);
+	unlink(opts.lazy_address);
 
 	memset(saddr, 0, sizeof(struct sockaddr_un));
 	saddr->sun_family = AF_UNIX;
-	strcpy(saddr->sun_path, opts.addr);
-	len = offsetof(struct sockaddr_un, sun_path) + strlen(opts.addr);
+	strcpy(saddr->sun_path, opts.lazy_address);
+	len = offsetof(struct sockaddr_un, sun_path) + strlen(opts.lazy_address);
 
 	if (bind(fd, (struct sockaddr *) saddr, len) < 0) {
 		goto out;
@@ -292,9 +293,16 @@ static int get_page(struct lazy_pages_info *lpi, unsigned long addr, void *dest)
 	int ret;
 	unsigned char buf[PAGE_SIZE];
 	struct page_read pr;
+	int pr_flags = PR_TASK | PR_MOD;
 
-	ret = open_page_read(lpi->pid, &pr, PR_TASK | PR_MOD);
+	if (opts.use_page_client)
+		pr_flags |= PR_REMOTE;
+
+	ret = open_page_read(lpi->pid, &pr, pr_flags);
+
 	pr_debug("get_page ret %d\n", ret);
+	if (ret <= 0)
+		return ret;
 
 	ret = pr.get_pagemap(&pr, &iov);
 	pr_debug("get_pagemap ret %d\n", ret);
@@ -313,7 +321,7 @@ static int get_page(struct lazy_pages_info *lpi, unsigned long addr, void *dest)
 
 	memcpy(dest, buf, PAGE_SIZE);
 
-	if (pr.close)
+	if (pr.close && !opts.use_page_client)
 		pr.close(&pr);
 
 	return 1;
@@ -778,7 +786,7 @@ static int prepare_uffds(int epollfd)
 	int listen;
 	struct sockaddr_un saddr;
 
-	pr_debug("Waiting for incoming connections on %s\n", opts.addr);
+	pr_debug("Waiting for incoming connections on %s\n", opts.lazy_address);
 	if ((listen = server_listen(&saddr)) < 0) {
 		pr_perror("server_listen error");
 		return -1;
@@ -808,7 +816,7 @@ int cr_lazy_pages()
 	int epollfd;
 	int ret;
 
-	if (!opts.addr) {
+	if (!opts.lazy_address) {
 		pr_info("Please specify a file name for the unix domain socket\n");
 		pr_info("used to communicate between the lazy-pages server\n");
 		pr_info("and the restore process. Use the --address option like\n");
@@ -830,6 +838,10 @@ int cr_lazy_pages()
 
 	ret = handle_requests(epollfd, events);
 	lpi_hash_fini();
+
+	/* Clean shutdown of the remote server (if necessary). */
+	if (opts.use_page_client)
+		disconnect_from_page_server();
 
 	return ret;
 }

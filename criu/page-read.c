@@ -93,7 +93,14 @@ static void skip_pagemap_pages(struct page_read *pr, unsigned long len)
 		return;
 
 	pr_debug("\tpr%u Skip %lu bytes from page-dump\n", pr->id, len);
-	if (!pr->pe->in_parent)
+	/*
+	 * Skipping the actual seek in page client mode. If lazy restoring
+	 * from a local image the seek needs to be performed. If lazy
+	 * restoring remotely seeking happens on the actual seeking happens
+	 * on the other system but we still need to change to address in
+	 * pr->cvaddr.
+	 */
+	if (!pr->pe->in_parent && !opts.use_page_client)
 		lseek(img_raw_fd(pr->pi), len, SEEK_CUR);
 	pr->cvaddr += len;
 }

@@ -322,6 +322,7 @@ int main(int argc, char *argv[], char *envp[])
 		{ "experimental",		no_argument,		0, 1078	},
 		{ "all",			no_argument,		0, 1079	},
 		{ "page-client",		no_argument,		0, 1080	},
+		{ "lazy-address",               required_argument,      0, 1081 },
 		{ },
 	};
 
@@ -626,6 +627,9 @@ int main(int argc, char *argv[], char *envp[])
 			break;
 		case 1080:
 			opts.use_page_client = true;
+			break;
+		case 1081:
+			opts.lazy_address = optarg;
 			break;
 		case 'V':
 			pr_msg("Version: %s\n", CRIU_VERSION);
