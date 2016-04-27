@@ -649,6 +649,11 @@ int ptrace_set_breakpoint(pid_t pid, void *addr)
 {
 	int ret;
 
+	if (fault_injected(FI_NO_BREAKPOINTS)) {
+		pr_debug("Force disabling of HW breakpoints, skip arming\n");
+		return 0;
+	}
+
 	/* Set a breakpoint */
 	if (ptrace(PTRACE_POKEUSER, pid,
 			offsetof(struct user, u_debugreg[DR_FIRSTADDR]),
@@ -676,6 +681,11 @@ int ptrace_set_breakpoint(pid_t pid, void *addr)
 
 int ptrace_flush_breakpoints(pid_t pid)
 {
+	if (fault_injected(FI_NO_BREAKPOINTS)) {
+		pr_debug("Force disabling of HW breakpoints, skip flushing\n");
+		return 0;
+	}
+
 	/* Disable the breakpoint */
 	if (ptrace(PTRACE_POKEUSER, pid,
 			offsetof(struct user, u_debugreg[DR_CONTROL]),
