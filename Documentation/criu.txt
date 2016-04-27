@@ -151,6 +151,35 @@ In other words, do not use it until really needed.
     Without this argument *criu* will not save cgroups configuration
     associated with a task.
 
+*--cgroup-props* '<spec>'::
+    Specify controllers and their properties to be carried into the
+    image file. *criu* predefines specifications for common controllers
+    but since the kernel can add new controllers and modify their
+    properties there should be a way to specify ones matched the kernel.
++
+'<spec>' describes the controller and properties specification in
+simplified YAML form:
++
+----------
+"c1": ["a", "b"]
+"c2": ["c", "d"]
+----------
++
+Where 'c1' and 'c2' are controllers names, and 'a', 'b', 'c', 'd' are
+their properties.
++
+Note there should not be leading whitespaces. New line and double quotes
+are required as well. Thus for command line argument the example above
+will look like:
++
+----------
+--cgroup-props "\"c1\": [\"a\", \"b\"]\n\"c2\":[\"c\", "d\"]"
+----------
+
+*--cgroup-props-file* '<path>'::
+    Same as *--cgroup-props* except the specification is read from
+    a file pointed by '<path>'.
+
 *--tcp-established*::
     Checkpoint established TCP connections.
 
