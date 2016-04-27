@@ -5,14 +5,42 @@
 #include "files.h"
 #include "list.h"
 
-/* including syscall-types.h gives another weird error; do we really need to
- * define this twice? */
+#ifndef CLONE_NEWNS
+#define CLONE_NEWNS	0x00020000
+#endif
+
+#ifndef CLONE_NEWPID
+#define CLONE_NEWPID	0x20000000
+#endif
+
+#ifndef CLONE_NEWUTS
+#define CLONE_NEWUTS	0x04000000
+#endif
+
+#ifndef CLONE_NEWIPC
+#define CLONE_NEWIPC	0x08000000
+#endif
+
+#ifndef CLONE_NEWNET
+#define CLONE_NEWNET	0x40000000
+#endif
+
+#ifndef CLONE_NEWUSER
+#define CLONE_NEWUSER	0x10000000
+#endif
+
 #ifndef CLONE_NEWCGROUP
 #define CLONE_NEWCGROUP	0x02000000
 #endif
 
+#define CLONE_ALLNS	(CLONE_NEWPID | CLONE_NEWNET | CLONE_NEWIPC | CLONE_NEWUTS | CLONE_NEWNS | CLONE_NEWUSER | CLONE_NEWCGROUP)
+
 /* Nested namespaces are supported only for these types */
 #define CLONE_SUBNS	(CLONE_NEWNS)
+
+/* Special flag for additional --unshare feature */
+#define UNSHARE_MOUNT_PROC	0x1
+
 #define EXTRA_SIZE	20
 
 struct ns_desc {
