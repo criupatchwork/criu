@@ -217,6 +217,75 @@ explorers = { 'ps': explore_ps, 'fds': explore_fds, 'mems': explore_mems }
 def explore(opts):
 	explorers[opts['what']](opts)
 
+def make_lazy(opts):
+	""" This function takes the pages from the input directory
+	and removes all pages which can be restored lazily.
+	MAP_PRIVATE && MAP_ANON and not VDSO and not VSYSCALL. """
+	# page size is hardcoded to 0x1000; probably a bad idea
+	ps = 0x1000
+	ps_img = pycriu.images.load(dinf(opts, 'pstree.img'))
+	vids = vma_id()
+	lazy_pages = []
+	for p in ps_img['entries']:
+		pid = p['pid']
+		mmi = pycriu.images.load(dinf(opts, 'mm-%d.img' % pid))['entries'][0]
+
+		print "%d" % pid
+
+		for vma in mmi['vmas']:
+			st = vma['status']
+			# 'MAP_PRIVATE', 0x2
+			# 'MAP_ANON',    0x20
+			if (vma['flags'] & 0x2) and (vma['flags'] & 0x20):
+				# (1 << 2) vsyscall
+				# (1 << 3) vdso
+				if not (st & (1 << 2)) and not (st & (1 << 3)):
+					vaddr = vma['start']
+					while vaddr < vma['end']:
+						lazy_pages.append(vaddr)
+						vaddr += ps
+
+		pms = pycriu.images.load(dinf(opts, 'pagemap-%d.img' % pid))
+		new = []
+
+		# find first pages_id
+		pages_id = -1
+		for pm in pms['entries']:
+			if pm.has_key('pages_id'):
+				pages_id = pm['pages_id']
+
+		if pages_id == -1:
+			# something went wrong
+			raise Exception('No pages_id found in pagemap!')
+
+		# open the original pages.img to remove the lazy pages
+		pages_in = os.path.join(opts['dir'], 'pages-%d.img' % pages_id)
+		pages_in = open(pages_in, 'rb')
+
+		pages_out = os.path.join(opts['outdir'], 'pages-%d.img' % pages_id)
+
+		pages_out = open(pages_out, 'wb')
+
+		for pm in pms['entries']:
+			if pm.has_key('pages_id'):
+				new.append(pm)
+				continue
+			vaddr = pm['vaddr']
+			i = 0
+			start = 0
+			while vaddr < pm['vaddr'] + (pm['nr_pages'] * 0x1000):
+				page_buffer = pages_in.read(ps)
+				if vaddr not in lazy_pages:
+					if start == 0:
+						start = vaddr
+					i +=1
+					pages_out.write(page_buffer)
+				vaddr += ps
+			if i != 0:
+				new.append({'nr_pages': i, 'vaddr': start})
+		pms['entries'] = new
+		pycriu.images.dump(pms, open(os.path.join(opts['outdir'], 'pagemap-%d.img' % pid), 'w+'))
+
 def main():
 	desc = 'CRiu Image Tool'
 	parser = argparse.ArgumentParser(description=desc,
@@ -266,6 +335,15 @@ def main():
 			help = "convert criu image from binary to human-readable json")
 	show_parser.add_argument("in")
 	show_parser.set_defaults(func=decode, pretty=True, out=None)
+
+	# Make Lazy
+	lazy_parser = subparsers.add_parser('make-lazy',
+			help = "remove memory pages from image which can be restored lazily")
+	lazy_parser.add_argument('dir',
+			help = "criu checkpoint directory used as input")
+	lazy_parser.add_argument('outdir',
+			help = "output directory for new pages.img and pagemap.img")
+	lazy_parser.set_defaults(func=make_lazy)
 
 	opts = vars(parser.parse_args())
 
