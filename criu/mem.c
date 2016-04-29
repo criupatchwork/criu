@@ -102,7 +102,15 @@ static inline bool should_dump_page(VmaEntry *vmae, u64 pme)
 		return false;
 	if (pme & PME_SWAP)
 		return true;
-	if ((pme & PME_PRESENT) && ((pme & PME_PFRAME_MASK) != kdat.zero_page_pfn))
+	/*
+	 * FIXME For usernamespaces the addresses for page frames are filtered out
+	 *
+	 * pm.show_pfn = file_ns_capable(file, &init_user_ns, CAP_SYS_ADMIN);
+	 *
+	 * so use plain PME_PRESENT for a while. Need to compare with
+	 * zero page under non-userns case only.
+	 */
+	if ((pme & PME_PRESENT))
 		return true;
 
 	return false;
