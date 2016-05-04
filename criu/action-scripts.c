@@ -63,7 +63,7 @@ static int run_shell_scripts(const char *action)
 		env_set |= ENV_IMGDIR;
 	}
 
-	if (!(env_set & ENV_ROOTPID) && root_item) {
+	if (!(env_set & ENV_ROOTPID) && root_item && (root_item->pid.real != -1)) {
 		int pid;
 		char root_item_pid[16];
 
