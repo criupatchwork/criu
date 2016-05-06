@@ -217,6 +217,19 @@ explorers = { 'ps': explore_ps, 'fds': explore_fds, 'mems': explore_mems }
 def explore(opts):
 	explorers[opts['what']](opts)
 
+#
+# Coredump
+#
+def coredump(opts):
+	generator = pycriu.coredump.coredump_generator()
+	cores = generator(os.path.realpath(opts['in']))
+	for pid in cores:
+		if opts['pid'] and pid != opts['pid']:
+			continue
+		with open(os.path.realpath(opts['out'])+"/core."+str(pid), 'w+') as f:
+			cores[pid].write(f)
+
+
 def main():
 	desc = 'CRiu Image Tool'
 	parser = argparse.ArgumentParser(description=desc,
@@ -266,6 +279,23 @@ def main():
 			help = "convert criu image from binary to human-readable json")
 	show_parser.add_argument("in")
 	show_parser.set_defaults(func=decode, pretty=True, out=None)
+
+	# Coredump
+	coredump_parser = subparsers.add_parser('coredump',
+			help = 'generate coredumps from criu images')
+	coredump_parser.add_argument('-i',
+				'--in',
+				default = '.',
+			help = 'directory where to get images from')
+	coredump_parser.add_argument('-p',
+				'--pid',
+				type = int,
+			help = 'generate coredump for specific pid(all pids py default)')
+	coredump_parser.add_argument('-o',
+				'--out',
+				default = '.',
+			help = 'directory to write coredumps to')
+	coredump_parser.set_defaults(func=coredump)
 
 	opts = vars(parser.parse_args())
 
