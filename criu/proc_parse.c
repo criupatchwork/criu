@@ -1380,6 +1380,13 @@ struct mount_info *parse_mountinfo(pid_t pid, struct ns_id *nsid, bool for_dump)
 			goto end;
 		}
 
+		if (new->fstype->code == FSTYPE__TRACEFS) {
+			pr_info("\tskipping tracefs mounted at %s\n", new->mountpoint + 1);
+			mnt_entry_free(new);
+			new = NULL;
+			goto end;
+		}
+
 		pr_info("\ttype %s source %s mnt_id %d s_dev %#x %s @ %s flags %#x options %s\n",
 				fsname, new->source,
 				new->mnt_id, new->s_dev, new->root, new->mountpoint,

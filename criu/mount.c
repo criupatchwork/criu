@@ -1741,6 +1741,15 @@ static struct fstype fstypes[] = {
 	}, {
 		.name = "debugfs",
 		.code = FSTYPE__DEBUGFS,
+		/* debugfs has a child mount tracefs which may or my not be
+		 * mounted. the kernel protects against overmounting, so we
+		 * need to mount debugfs with MS_REC to propagate tracefs if it
+		 * is present.
+		 */
+		.flags = MS_REC,
+	}, {
+		.name = "tracefs",
+		.code = FSTYPE__TRACEFS,
 	}, {
 		.name = "cgroup",
 		.code = FSTYPE__CGROUP,
@@ -2301,6 +2310,11 @@ static int do_new_mount(struct mount_info *mi)
 	if (remount_ro)
 		sflags &= ~MS_RDONLY;
 
+	if (tp->flags) {
+		pr_info("forcing flags: %d\n", tp->flags);
+		sflags |= tp->flags;
+	}
+
 	if (do_mount(mi, src, mnt_fsname(mi), sflags) < 0) {
 		pr_perror("Can't mount at %s", mi->mountpoint);
 		return -1;
@@ -2474,12 +2488,16 @@ do_bind:
 		}
 	}
 
-	if (mount(root, mi->mountpoint, NULL, MS_BIND, NULL) < 0) {
+	if (mount(root, mi->mountpoint, NULL, MS_BIND | mi->fstype->flags, NULL) < 0) {
 		pr_perror("Can't mount at %s", mi->mountpoint);
 		goto err;
 	}
 
 	mflags = mi->flags & (~MS_PROPAGATE);
+	if (mi->fstype->flags) {
+		pr_info("forcing flags: 0x%x\n", mi->fstype->flags);
+		mflags |= mi->fstype->flags;
+	}
 	if (!mi->bind || mflags != (mi->bind->flags & (~MS_PROPAGATE)))
 		if (mount(NULL, mi->mountpoint, NULL, MS_BIND | MS_REMOUNT | mflags, NULL)) {
 			pr_perror("Can't mount at %s", mi->mountpoint);

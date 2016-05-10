@@ -115,6 +115,7 @@ struct fstype {
 	int (*restore)(struct mount_info *pm);
 	int (*parse)(struct mount_info *pm);
 	mount_fn_t mount;
+	int flags;
 };
 
 struct vm_area_list;
