@@ -47,6 +47,8 @@ int unseize_task(pid_t pid, int orig_st, int st)
 		 */
 		if (orig_st == TASK_STOPPED)
 			kill(pid, SIGSTOP);
+	} else if (st == TASK_FROZEN) {
+		/* don't need to send any signals */
 	} else
 		pr_err("Unknown final state %d\n", st);
 

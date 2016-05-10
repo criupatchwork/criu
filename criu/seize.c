@@ -468,8 +468,13 @@ void pstree_switch_state(struct pstree_item *root_item, int st)
 	if (!root_item)
 		return;
 
-	if (st != TASK_DEAD)
+	if (st == TASK_FROZEN) {
+		/* force restoring the FROZEN state */
+		freezer_thawed = false;
 		freezer_restore_state();
+	} else if (st != TASK_DEAD) {
+		freezer_restore_state();
+	}
 
 	/*
 	 * We need to detach from all processes before waiting the init

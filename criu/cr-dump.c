@@ -1491,7 +1491,7 @@ int cr_pre_dump_tasks(pid_t pid)
 		opts.track_mem = true;
 	}
 
-	if (opts.final_state == TASK_DEAD) {
+	if (opts.final_state == TASK_DEAD || opts.final_state == TASK_FROZEN) {
 		pr_info("Enforcing tasks run after pre-dump.\n");
 		opts.final_state = TASK_ALIVE;
 	}
@@ -1594,8 +1594,9 @@ static int cr_dump_finish(int ret)
 	 *    consistency of the FS and other resources, we simply
 	 *    start rollback procedure and cleanup everyhting.
 	 */
-	if (ret || post_dump_ret || opts.final_state == TASK_ALIVE) {
-		network_unlock();
+	if (ret || post_dump_ret || opts.final_state == TASK_ALIVE || opts.final_state == TASK_FROZEN) {
+		if (opts.final_state != TASK_FROZEN)
+			network_unlock();
 		delete_link_remaps();
 	}
 	pstree_switch_state(root_item,

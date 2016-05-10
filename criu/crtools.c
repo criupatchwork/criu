@@ -320,6 +320,7 @@ int main(int argc, char *argv[], char *envp[])
 		{ "extra",			no_argument,		0, 1077	},
 		{ "experimental",		no_argument,		0, 1078	},
 		{ "all",			no_argument,		0, 1079	},
+		{ "leave-frozen",               no_argument,            0, 1080 },
 		{ },
 	};
 
@@ -630,6 +631,9 @@ int main(int argc, char *argv[], char *envp[])
 		case 'h':
 			usage_error = false;
 			goto usage;
+		case 1080:
+			opts.final_state = TASK_FROZEN;
+			break;
 		default:
 			goto usage;
 		}
@@ -647,6 +651,11 @@ int main(int argc, char *argv[], char *envp[])
 
 	if (!opts.autodetect_ext_mounts && (opts.enable_external_masters || opts.enable_external_sharing)) {
 		pr_msg("must specify --ext-mount-map auto with --enable-external-{sharing|masters}");
+		return 1;
+	}
+
+	if (!opts.freeze_cgroup && opts.final_state == TASK_FROZEN) {
+		pr_msg("--leave-frozen requires --freeze-cgroup\n");
 		return 1;
 	}
 

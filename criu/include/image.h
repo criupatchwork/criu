@@ -118,6 +118,7 @@
 #define TASK_STOPPED		0x3
 #define TASK_HELPER		0x4
 #define TASK_THREAD		0x5
+#define TASK_FROZEN		0x6
 
 #define CR_PARENT_LINK "parent"
 
