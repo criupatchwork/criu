@@ -205,6 +205,9 @@ $(eval $(call gen-built-in,images))
 compel/%:
 	$(Q) $(MAKE) $(build)=compel $@
 
+test/compel/%:
+	$(Q) $(MAKE) $(build)=compel $@
+
 #
 # Next the socket CR library
 #
@@ -246,6 +249,7 @@ subclean:
 	$(call msg-clean, criu)
 	$(Q) $(MAKE) -C lib clean
 	$(Q) $(MAKE) -C Documentation clean
+	$(Q) $(MAKE) $(build)=test/compel clean
 	$(Q) $(RM) .gitid
 .PHONY: subclean
 
