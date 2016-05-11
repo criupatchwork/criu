@@ -8,3 +8,5 @@ prep
 ./test/zdtm.py run -t zdtm/static/inotify_irmap --fault 128 --keep-going --pre 2 -f uns || fail
 ./test/zdtm.py run -t zdtm/static/env00 --fault 129 -f uns || fail
 ./test/zdtm.py run -t zdtm/transition/fork --fault 130 -f h || fail
+./test/zdtm.py run -t zdtm/static/mntns_ghost --fault 5 || fail
+./test/zdtm.py run -t zdtm/static/mntns_ghost --fault 4 || fail

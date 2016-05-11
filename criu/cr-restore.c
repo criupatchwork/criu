@@ -1701,6 +1701,11 @@ static int restore_task_with_children(void *_arg)
 		if (root_prepare_shared())
 			goto err;
 
+		if (fault_injected(FI_CLEAN_REMAPS)) {
+			pr_info("fault: check cleaning remaps\n");
+			goto err;
+		}
+
 		if (restore_finish_stage(CR_STATE_RESTORE_SHARED) < 0)
 			goto err;
 	}
@@ -2115,6 +2120,12 @@ static int restore_root_task(struct pstree_item *init)
 	ret = restore_switch_stage(CR_STATE_FORKING);
 	if (ret < 0)
 		goto out_kill;
+
+	if (fault_injected(FI_CLEAN_REMAPS2)) {
+		pr_info("fault: check cleaning remaps\n");
+		ret = -1;
+		goto out_kill;
+	}
 
 	timing_stop(TIME_FORK);
 

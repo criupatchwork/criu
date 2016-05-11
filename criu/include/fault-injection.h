@@ -7,6 +7,8 @@ enum faults {
 	FI_DUMP_EARLY,
 	FI_RESTORE_ROOT_ONLY,
 	FI_DUMP_PAGES,
+	FI_CLEAN_REMAPS,	/* before creating mount namespaces */
+	FI_CLEAN_REMAPS2,	/* after creating mount namespaces */
 	/* not fatal */
 	FI_CHECK_OPEN_HANDLE = 128,
 	FI_NO_MEMFD = 129,
