@@ -3,7 +3,8 @@
 
 #include <linux/aio_abi.h>
 #include "images/mm.pb-c.h"
-unsigned int aio_estimate_nr_reqs(unsigned int size);
+int aio_init(void);
+unsigned int (*aio_estimate_nr_reqs)(unsigned int size);
 int dump_aio_ring(MmEntry *mme, struct vma_area *vma);
 void free_aios(MmEntry *mme);
 struct parasite_ctl;

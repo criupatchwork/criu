@@ -1,3 +1,4 @@
+#include <sys/syscall.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <stdbool.h>
@@ -9,6 +10,10 @@
 #include "images/mm.pb-c.h"
 
 #define NR_IOEVENTS_IN_NPAGES(npages) (PAGE_SIZE * npages - sizeof(struct aio_ring)) / sizeof(struct io_event)
+
+unsigned int (*aio_estimate_nr_reqs)(unsigned int size);
+
+static unsigned int aio_estimate_nr_reqs_v2(unsigned int size);
 
 int dump_aio_ring(MmEntry *mme, struct vma_area *vma)
 {
@@ -26,7 +31,13 @@ int dump_aio_ring(MmEntry *mme, struct vma_area *vma)
 	aio_ring_entry__init(re);
 	re->id = vma->e->start;
 	re->ring_len = vma->e->end - vma->e->start;
-	re->nr_req = aio_estimate_nr_reqs(re->ring_len);
+	/*
+	 * Every AIO is interpreted as v2 from the very beginning.
+	 * Currently, there are two AIO types, and AioRingEntry::nr_req
+	 * is not used for restore. But it's still saved for backward
+	 * compatibility.
+	 */
+	re->nr_req = aio_estimate_nr_reqs_v2(re->ring_len);
 	if (!re->nr_req)
 		return -1;
 	mme->aios[nr] = re;
@@ -46,8 +57,7 @@ void free_aios(MmEntry *mme)
 		xfree(mme->aios);
 	}
 }
-
-unsigned int aio_estimate_nr_reqs(unsigned int size)
+static unsigned int aio_estimate_nr_reqs_v1(unsigned int size)
 {
 	unsigned int k_max_reqs = NR_IOEVENTS_IN_NPAGES(size/PAGE_SIZE);
 
@@ -56,7 +66,32 @@ unsigned int aio_estimate_nr_reqs(unsigned int size)
 		return 0;
 	}
 	/*
-	 * Kernel does
+	 * Kernel did (before e1bdd5f27a5b "aio: percpu reqs_available")
+	 *
+	 * nr_reqs = max(nr_reqs, nr_cpus * 4)
+	 * nr_reqs += 2
+	 * ring = roundup(sizeof(head) + nr_reqs * sizeof(req))
+	 * nr_reqs = (ring - sizeof(head)) / sizeof(req)
+	 *
+	 * And the k_max_reqs here is the resulting value.
+	 *
+	 * We need to get the initial nr_reqs that would grow
+	 * up back to the k_max_reqs.
+	 */
+
+	return (k_max_reqs - 2);
+}
+
+static unsigned int aio_estimate_nr_reqs_v2(unsigned int size)
+{
+	unsigned int k_max_reqs = NR_IOEVENTS_IN_NPAGES(size/PAGE_SIZE);
+
+	if (size & ~PAGE_MASK) {
+		pr_err("Ring size is not aligned\n");
+		return 0;
+	}
+	/*
+	 * Kernel does (since e1bdd5f27a5b "aio: percpu reqs_available")
 	 *
 	 * nr_reqs = max(nr_reqs, nr_cpus * 4)
 	 * nr_reqs *= 2
@@ -116,4 +151,36 @@ int parasite_collect_aios(struct parasite_ctl *ctl, struct vm_area_list *vmas)
 		return -1;
 
 	return 0;
+}
+
+int aio_init(void)
+{
+	aio_context_t ctx = 0;
+	struct aio_ring *ring;
+	unsigned nr_events;
+	long ret;
+
+	nr_events = NR_IOEVENTS_IN_NPAGES(1);
+	nr_events -= 2;
+
+	ret = syscall(__NR_io_setup, nr_events, &ctx);
+	if (ret < 0) {
+		pr_err("Ring setup failed with %ld\n", ret);
+		return -1;
+	}
+	ring = (void *)ctx;
+	if (ring->nr == NR_IOEVENTS_IN_NPAGES(1)) {
+		aio_estimate_nr_reqs = aio_estimate_nr_reqs_v1;
+		pr_info("io_setup() version#1\n");
+	} else if (ring->nr == NR_IOEVENTS_IN_NPAGES(2)) {
+		aio_estimate_nr_reqs = aio_estimate_nr_reqs_v2;
+		pr_info("io_setup() version#2\n");
+	} else {
+		pr_err("Can't determine io_setup() version\n");
+		ret = -1;
+	}
+
+	syscall(__NR_io_destroy, ctx);
+
+	return ret;
 }

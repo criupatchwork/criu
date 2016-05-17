@@ -2315,6 +2315,9 @@ int cr_restore_tasks(void)
 	if (vdso_init())
 		goto err;
 
+	if (aio_init())
+		goto err;
+
 	if (opts.cpu_cap & (CPU_CAP_INS | CPU_CAP_CPU)) {
 		if (cpu_validate_cpuinfo())
 			goto err;
@@ -3191,8 +3194,12 @@ static int sigreturn_restore(pid_t pid, CoreEntry *core)
 			goto err_nv;
 
 		raio->addr = mm->aios[i]->id;
-		raio->nr_req = mm->aios[i]->nr_req;
 		raio->len = mm->aios[i]->ring_len;
+		raio->nr_req = aio_estimate_nr_reqs(raio->len);
+		if (!raio->nr_req) {
+			pr_err("Empty aio ring\n");
+			goto err_nv;
+		}
 	}
 
 	/*
