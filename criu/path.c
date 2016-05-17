@@ -100,3 +100,41 @@ char *mnt_get_sibling_path(struct mount_info *m,
 
 	return buf;
 }
+
+#ifdef CONFIG_SELF_TEST
+__attribute__ ((__constructor__))
+static void mnt_get_sibling_path_test()
+{
+	char path[PATH_MAX];
+	struct mount_info m = {}, pm = {}, t = {};
+
+	m.parent = &pm;
+#define MNT_SIBLING_TEST(proot, pmnt, mnt, troot, tmnt, result)	\
+{								\
+	char *res;						\
+	pm.root = proot;					\
+	pm.mountpoint = pmnt;					\
+	m.mountpoint = mnt;					\
+	t.root = troot;						\
+	t.mountpoint = tmnt;					\
+								\
+	res = mount_sibling(&m, &t, path, sizeof(path));	\
+	if (res && result)					\
+		BUG_ON(strcmp(res, result));			\
+	else							\
+		BUG_ON(result || res);				\
+}
+
+	MNT_SIBLING_TEST("/",    "/xxx", "/xxx/yyy/zzz",  "/",	     "/aaa", "/aaa/yyy/zzz");
+	MNT_SIBLING_TEST("/yyy", "/xxx", "/xxx/yyy/zzz", "/yyy",     "/aaa", "/aaa/yyy/zzz");
+	MNT_SIBLING_TEST("/",    "/xxx", "/xxx/yyy/zzz", "/yyy",     "/aaa", "/aaa/zzz");
+	MNT_SIBLING_TEST("/aaa", "/xxx", "/xxx/yyy/zzz", "/aaa/yyy", "/aaa", "/aaa/zzz");
+	MNT_SIBLING_TEST("/yyy", "/xxx", "/xxx/yyy/zzz", "/",        "/aaa", "/aaa/yyy/yyy/zzz");
+	MNT_SIBLING_TEST("/",    "/",    "/",            "/",        "/",    "/");
+	MNT_SIBLING_TEST("/aaa", "/bbb", "/bbb/caa",     "/",        "/",    "/aaa/caa");
+	MNT_SIBLING_TEST("/aaa", "./bbb", "./bbb/caa",   "/",        "./",   "./aaa/caa");
+	MNT_SIBLING_TEST("/aaa", "/",    "/",            "/bbb",     "/",    NULL);
+#undef MNT_SIBLING_TEST
+
+}
+#endif
