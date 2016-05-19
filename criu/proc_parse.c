@@ -402,6 +402,7 @@ int parse_self_maps_lite(struct vm_area_list *vms)
 			return -1;
 		}
 
+		vma->vm_file_fd = -1;
 		vma->e->start = strtoul(buf, &end, 16);
 		vma->e->end = strtoul(end + 1, NULL, 16);
 		list_add_tail(&vma->list, &vms->h);
@@ -671,6 +672,7 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list)
 			goto err;
 		}
 
+		vma_area->vm_file_fd	= -1;
 		vma_area->e->start	= start;
 		vma_area->e->end	= end;
 		vma_area->e->pgoff	= pgoff;
