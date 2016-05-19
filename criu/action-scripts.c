@@ -11,6 +11,7 @@
 #include "cr-service.h"
 #include "action-scripts.h"
 #include "pstree.h"
+#include "spfs.h"
 
 static const char *action_names[ACT_MAX] = {
 	[ ACT_PRE_DUMP ]	= "pre-dump",
@@ -48,6 +49,7 @@ static int run_shell_scripts(const char *action)
 
 #define ENV_IMGDIR	0x1
 #define ENV_ROOTPID	0x2
+#define ENV_SPFS	0x3
 
 	if (setenv("CRTOOLS_SCRIPT_ACTION", action, 1)) {
 		pr_perror("Can't set CRTOOLS_SCRIPT_ACTION=%s", action);
@@ -76,6 +78,11 @@ static int run_shell_scripts(const char *action)
 			}
 			env_set |= ENV_ROOTPID;
 		}
+	}
+
+	if (!(env_set & ENV_IMGDIR)) {
+		if (spfs_set_env())
+			return -1;
 	}
 
 	list_for_each_entry(script, &scripts, node) {
