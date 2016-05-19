@@ -33,6 +33,7 @@ struct kerndat_s {
 	unsigned long task_size;
 	bool ipv6;
 	bool has_loginuid;
+	unsigned nr_cpus_possible;
 	enum pagemap_func pmap;
 };
 

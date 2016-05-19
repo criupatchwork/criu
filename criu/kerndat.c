@@ -446,6 +446,78 @@ int kerndat_loginuid(bool only_dump)
 	return 0;
 }
 
+static int kerndat_possible_cpus(void)
+{
+	char buf[PAGE_SIZE + 1], *p;
+	int fd, count, ret = 0;
+
+	fd = open("/sys/devices/system/cpu/possible", O_RDONLY);
+	if (fd < 0) {
+		pr_perror("Possible cpus: open");
+		return -1;
+	}
+
+	count = read(fd, buf, PAGE_SIZE);
+	close(fd);
+	if (count <= 0) {
+		pr_perror("Can't read possible cpus");
+		return -1;
+	}
+	buf[count] = '\0';
+	if (count > 1 && buf[count-1] == '\n')
+		buf[--count] = '\0';
+	p = buf;
+
+	count = 0;
+	/* Content is like "0-2,4,6-7" */
+	while (p && *p != '\0') {
+		int a, b;
+		char del;
+
+		ret = sscanf(p, "%d%c", &a, &del);
+		if (ret < 1) {
+			ret = -1;
+			break;
+		} else if (ret == 1) {
+			ret = ++count;
+			break;
+		}
+
+		p = strchr(p, del);
+		p++;
+		if (del == ',') {
+			count++;
+			continue;
+		}
+		BUG_ON(del != '-');
+
+		if (sscanf(p, "%d", &b) != 1) {
+			ret = -1;
+			break;
+		}
+		BUG_ON(b <= a);
+		count += b - a + 1;
+
+		do {
+			b /= 10;
+			p++;
+		} while (b > 0);
+		p = strchr(p, ',');
+		if (p)
+			p++;
+	}
+
+	if (ret < 0)
+		pr_err("Can't parse: %s\n", buf);
+	else {
+		pr_info("nr_cpus_possible=%d\n", count);
+		kdat.nr_cpus_possible = count;
+		ret = 0;
+	}
+
+	return ret;
+}
+
 int kerndat_init(void)
 {
 	int ret;
@@ -467,6 +539,8 @@ int kerndat_init(void)
 		ret = get_ipv6();
 	if (!ret)
 		ret = kerndat_loginuid(true);
+	if (!ret)
+		ret = kerndat_possible_cpus();
 
 	kerndat_lsm();
 
@@ -494,6 +568,8 @@ int kerndat_init_rst(void)
 		ret = get_ipv6();
 	if (!ret)
 		ret = kerndat_loginuid(false);
+	if (!ret)
+		ret = kerndat_possible_cpus();
 
 	kerndat_lsm();
 
