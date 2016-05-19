@@ -46,7 +46,6 @@ struct vma_area {
 				 */
 				int	vm_file_fd;
 				int	vm_socket_id;
-				unsigned int aio_nr_req;
 			};
 
 			char		*aufs_rpath;	/* path from aufs root */
