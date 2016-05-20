@@ -15,7 +15,7 @@
 #include <errno.h>
 
 #include "cr_options.h"
-#include "util.h"
+#include "rst-malloc.h"
 #include "imgset.h"
 #include "uts_ns.h"
 #include "ipc_ns.h"

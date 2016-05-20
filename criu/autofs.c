@@ -6,7 +6,7 @@
 
 #include "proc_parse.h"
 #include "autofs.h"
-#include "util.h"
+#include "rst-malloc.h"
 #include "mount.h"
 #include "pstree.h"
 #include "namespaces.h"
