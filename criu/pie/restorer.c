@@ -31,7 +31,6 @@
 #include "vma.h"
 #include "uffd.h"
 
-#include "crtools.h"
 #include "lock.h"
 #include "restorer.h"
 #include "aio.h"
