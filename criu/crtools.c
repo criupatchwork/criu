@@ -323,6 +323,7 @@ int main(int argc, char *argv[], char *envp[])
 		{ "all",			no_argument,		0, 1079	},
 		{ "cgroup-props",		required_argument,	0, 1080	},
 		{ "cgroup-props-file",		required_argument,	0, 1081	},
+		{ "log-dirty",			no_argument,		0, 1082	},
 		{ },
 	};
 
@@ -629,6 +630,9 @@ int main(int argc, char *argv[], char *envp[])
 			break;
 		case 1081:
 			opts.cgroup_props_file = optarg;
+			break;
+		case 1082:
+			opts.log_dirty = true;
 			break;
 		case 'V':
 			pr_msg("Version: %s\n", CRIU_VERSION);
@@ -950,6 +954,11 @@ usage:
 "                        pages images of previous dump\n"
 "                        when used on restore, as soon as page is restored, it\n"
 "                        will be punched from the image.\n"
+"  --log-dirty           when used with predump it will save the dirty memory log to\n"
+"                        dirty-log image while doing memory pages transfer; this log\n"
+"                        will collect values of total memory dirtyed by transfered\n"
+"                        program in time intervals since unfreeze, intervals depend\n"
+"                        on size of total memory of programm\n"
 "\n"
 "Page/Service server options:\n"
 "  --address ADDR        address of server or service\n"

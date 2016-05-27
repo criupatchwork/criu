@@ -196,6 +196,17 @@ void criu_set_auto_dedup(bool auto_dedup)
 	criu_local_set_auto_dedup(global_opts, auto_dedup);
 }
 
+void criu_local_set_log_dirty(criu_opts *opts, bool log_dirty)
+{
+	opts->rpc->has_log_dirty = true;
+	opts->rpc->log_dirty = log_dirty;
+}
+
+void criu_set_log_dirty(bool log_dirty)
+{
+	criu_local_set_log_dirty(global_opts, log_dirty);
+}
+
 void criu_local_set_force_irmap(criu_opts *opts, bool force_irmap)
 {
 	opts->rpc->has_force_irmap = true;

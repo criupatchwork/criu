@@ -474,6 +474,9 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	if (req->has_unshare)
 		opts.unshare_flags = req->unshare;
 
+	if (req->has_log_dirty)
+		opts.log_dirty = req->log_dirty;
+
 	if (req->n_irmap_scan_paths) {
 		for (i = 0; i < req->n_irmap_scan_paths; i++) {
 			if (irmap_scan_path_add(req->irmap_scan_paths[i]))
