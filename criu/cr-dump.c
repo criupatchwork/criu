@@ -22,6 +22,8 @@
 #include <sched.h>
 #include <sys/resource.h>
 
+#include <pthread.h>
+
 #include "protobuf.h"
 #include "images/fdinfo.pb-c.h"
 #include "images/fs.pb-c.h"
@@ -81,6 +83,7 @@
 #include "seccomp.h"
 #include "seize.h"
 #include "fault-injection.h"
+#include "dirty-logger.h"
 
 #include "asm/dump.h"
 
@@ -1411,14 +1414,24 @@ static int setup_alarm_handler()
 static int cr_pre_dump_finish(struct list_head *ctls, int ret)
 {
 	struct parasite_ctl *ctl, *n;
+	pthread_t dirty_logger;
+	int pthread_ret, arg = 0;
 
 	pstree_switch_state(root_item, TASK_ALIVE);
-	free_pstree(root_item);
 
 	timing_stop(TIME_FROZEN);
 
 	if (ret < 0)
 		goto err;
+
+	if (opts.log_dirty) {
+		pr_info("Start dirty memory logger on pre-dumping tasks' memory\n");
+		pthread_ret = pthread_create(&dirty_logger, NULL, dirty_logger_pthread, (void *)&arg);
+		if (pthread_ret) {
+			pr_err("Pthread creation of dirty_logger_pthread failed: %d\n", pthread_ret);
+			return -1;
+		}
+	}
 
 	pr_info("Pre-dumping tasks' memory\n");
 	list_for_each_entry_safe(ctl, n, ctls, pre_list) {
@@ -1462,6 +1475,27 @@ err:
 		write_stats(DUMP_STATS);
 		pr_info("Pre-dumping finished successfully\n");
 	}
+
+	if (opts.log_dirty) {
+		pr_info("Stop dirty memory logger\n");
+		pthread_ret = pthread_cancel(dirty_logger);
+		if (pthread_ret && pthread_ret != ESRCH) {
+			pr_err("Pthread cancel of dirty_logger_pthread failed: %d\n", pthread_ret);
+			ret = -1;
+			goto exit;
+		}
+		pthread_ret = pthread_join(dirty_logger, NULL);
+		if (pthread_ret) {
+			pr_perror("Pthread join of dirty_logger_pthread failed: %d\n", pthread_ret);
+			ret = -1;
+			goto exit;
+		}
+		if (arg == -1)
+			pr_perror("Pthread dirty_logger_pthread failed\n");
+	}
+
+exit:
+	free_pstree(root_item);
 	return ret;
 }
 
