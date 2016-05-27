@@ -454,6 +454,7 @@ handlers = {
 	'USERNS'		: entry_handler(userns_entry),
 	'SECCOMP'		: entry_handler(seccomp_entry),
 	'AUTOFS'		: entry_handler(autofs_entry),
+	'DIRTY_LOG'		: entry_handler(dirty_log_entry),
 	}
 
 def __rhandler(f):
@@ -518,7 +519,7 @@ def dump(img, f):
 	# Images v1.1 NOTE: use "second" magic to identify what "first"
 	# should be written.
 	if m != 'INVENTORY':
-		if m in ('STATS', 'IRMAP_CACHE'):
+		if m in ('STATS', 'IRMAP_CACHE', 'DIRTY_LOG'):
 			f.write(struct.pack('i', magic.by_name['IMG_SERVICE']))
 		else:
 			f.write(struct.pack('i', magic.by_name['IMG_COMMON']))

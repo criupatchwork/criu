@@ -26,3 +26,10 @@ message stats_entry {
 	optional dump_stats_entry	dump			= 1;
 	optional restore_stats_entry	restore			= 2;
 }
+
+message dirty_log_entry {
+	required uint64			sec			= 1;
+	required uint64			usec			= 2;
+	required uint64			total_pages		= 3;
+	required uint64			total_dirty_pages	= 4;
+}

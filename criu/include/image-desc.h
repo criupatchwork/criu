@@ -107,6 +107,8 @@ enum {
 
 	CR_FD_AUTOFS,
 
+	CR_FD_DIRTY_LOG,
+
 	CR_FD_MAX
 };
 

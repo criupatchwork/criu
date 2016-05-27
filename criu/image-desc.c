@@ -111,6 +111,12 @@ struct cr_fd_desc_tmpl imgset_template[CR_FD_MAX] = {
 		.oflags = O_SERVICE,
 	},
 
+	[CR_FD_DIRTY_LOG] = {
+		.fmt	= "dirty-log",
+		.magic	= DIRTY_LOG_MAGIC,
+		.oflags = O_SERVICE,
+	},
+
 	[CR_FD_FILE_LOCKS_PID] = {
 		.fmt	= "filelocks-%d.img",
 		.magic	= FILE_LOCKS_MAGIC,

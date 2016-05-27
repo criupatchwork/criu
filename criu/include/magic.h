@@ -113,5 +113,6 @@
  */
 #define STATS_MAGIC		0x57093306 /* Ostashkov */
 #define IRMAP_CACHE_MAGIC	0x57004059 /* Ivanovo */
+#define DIRTY_LOG_MAGIC		0x59363949 /* Ges */
 
 #endif /* __CR_MAGIC_H__ */
