@@ -2,6 +2,7 @@
 #define __CR_LOG_H__
 
 #include <inttypes.h>
+#include <sys/time.h>
 
 #include "criu-log.h"
 
@@ -37,5 +38,7 @@ static inline int pr_quelled(unsigned int loglevel)
 {
 	return log_get_loglevel() < loglevel && loglevel != LOG_MSG;
 }
+
+extern void timediff(struct timeval *from, struct timeval *to);
 
 #endif /* __CR_LOG_H__ */

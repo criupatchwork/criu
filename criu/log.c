@@ -34,7 +34,7 @@ static struct timeval start;
  */
 #define TS_BUF_OFF	12
 
-static void timediff(struct timeval *from, struct timeval *to)
+void timediff(struct timeval *from, struct timeval *to)
 {
 	to->tv_sec -= from->tv_sec;
 	if (to->tv_usec >= from->tv_usec)
