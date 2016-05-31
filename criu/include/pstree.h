@@ -24,6 +24,7 @@ struct pstree_item {
 	struct pid		*threads;	/* array of threads */
 	CoreEntry		**core;
 	TaskKobjIdsEntry	*ids;
+	struct parasite_ctl	*parasite_ctl;
 };
 
 struct rst_info;
