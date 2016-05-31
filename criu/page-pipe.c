@@ -131,24 +131,34 @@ struct page_pipe *create_page_pipe(unsigned int nr_segs,
 
 	pr_debug("Create page pipe for %u segs\n", nr_segs);
 
-	pp = xmalloc(sizeof(*pp));
-	if (pp) {
-		pp->nr_pipes = 0;
-		INIT_LIST_HEAD(&pp->bufs);
-		INIT_LIST_HEAD(&pp->free_bufs);
-		pp->nr_iovs = nr_segs;
-		pp->iovs = iovs;
-		pp->free_iov = 0;
+	pp = xzalloc(sizeof(*pp));
+	if (!pp)
+		return NULL;
 
-		pp->nr_holes = 0;
-		pp->free_hole = 0;
-		pp->holes = NULL;
-
-		pp->chunk_mode = chunk_mode;
-
-		if (page_pipe_grow(pp, 0))
+	if (!iovs) {
+		iovs = xmalloc(sizeof(*iovs) * nr_segs);
+		if (!iovs) {
+			xfree(pp);
 			return NULL;
+		}
+		pp->own_iovs = true;
 	}
+
+	pp->nr_pipes = 0;
+	INIT_LIST_HEAD(&pp->bufs);
+	INIT_LIST_HEAD(&pp->free_bufs);
+	pp->nr_iovs = nr_segs;
+	pp->iovs = iovs;
+	pp->free_iov = 0;
+
+	pp->nr_holes = 0;
+	pp->free_hole = 0;
+	pp->holes = NULL;
+
+	pp->chunk_mode = chunk_mode;
+
+	if (page_pipe_grow(pp, 0))
+		return NULL;
 
 	return pp;
 }
@@ -163,6 +173,8 @@ void destroy_page_pipe(struct page_pipe *pp)
 	list_for_each_entry_safe(ppb, n, &pp->bufs, l)
 		ppb_destroy(ppb);
 
+	if (pp->own_iovs)
+		xfree(pp->iovs);
 	xfree(pp);
 }
 
