@@ -220,7 +220,8 @@ static struct parasite_dump_pages_args *prep_dump_pages_args(struct parasite_ctl
 }
 
 static int dump_pages(struct page_pipe *pp, struct parasite_ctl *ctl,
-			struct parasite_dump_pages_args *args, struct page_xfer *xfer)
+		      struct parasite_dump_pages_args *args,
+		      struct page_xfer *xfer, bool lazy)
 {
 	struct page_pipe_buf *ppb;
 	int ret = 0;
@@ -254,7 +255,7 @@ static int dump_pages(struct page_pipe *pp, struct parasite_ctl *ctl,
 	 */
 	if (xfer) {
 		timing_start(TIME_MEMWRITE);
-		ret = page_xfer_dump_pages(xfer, pp, 0, true);
+		ret = page_xfer_dump_pages(xfer, pp, 0, !lazy);
 		timing_stop(TIME_MEMWRITE);
 	}
 
@@ -264,13 +265,14 @@ static int dump_pages(struct page_pipe *pp, struct parasite_ctl *ctl,
 static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 		struct parasite_dump_pages_args *args,
 		struct vm_area_list *vma_area_list,
-		bool delayed_dump)
+		bool delayed_dump, bool lazy)
 {
 	pmc_t pmc = PMC_INIT;
 	struct page_pipe *pp;
 	struct vma_area *vma_area;
 	struct page_xfer xfer = { .parent = NULL };
 	int ret = -1;
+	bool should_xfer = (!delayed_dump || lazy);
 
 	pr_info("\n");
 	pr_info("Dumping pages (type: %d pid: %d)\n", CR_FD_PAGES, ctl->pid.real);
@@ -292,11 +294,12 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 	ret = -1;
 
 	ctl->mem_pp = pp = create_page_pipe(vma_area_list->priv_size,
-					    pargs_iovs(args), !delayed_dump);
+					    lazy ? NULL : pargs_iovs(args),
+					    !delayed_dump);
 	if (!pp)
 		goto out;
 
-	if (!delayed_dump) {
+	if (should_xfer) {
 		ret = open_page_xfer(&xfer, CR_FD_PAGEMAP, ctl->pid.virt);
 		if (ret < 0)
 			goto out_pp;
@@ -334,7 +337,7 @@ again:
 		if (ret == -EAGAIN) {
 			BUG_ON(delayed_dump);
 
-			ret = dump_pages(pp, ctl, args, &xfer);
+			ret = dump_pages(pp, ctl, args, &xfer, false);
 			if (ret)
 				goto out_xfer;
 			page_pipe_reinit(pp);
@@ -344,7 +347,10 @@ again:
 			goto out_xfer;
 	}
 
-	ret = dump_pages(pp, ctl, args, delayed_dump ? NULL : &xfer);
+	if (lazy)
+		memcpy(pargs_iovs(args), pp->iovs,
+		       sizeof(struct iovec) * pp->nr_iovs);
+	ret = dump_pages(pp, ctl, args, should_xfer ? &xfer : NULL, lazy);
 	if (ret)
 		goto out_xfer;
 
@@ -356,7 +362,7 @@ again:
 
 	ret = task_reset_dirty_track(ctl->pid.real);
 out_xfer:
-	if (!delayed_dump)
+	if (should_xfer)
 		xfer.close(&xfer);
 out_pp:
 	if (ret || !delayed_dump)
@@ -368,7 +374,8 @@ out:
 }
 
 int parasite_dump_pages_seized(struct parasite_ctl *ctl,
-		struct vm_area_list *vma_area_list, bool delayed_dump)
+		struct vm_area_list *vma_area_list, bool delayed_dump,
+		bool lazy)
 {
 	int ret;
 	struct parasite_dump_pages_args *pargs;
@@ -396,7 +403,7 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl,
 	}
 
 	ret = __parasite_dump_pages_seized(ctl, pargs, vma_area_list,
-					   delayed_dump);
+					   delayed_dump, lazy);
 
 	if (ret) {
 		pr_err("Can't dump page with parasite\n");
