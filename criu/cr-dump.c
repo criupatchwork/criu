@@ -1430,7 +1430,7 @@ static int cr_pre_dump_finish(struct list_head *ctls, int ret)
 		if (ret < 0)
 			goto err;
 
-		ret = page_xfer_dump_pages(&xfer, ctl->mem_pp, 0);
+		ret = page_xfer_dump_pages(&xfer, ctl->mem_pp, 0, true);
 
 		xfer.close(&xfer);
 
