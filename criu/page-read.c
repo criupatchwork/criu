@@ -97,7 +97,8 @@ static void skip_pagemap_pages(struct page_read *pr, unsigned long len)
 	pr->cvaddr += len;
 }
 
-int seek_pagemap_page(struct page_read *pr, unsigned long vaddr, bool warn)
+static int seek_pagemap_page(struct page_read *pr, unsigned long vaddr,
+			     bool warn)
 {
 	int ret;
 	struct iovec iov;
@@ -329,6 +330,7 @@ int open_page_read_at(int dfd, int pid, struct page_read *pr, int pr_flags)
 	pr->read_pages = read_pagemap_page;
 	pr->close = close_page_read;
 	pr->skip_pages = skip_pagemap_pages;
+	pr->seek_page = seek_pagemap_page;
 	pr->id = ids++;
 
 	pr_debug("Opened page read %u (parent %u)\n",
@@ -352,6 +354,7 @@ open_old:
 	pr->pi = NULL;
 	pr->close = close_page_read;
 	pr->skip_pages = NULL;
+	pr->seek_page = NULL;
 
 	return 1;
 }
