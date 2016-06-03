@@ -1,1 +1,1 @@
-{'flags': 'noauto'}
+{'flags' : (lambda a: int(a[0]) * 100 + int(a[1]))(os.uname()[2].split('.')) < 400 and "noauto" or ""}
