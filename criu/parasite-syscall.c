@@ -1417,6 +1417,8 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 	if (parasite_start_daemon(ctl, item))
 		goto err_restore;
 
+	item->parasite_ctl = ctl;
+
 	return ctl;
 
 err_restore:

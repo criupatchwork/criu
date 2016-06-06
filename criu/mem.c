@@ -185,7 +185,7 @@ static int generate_iovs(struct vma_area *vma, struct page_pipe *pp, u64 *map, u
 }
 
 static struct parasite_dump_pages_args *prep_dump_pages_args(struct parasite_ctl *ctl,
-		struct vm_area_list *vma_area_list, struct page_pipe **pp_ret)
+		struct vm_area_list *vma_area_list, bool delayed_dump)
 {
 	struct parasite_dump_pages_args *args;
 	struct parasite_vma_entry *p_vma;
@@ -203,7 +203,7 @@ static struct parasite_dump_pages_args *prep_dump_pages_args(struct parasite_ctl
 		 * Kernel write to aio ring is not soft-dirty tracked,
 		 * so we ignore them at pre-dump.
 		 */
-		if (vma_entry_is(vma->e, VMA_AREA_AIORING) && pp_ret)
+		if (vma_entry_is(vma->e, VMA_AREA_AIORING) && delayed_dump)
 			continue;
 		if (vma->e->prot & PROT_READ)
 			continue;
@@ -264,7 +264,7 @@ static int dump_pages(struct page_pipe *pp, struct parasite_ctl *ctl,
 static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 		struct parasite_dump_pages_args *args,
 		struct vm_area_list *vma_area_list,
-		struct page_pipe **pp_ret)
+		bool delayed_dump)
 {
 	pmc_t pmc = PMC_INIT;
 	struct page_pipe *pp;
@@ -290,12 +290,13 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 		return -1;
 
 	ret = -1;
-	pp = create_page_pipe(vma_area_list->priv_size,
-			      pargs_iovs(args), pp_ret == NULL);
+
+	ctl->mem_pp = pp = create_page_pipe(vma_area_list->priv_size,
+					    pargs_iovs(args), !delayed_dump);
 	if (!pp)
 		goto out;
 
-	if (pp_ret == NULL) {
+	if (!delayed_dump) {
 		ret = open_page_xfer(&xfer, CR_FD_PAGEMAP, ctl->pid.virt);
 		if (ret < 0)
 			goto out_pp;
@@ -320,7 +321,7 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 		if (!vma_area_is_private(vma_area, kdat.task_size))
 			continue;
 		if (vma_entry_is(vma_area->e, VMA_AREA_AIORING)) {
-			if (pp_ret)
+			if (delayed_dump)
 				continue;
 			has_parent = false;
 		}
@@ -331,7 +332,7 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 again:
 		ret = generate_iovs(vma_area, pp, map, &off, has_parent);
 		if (ret == -EAGAIN) {
-			BUG_ON(pp_ret);
+			BUG_ON(delayed_dump);
 
 			ret = dump_pages(pp, ctl, args, &xfer);
 			if (ret)
@@ -343,14 +344,11 @@ again:
 			goto out_xfer;
 	}
 
-	ret = dump_pages(pp, ctl, args, pp_ret ? NULL : &xfer);
+	ret = dump_pages(pp, ctl, args, delayed_dump ? NULL : &xfer);
 	if (ret)
 		goto out_xfer;
 
 	timing_stop(TIME_MEMDUMP);
-
-	if (pp_ret)
-		*pp_ret = pp;
 
 	/*
 	 * Step 4 -- clean up
@@ -358,10 +356,10 @@ again:
 
 	ret = task_reset_dirty_track(ctl->pid.real);
 out_xfer:
-	if (pp_ret == NULL)
+	if (!delayed_dump)
 		xfer.close(&xfer);
 out_pp:
-	if (ret || !pp_ret)
+	if (ret || !delayed_dump)
 		destroy_page_pipe(pp);
 out:
 	pmc_fini(&pmc);
@@ -370,12 +368,12 @@ out:
 }
 
 int parasite_dump_pages_seized(struct parasite_ctl *ctl,
-		struct vm_area_list *vma_area_list, struct page_pipe **pp)
+		struct vm_area_list *vma_area_list, bool delayed_dump)
 {
 	int ret;
 	struct parasite_dump_pages_args *pargs;
 
-	pargs = prep_dump_pages_args(ctl, vma_area_list, pp);
+	pargs = prep_dump_pages_args(ctl, vma_area_list, delayed_dump);
 
 	/*
 	 * Add PROT_READ protection for all VMAs we're about to
@@ -397,7 +395,8 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl,
 		return -1;
 	}
 
-	ret = __parasite_dump_pages_seized(ctl, pargs, vma_area_list, pp);
+	ret = __parasite_dump_pages_seized(ctl, pargs, vma_area_list,
+					   delayed_dump);
 
 	if (ret) {
 		pr_err("Can't dump page with parasite\n");
