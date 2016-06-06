@@ -321,7 +321,7 @@ int open_page_xfer(struct page_xfer *xfer, int fd_type, long id)
 }
 
 int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp,
-		unsigned long off)
+			 unsigned long off, bool dump_lazy)
 {
 	struct page_pipe_buf *ppb;
 	struct iovec *hole = NULL;
@@ -359,6 +359,8 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp,
 
 			if (xfer->write_pagemap(xfer, iov))
 				return -1;
+			if (!dump_lazy && ppb->flags & PPB_LAZY)
+				continue;
 			if (xfer->write_pages(xfer, ppb->p[0], iov->iov_len))
 				return -1;
 		}

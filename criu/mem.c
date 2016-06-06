@@ -254,7 +254,7 @@ static int dump_pages(struct page_pipe *pp, struct parasite_ctl *ctl,
 	 */
 	if (xfer) {
 		timing_start(TIME_MEMWRITE);
-		ret = page_xfer_dump_pages(xfer, pp, 0);
+		ret = page_xfer_dump_pages(xfer, pp, 0, true);
 		timing_stop(TIME_MEMWRITE);
 	}
 
