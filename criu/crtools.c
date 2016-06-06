@@ -324,6 +324,7 @@ int main(int argc, char *argv[], char *envp[])
 		{ "cgroup-props",		required_argument,	0, 1080	},
 		{ "cgroup-props-file",		required_argument,	0, 1081	},
 		{ "cgroup-dump-controller",	required_argument,	0, 1082	},
+		{ "lazy-addr",			required_argument,	0, 1083	},
 		{ },
 	};
 
@@ -634,6 +635,9 @@ int main(int argc, char *argv[], char *envp[])
 		case 1082:
 			if (!cgp_add_dump_controller(optarg))
 				return 1;
+			break;
+		case 1083:
+			opts.lazy_addr = optarg;
 			break;
 		case 'V':
 			pr_msg("Version: %s\n", CRIU_VERSION);
