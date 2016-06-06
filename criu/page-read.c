@@ -92,7 +92,7 @@ static void skip_pagemap_pages(struct page_read *pr, unsigned long len)
 		return;
 
 	pr_debug("\tpr%u Skip %lu bytes from page-dump\n", pr->id, len);
-	if (!pr->pe->in_parent)
+	if (!pr->pe->in_parent && !opts.lazy_pages)
 		lseek(img_raw_fd(pr->pi), len, SEEK_CUR);
 	pr->cvaddr += len;
 }
