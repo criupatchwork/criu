@@ -7,6 +7,8 @@
 #include <sys/mman.h>
 #include <errno.h>
 #include <sys/syscall.h>
+#include <sys/socket.h>
+#include <linux/netlink.h>
 
 #include "log.h"
 #include "bug.h"
@@ -22,6 +24,7 @@
 #include "proc_parse.h"
 #include "config.h"
 #include "syscall-codes.h"
+#include "sockets.h"
 
 struct kerndat_s kdat = {
 };
@@ -446,6 +449,30 @@ int kerndat_loginuid(bool only_dump)
 	return 0;
 }
 
+int kerndat_nl_repair()
+{
+	int sk, val;
+
+	sk = socket(AF_NETLINK, SOCK_DGRAM, 0);
+	if (sk < 0) {
+		pr_perror("Unable to create a netlink socket");
+		return -1;
+	}
+
+	if (setsockopt(sk, SOL_NETLINK, NETLINK_REPAIR, &val, sizeof(val))) {
+		if (errno != ENOPROTOOPT) {
+			pr_perror("Unable to set NETLINK_REPAIR");
+			close(sk);
+			return -1;
+		}
+		kdat.has_nl_repair = false;
+	} else
+		kdat.has_nl_repair = true;
+	close(sk);
+
+	return 0;
+}
+
 int kerndat_init(void)
 {
 	int ret;
@@ -467,6 +494,8 @@ int kerndat_init(void)
 		ret = get_ipv6();
 	if (!ret)
 		ret = kerndat_loginuid(true);
+	if (!ret)
+		ret = kerndat_nl_repair();
 
 	kerndat_lsm();
 
