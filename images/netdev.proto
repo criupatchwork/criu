@@ -1,3 +1,4 @@
+import "macvlan.proto";
 import "opts.proto";
 import "tun.proto";
 import "sysctl.proto";
@@ -18,6 +19,7 @@ enum nd_type {
 	 */
 	VENET		= 5;
 	BRIDGE		= 6;
+	MACVLAN		= 7;
 }
 
 message net_device_entry {
@@ -36,6 +38,10 @@ message net_device_entry {
 	repeated sysctl_entry conf4	= 9;
 
 	repeated sysctl_entry conf6	= 10;
+
+	optional int32			link		= 11;
+	optional int32			netns_id	= 12;
+	optional macvlan_link_entry	macvlan		= 13;
 }
 
 message netns_entry {
