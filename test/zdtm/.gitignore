@@ -227,6 +227,7 @@
 /static/file_locks03
 /static/file_locks04
 /static/file_locks05
+/static/macvlan
 /static/mlock_setuid
 /static/mntns_root_bind
 /static/mntns_root_bind02
