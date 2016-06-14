@@ -354,6 +354,10 @@ migrated to a less capable processor and one need to *restore*
 this application, by default *criu* will refuse to proceed without
 relaxing capability with *--cpu-cap*=*none* parameter.
 
+*--macvlan-pair* '<IN>'*=*'<OUT>'::
+    Similar to *--veth-pair*, except '<OUT>' is the interface to attach the
+    macvlan device to.
+
 *check*
 ~~~~~~~
 Checks whether the kernel supports the features that *criu* needs to

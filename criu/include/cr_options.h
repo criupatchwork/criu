@@ -111,6 +111,7 @@ struct cr_options {
 	unsigned int		timeout;
 	unsigned int		empty_ns;
 	bool			lazy_pages;
+	struct list_head	macvlan_pairs;
 };
 
 extern struct cr_options opts;

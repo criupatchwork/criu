@@ -65,6 +65,7 @@ void init_opts(void)
 	INIT_LIST_HEAD(&opts.join_ns);
 	INIT_LIST_HEAD(&opts.new_cgroup_roots);
 	INIT_LIST_HEAD(&opts.irmap_scan_paths);
+	INIT_LIST_HEAD(&opts.macvlan_pairs);
 
 	opts.cpu_cap = CPU_CAP_DEFAULT;
 	opts.manage_cgroups = CG_MODE_DEFAULT;
@@ -324,6 +325,7 @@ int main(int argc, char *argv[], char *envp[])
 		{ "cgroup-props",		required_argument,	0, 1080	},
 		{ "cgroup-props-file",		required_argument,	0, 1081	},
 		{ "cgroup-dump-controller",	required_argument,	0, 1082	},
+		{ "veth-pair",			required_argument,	0, 1083	},
 		{ },
 	};
 
@@ -635,6 +637,19 @@ int main(int argc, char *argv[], char *envp[])
 			if (!cgp_add_dump_controller(optarg))
 				return 1;
 			break;
+		case 1083:
+			{
+				char *aux;
+
+				aux = strchr(optarg, '=');
+				if (aux == NULL)
+					goto bad_arg;
+
+				*aux = '\0';
+				if (macvlan_pair_add(optarg, aux + 1))
+					return 1;
+			}
+			break;
 		case 'V':
 			pr_msg("Version: %s\n", CRIU_VERSION);
 			if (strcmp(CRIU_GITID, "0"))
@@ -931,6 +946,9 @@ usage:
 "			    --join-ns user:PID,UID,GID to specify uid and gid.\n"
 "			Please NOTE: join-ns with user-namespace is not fully tested.\n"
 "			It may be dangerous to use this feature\n"
+"  --macvlan-pair IN=OUT\n"
+"                       Similar to --veth-pair, except OUT is the interface to\n"
+"                       attach the macvlan device to."
 "Check options:\n"
 "  without any arguments, \"criu check\" checks availability of absolutely required\n"
 "  kernel features; if any of these features is missing dump and restore will fail\n"

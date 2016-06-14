@@ -1082,6 +1082,24 @@ static int restore_link(NetDeviceEntry *nde, int nlsk)
 	case ND_TYPE__BRIDGE:
 		return restore_one_link(nde, nlsk, bridge_link_info);
 	case ND_TYPE__MACVLAN: {
+		struct macvlan_pair *n;
+
+		/* We need to rewrite the NetDeviceEntry before going into
+		 * populate_newlink_req() because that is what sets up
+		 * IFLA_LINK.
+		 */
+		list_for_each_entry(n, &opts.macvlan_pairs, node) {
+			if (strcmp(n->inside, nde->name))
+				continue;
+
+			if (!nde->has_link) {
+				pr_warn("enabling IFLA_LINK for %s which didn't have one\n", nde->name);
+				nde->has_link = true;
+			}
+
+			nde->link = n->ifi_outside;
+		}
+
 		if (root_ns_mask & CLONE_NEWNET) {
 			struct newlink_req req;
 
@@ -1767,6 +1785,26 @@ int veth_pair_add(char *in, char *out)
 		pr_debug("Added %s:%s@%s veth map\n", in, out, aux);
 	else
 		pr_debug("Added %s:%s veth map\n", in, out);
+	return 0;
+}
+
+int macvlan_pair_add(char *in, char *out)
+{
+	struct macvlan_pair *n;
+
+	n = xmalloc(sizeof(*n));
+	if (n == NULL)
+		return -1;
+
+	n->inside = in;
+	n->ifi_outside = if_nametoindex(out);
+	if (n->ifi_outside == 0) {
+		pr_perror("can't get index of %s", out);
+		xfree(n);
+		return -1;
+	}
+
+	list_add(&n->node, &opts.macvlan_pairs);
 	return 0;
 }
 
