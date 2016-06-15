@@ -28,6 +28,7 @@ TST_NOFILE	=				\
 		sched_prio00			\
 		sched_policy00			\
 		socket_listen			\
+		socket_listen02			\
 		socket_listen6			\
 		socket_udp			\
 		socket6_udp			\
@@ -385,6 +386,7 @@ socket-tcp6-local: override CFLAGS += -D ZDTM_TCP_LOCAL -D ZDTM_IPV6
 socket-tcp-local: override CFLAGS += -D ZDTM_TCP_LOCAL
 socket-tcp-nfconntrack: override CFLAGS += -D ZDTM_TCP_LOCAL -DZDTM_CONNTRACK
 socket_listen6: override CFLAGS += -D ZDTM_IPV6
+socket_listen02: override CFLAGS += -D ZDTM_IN_FLIGHT_CONNECTION
 sigpending:		override LDLIBS += -lrt
 vdso01:			override LDLIBS += -lrt
 mntns_link_remap:	override CFLAGS += -DZDTM_LINK_REMAP

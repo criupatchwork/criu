@@ -21,6 +21,7 @@ const char *test_author = "Stanislav Kinsbursky <skinsbursky@openvz.org>";
 #include <stdlib.h>
 #include <wait.h>
 #include <netinet/tcp.h>
+#include <fcntl.h>
 
 static int port = 8880;
 
@@ -48,8 +49,22 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
+#ifdef ZDTM_IN_FLIGHT_CONNECTION
+	fd = tcp_init_client(ZDTM_FAMILY, "localhost", port);
+	if (fd < 0)
+		return 1;
+#endif
+
 	test_daemon();
 	test_waitsig();
+
+#ifdef ZDTM_IN_FLIGHT_CONNECTION
+	fcntl(fd_s, F_SETFL, O_NONBLOCK);
+	fd = tcp_accept_server(fd_s);
+	if (fd < 0)
+		pr_err("Skip in-flight connection\n");
+	fcntl(fd_s, F_SETFL, 0);
+#endif
 
 	sigemptyset(&sa.sa_mask);
 	if (sigaction(SIGCHLD, &sa, NULL))
