@@ -20,8 +20,9 @@ static char buf[512];
  * ANy brave soul to write it using xtables-devel?
  */
 
-static const char *nf_conn_cmd = "%s -w -t filter %s %s --protocol tcp "
+static const char *nf_conn_cmd = "%s %s -t filter %s %s --protocol tcp "
 	"--source %s --sport %d --destination %s --dport %d -j DROP";
+static const char *nf_check_has_wait_option_cmd = "iptables -w -L";
 
 static char iptable_cmd_ipv4[] = "iptables";
 static char iptable_cmd_ipv6[] = "ip6tables";
@@ -53,6 +54,7 @@ static int nf_connection_switch_raw(int family, u32 *src_addr, u16 src_port,
 	char *cmd;
 	char *argv[4] = { "sh", "-c", buf, NULL };
 	int ret;
+	int nowait = 0;
 
 	switch (family) {
 	case AF_INET:
@@ -72,7 +74,14 @@ static int nf_connection_switch_raw(int family, u32 *src_addr, u16 src_port,
 		return -1;
 	}
 
+	snprintf(buf, sizeof(buf), nf_check_has_wait_option_cmd);
+
+	ret = cr_system(-1, -1, -1, "sh", argv, CRS_CAN_FAIL);
+	if (ret == -1)
+		nowait = 1;
+
 	snprintf(buf, sizeof(buf), nf_conn_cmd, cmd,
+			nowait ? "" : "-w",
 			lock ? "-A" : "-D",
 			input ? "INPUT" : "OUTPUT",
 			dip, (int)dst_port, sip, (int)src_port);
