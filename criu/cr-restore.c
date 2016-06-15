@@ -1732,6 +1732,12 @@ static int restore_root_task(struct pstree_item *init)
 	if (ret < 0)
 		goto out_kill;
 
+	if (fault_injected(FI_CLEAN_REMAPS_WITH_MNTNS)) {
+		pr_info("fault: check cleaning remaps\n");
+		ret = -1;
+		goto out_kill;
+	}
+
 	timing_stop(TIME_FORK);
 
 	ret = restore_switch_stage(CR_STATE_RESTORE);
