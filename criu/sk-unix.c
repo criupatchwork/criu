@@ -114,6 +114,24 @@ static struct unix_sk_listen_icon *lookup_unix_listen_icons(int peer_ino)
 	return NULL;
 }
 
+static struct unix_sk_desc *find_unix_sk_by_name(const char *name, int namelen)
+{
+	struct unix_sk_desc *sk;
+
+	namelen -= sizeof(unsigned short);
+	if (namelen <= 0)
+		return NULL;
+	/* Skip sun_family */
+	name += sizeof(unsigned short);
+
+	list_for_each_entry(sk, &unix_sockets, list) {
+		if (namelen == sk->namelen && memcmp(name, sk->name, namelen) == 0)
+			return sk;
+	}
+
+	return NULL;
+}
+
 static void show_one_unix(char *act, const struct unix_sk_desc *sk)
 {
 	pr_debug("\t%s: ino %#x peer_ino %#x family %4d type %4d state %2d name %s\n",
