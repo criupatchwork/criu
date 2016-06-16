@@ -578,7 +578,7 @@ static int autofs_dup_pipe(struct pstree_item *task,
 		return -1;
 	}
 
-	if (dup_fle(task, ple, new_fd, flags) < 0) {
+	if (!dup_fle(task, ple, new_fd, flags)) {
 		pr_err("Failed to add fd %d to process %d\n",
 				new_fd, task->pid.virt);
 		return -1;

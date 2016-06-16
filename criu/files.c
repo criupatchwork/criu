@@ -661,7 +661,8 @@ int rst_file_params(int fd, FownEntry *fown, int flags)
 	return 0;
 }
 
-static int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info)
+static struct fdinfo_list_entry *
+collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info)
 {
 	struct fdinfo_list_entry *le, *new_le;
 	struct file_desc *fdesc;
@@ -671,7 +672,7 @@ static int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info)
 
 	new_le = shmalloc(sizeof(*new_le));
 	if (!new_le)
-		return -1;
+		return NULL;
 
 	futex_init(&new_le->real_pid);
 	new_le->pid = pid;
@@ -681,7 +682,7 @@ static int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info)
 	fdesc = find_file_desc(e);
 	if (fdesc == NULL) {
 		pr_err("No file for fd %d id %#x\n", e->fd, e->id);
-		return -1;
+		return NULL;
 	}
 
 	list_for_each_entry(le, &fdesc->fd_info_head, desc_list)
@@ -698,7 +699,7 @@ static int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info)
 	list_add_tail(&new_le->desc_list, &le->desc_list);
 	new_le->desc = fdesc;
 
-	return 0;
+	return new_le;
 }
 
 FdinfoEntry *dup_fdinfo(FdinfoEntry *old, int fd, unsigned flags)
@@ -718,14 +719,15 @@ FdinfoEntry *dup_fdinfo(FdinfoEntry *old, int fd, unsigned flags)
 	return e;
 }
 
-int dup_fle(struct pstree_item *task, struct fdinfo_list_entry *ple,
+struct fdinfo_list_entry *
+dup_fle(struct pstree_item *task, struct fdinfo_list_entry *ple,
 		   int fd, unsigned flags)
 {
 	FdinfoEntry *e;
 
 	e = dup_fdinfo(ple->fe, fd, flags);
 	if (!e)
-		return -1;
+		return NULL;
 
 	return collect_fd(task->pid.virt, e, rsti(task));
 }
@@ -749,7 +751,7 @@ int prepare_ctl_tty(int pid, struct rst_info *rst_info, u32 ctl_tty_id)
 	e->fd		= reserve_service_fd(CTL_TTY_OFF);
 	e->type		= FD_TYPES__TTY;
 
-	if (collect_fd(pid, e, rst_info)) {
+	if (!collect_fd(pid, e, rst_info)) {
 		xfree(e);
 		return -1;
 	}
@@ -793,8 +795,7 @@ int prepare_fd_pid(struct pstree_item *item)
 		if (ret <= 0)
 			break;
 
-		ret = collect_fd(pid, e, rst_info);
-		if (ret < 0) {
+		if (!collect_fd(pid, e, rst_info)) {
 			fdinfo_entry__free_unpacked(e, NULL);
 			break;
 		}
