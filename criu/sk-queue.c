@@ -59,12 +59,15 @@ struct collect_image_info sk_queues_cinfo = {
 	.collect = collect_one_packet,
 };
 
-int dump_sk_queue(int sock_fd, int sock_id)
+/* Currently known the longest possible sender name thru all socket types */
+#define MAX_MSG_NAME_LEN	(sizeof (struct sockaddr_un))
+
+int dump_sk_queue(int sock_fd, int sock_id, u64 (*get_sender)(const char *, int))
 {
-	SkPacketEntry pe = SK_PACKET_ENTRY__INIT;
 	int ret, size, orig_peek_off;
-	void *data;
+	void *data, *mem;
 	socklen_t tmp;
+	u64 next;
 
 	/*
 	 * Save original peek offset.
@@ -87,15 +90,21 @@ int dump_sk_queue(int sock_fd, int sock_id)
 		return ret;
 	}
 
+	if (get_sender)
+		size += MAX_MSG_NAME_LEN;
+
 	/* Note: 32 bytes will be used by kernel for protocol header. */
 	size -= 32;
 
 	/*
 	 * Allocate data for a stream.
 	 */
-	data = xmalloc(size);
-	if (!data)
+	mem = data = xmalloc(size);
+	if (!mem)
 		return -1;
+
+	if (get_sender)
+		data += MAX_MSG_NAME_LEN;
 
 	/*
 	 * Enable peek offset incrementation.
@@ -106,9 +115,8 @@ int dump_sk_queue(int sock_fd, int sock_id)
 		goto err_brk;
 	}
 
-	pe.id_for = sock_id;
-
 	while (1) {
+		SkPacketEntry pe = SK_PACKET_ENTRY__INIT;
 		struct iovec iov = {
 			.iov_base	= data,
 			.iov_len	= size,
@@ -118,6 +126,12 @@ int dump_sk_queue(int sock_fd, int sock_id)
 			.msg_iovlen	= 1,
 		};
 
+		if (get_sender) {
+			msg.msg_name	= mem;
+			msg.msg_namelen	= MAX_MSG_NAME_LEN;
+		}
+
+		pe.id_for = sock_id;
 		ret = pe.length = recvmsg(sock_fd, &msg, MSG_DONTWAIT | MSG_PEEK);
 		if (!ret)
 			/*
@@ -139,6 +153,18 @@ int dump_sk_queue(int sock_fd, int sock_id)
 			pr_err("sys_recvmsg failed: truncated\n");
 			ret = -E2BIG;
 			goto err_set_sock;
+		}
+
+		if (get_sender) {
+			next = get_sender(msg.msg_name, msg.msg_namelen);
+			if (!next) {
+				pr_err("Can't find sender for skb\n");
+				ret = -ENODEV;
+				goto err_set_sock;
+			} else if (next != SK_NONAME_SENDER) {
+				pe.has_sender_ino = true;
+				pe.sender_ino = next;
+			}
 		}
 
 		ret = pb_write_one(img_from_set(glob_imgset, CR_FD_SK_QUEUES), &pe, PB_SK_QUEUES);
@@ -164,7 +190,7 @@ err_set_sock:
 		ret = -1;
 	}
 err_brk:
-	xfree(data);
+	xfree(mem);
 	return ret;
 }
 
