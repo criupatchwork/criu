@@ -132,6 +132,16 @@ static struct unix_sk_desc *find_unix_sk_by_name(const char *name, int namelen)
 	return NULL;
 }
 
+static u64 find_unix_dgram_ino_by_name(const char *name, int namelen)
+{
+	struct unix_sk_desc *sk = find_unix_sk_by_name(name, namelen);
+
+	if (sk && sk->type != SOCK_DGRAM)
+		sk = NULL;
+
+	return sk ? sk->sd.ino : SK_NONAME_SENDER;
+}
+
 static void show_one_unix(char *act, const struct unix_sk_desc *sk)
 {
 	pr_debug("\t%s: ino %#x peer_ino %#x family %4d type %4d state %2d name %s\n",
@@ -461,9 +471,14 @@ dump:
 	 * (i stands for in-flight, cons -- for connections) things.
 	 */
 	if (sk->rqlen != 0 && !(sk->type == SOCK_STREAM &&
-				sk->state == TCP_LISTEN))
-		if (dump_sk_queue(lfd, id, NULL))
+				sk->state == TCP_LISTEN)) {
+		u64 (*f)(const char *, int) = NULL;
+
+		if (sk->type == SOCK_DGRAM)
+			f = find_unix_dgram_ino_by_name;
+		if (dump_sk_queue(lfd, id, f))
 			goto err;
+	}
 
 	pr_info("Dumping unix socket at %d\n", p->fd);
 	show_one_unix("Dumping", sk);
