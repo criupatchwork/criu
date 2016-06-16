@@ -37,6 +37,7 @@ TST_NOFILE	=				\
 		socket_aio			\
 		socket_close_data		\
 		socket_snd_addr			\
+		socket_snd_addr01		\
 		socket_dgram_data		\
 		packet_sock			\
 		packet_sock_mmap		\
