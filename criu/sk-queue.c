@@ -25,13 +25,7 @@
 #include "protobuf.h"
 #include "images/sk-packet.pb-c.h"
 
-struct sk_packet {
-	struct list_head	list;
-	SkPacketEntry		*entry;
-	off_t			img_off;
-};
-
-static LIST_HEAD(packets_list);
+LIST_HEAD(packets_list);
 
 static int collect_one_packet(void *obj, ProtobufCMessage *msg, struct cr_img *img)
 {
