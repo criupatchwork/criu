@@ -62,6 +62,7 @@ extern int fill_fdlink(int lfd, const struct fd_parms *p, struct fd_link *link);
 
 struct file_desc;
 
+
 struct fdinfo_list_entry {
 	struct list_head	desc_list;	/* To chain on  @fd_info_head */
 	struct file_desc	*desc;		/* Associated file descriptor */
@@ -70,6 +71,8 @@ struct fdinfo_list_entry {
 	int			pid;
 	futex_t			real_pid;
 	FdinfoEntry		*fe;
+#define FD_LE_GHOST		0x1
+	unsigned		flags;
 };
 
 /* reports whether fd_a takes prio over fd_b */

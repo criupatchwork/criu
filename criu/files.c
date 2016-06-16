@@ -676,6 +676,7 @@ static int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info)
 	futex_init(&new_le->real_pid);
 	new_le->pid = pid;
 	new_le->fe = e;
+	new_le->flags = 0;
 
 	fdesc = find_file_desc(e);
 	if (fdesc == NULL) {
@@ -854,12 +855,14 @@ static int open_transport_fd(int pid, struct fdinfo_list_entry *fle);
 static int open_fd(int pid, struct fdinfo_list_entry *fle);
 static int receive_fd(int pid, struct fdinfo_list_entry *fle);
 static int post_open_fd(int pid, struct fdinfo_list_entry *fle);
+static int finalize_fd(int pid, struct fdinfo_list_entry *fle);
 
 static struct fd_open_state states[] = {
 	{ "prepare",		open_transport_fd,	true,},
 	{ "create",		open_fd,		true,},
 	{ "receive",		receive_fd,		false,},
 	{ "post_create",	post_open_fd,		false,},
+	{ "finalize",		finalize_fd,		true,},
 };
 
 #define want_recv_stage()	do { states[2].required = true; } while (0)
@@ -993,6 +996,12 @@ static int post_open_fd(int pid, struct fdinfo_list_entry *fle)
 	return d->ops->post_open(d, fle->fe->fd);
 }
 
+static int finalize_fd(int pid, struct fdinfo_list_entry *fle)
+{
+	if (fle->flags & FD_LE_GHOST)
+		close(fle->fe->fd);
+	return 0;
+}
 
 static int serve_out_fd(int pid, int fd, struct file_desc *d)
 {
