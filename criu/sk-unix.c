@@ -28,6 +28,7 @@
 #include "namespaces.h"
 #include "pstree.h"
 #include "crtools.h"
+#include "rst-malloc.h"
 
 #include "protobuf.h"
 #include "images/sk-unix.pb-c.h"
@@ -1334,7 +1335,7 @@ static int collect_one_unixsk(void *o, ProtobufCMessage *base, struct cr_img *i)
 	ui->ue = pb_msg(base, UnixSkEntry);
 	ui->name_dir = (void *)ui->ue->name_dir;
 
-	if (ui->ue->peer && !post_queued) {
+	if (!post_queued) {
 		post_queued = true;
 		if (add_post_prepare_cb(resolve_unix_peers, NULL))
 			return -1;
@@ -1392,9 +1393,150 @@ static void interconnected_pair(struct unix_sk_info *ui, struct unix_sk_info *pe
 	}
 }
 
+static int set_queuer(u32 s_ino, struct unix_sk_info *r_ui, unsigned count)
+{
+	u32 r_ino = r_ui->ue->ino;
+	struct unix_sk_info *s_ui;
+
+	list_for_each_entry(s_ui, &unix_sockets, list) {
+		if (s_ui->ue->peer != r_ino)
+			continue;
+		/*
+		 * Currently, only DGRAM senders are dumped,
+		 * while others always have zero s_ino here.
+		 * For DGRAM, zero s_ino means "unnamed sender".
+		 */
+		if (s_ino && s_ino != s_ui->ue->ino)
+			continue;
+		/* Looking for unnamed sender, while s_ui is not */
+		if (r_ui->ue->type == SOCK_DGRAM &&
+		    !s_ino && count && s_ui->ue->name.len)
+			continue;
+		s_ui->peer = r_ui;
+		r_ui->queuer = s_ui->ue->ino;
+
+		/* socket connected to self %) */
+		if (s_ui == r_ui)
+			continue;
+
+		if (s_ui->queuer == r_ino)
+			interconnected_pair(s_ui, r_ui);
+		return 0;
+	}
+	return -1;
+}
+
+static int add_receiver(u32 s_ino, struct unix_sk_info *r_ui)
+{
+	struct fdinfo_list_entry *s_fle, *r_fle;
+	struct pstree_item *r_task;
+	struct unix_sk_info *s_ui;
+	int fd;
+
+	if (!s_ino)
+		return 0;
+
+	s_ui = find_unix_sk_by_ino(s_ino);
+	if (!s_ui) {
+		pr_err("Can't find a sender: ino=%d\n", s_ino);
+		return -1;
+	}
+
+	r_fle = file_master(&r_ui->d);
+	r_task = pstree_item_by_virt(r_fle->pid);
+	if (!r_task) {
+		pr_err("Can't find task by vpid %u\n", r_fle->pid);
+		return -1;
+	}
+
+	list_for_each_entry(s_fle, &s_ui->d.fd_info_head, desc_list) {
+		/* Return, if receiver task already owns this socket */
+		if (s_fle->pid == r_task->pid.virt)
+			return 0;
+	}
+
+	fd = find_unused_fd(&rsti(r_task)->used, -1);
+	s_fle = file_master(&s_ui->d);
+
+	s_fle = dup_fle(r_task, s_fle, fd, s_fle->fe->flags);
+	if (!s_fle) {
+		pr_err("Can't dup sock fle\n");
+		return -1;
+	}
+	s_fle->flags |= FD_LE_GHOST;
+
+	pr_info("Add receiver %u to %u\n", r_ui->ue->ino, s_ino);
+
+	return 0;
+}
+
+/*
+ * Resolves senders and returns number of foreign senders, we should receive.
+ */
+static int resolve_senders(struct unix_sk_info *r_ui)
+{
+	struct sk_packet *pkt;
+	u32 s_ino, *sa = NULL;
+	int i, ret, count = 0;
+
+	list_for_each_entry(pkt, &packets_list, list) {
+		SkPacketEntry *entry = pkt->entry;
+		bool found = false;
+
+		if (entry->id_for != r_ui->ue->id)
+			continue;
+		if (entry->has_sender_ino)
+			s_ino = entry->sender_ino;
+		else
+			s_ino = 0;
+
+		for (i = 0; i < count; i++) {
+			if (sa[i] == s_ino) {
+				found = true;
+				break;
+			}
+		}
+
+		if (found)
+			continue;
+
+		count++;
+		sa = xrealloc(sa, sizeof(u32) * count);
+		if (!sa)
+			goto err;
+		sa[count-1] = s_ino;
+	}
+
+	if (count <= 1) {
+		s_ino = count ? sa[0] : 0;
+		ret = set_queuer(s_ino, r_ui, count);
+		if (ret == 0 || !count || r_ui->ue->type != SOCK_DGRAM)
+			goto out;
+	}
+
+	BUG_ON(r_ui->ue->type != SOCK_DGRAM || !count);
+
+	for (i = 0; i < count; i++) {
+		ret = add_receiver(sa[i], r_ui);
+		if (ret < 0)
+			goto err;
+	}
+out:
+	xfree(sa);
+	return 0;
+err:
+	pr_err("Resolving senders failed\n");
+	return -1;
+}
+
 static int resolve_unix_peers(void *unused)
 {
 	struct unix_sk_info *ui, *peer;
+
+	list_for_each_entry(ui, &unix_sockets, list) {
+		if (resolve_senders(ui) < 0)
+			return -1;
+	}
 
 	list_for_each_entry(ui, &unix_sockets, list) {
 		if (ui->peer)
@@ -1411,18 +1553,6 @@ static int resolve_unix_peers(void *unused)
 		}
 
 		ui->peer = peer;
-		if (!peer->queuer)
-			peer->queuer = ui->ue->ino;
-		if (ui == peer)
-			/* socket connected to self %) */
-			continue;
-		if (peer->ue->peer != ui->ue->ino)
-			continue;
-
-		peer->peer = ui;
-
-		/* socketpair or interconnected sockets */
-		interconnected_pair(ui, peer);
 	}
 
 	pr_info("Unix sockets:\n");
