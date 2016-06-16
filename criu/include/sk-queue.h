@@ -13,6 +13,7 @@ struct sk_packet {
 };
 
 extern struct list_head packets_list;
+extern int get_pkt_sender_fd(SkPacketEntry *entry, int *noname_fd);
 
 extern struct collect_image_info sk_queues_cinfo;
 extern int dump_sk_queue(int sock_fd, int sock_id, u64 (*get_sender)(const char *, int));

@@ -192,11 +192,12 @@ int __restore_sk_queue(int queuer_fd, unsigned int peer_id, struct sockaddr *dst
 {
 	struct sk_packet *pkt, *tmp;
 	struct cr_img *img;
+	int noname_fd = -1;
 	int fd, ret;
 
 	pr_info("Trying to restore recv queue for %u\n", peer_id);
 
-	if (restore_prepare_socket(queuer_fd) < 0)
+	if (queuer_fd >=0 && restore_prepare_socket(queuer_fd) < 0)
 		return -1;
 
 	img = open_image(CR_FD_SK_QUEUES, O_RSTR);
@@ -235,7 +236,14 @@ int __restore_sk_queue(int queuer_fd, unsigned int peer_id, struct sockaddr *dst
 			goto err;
 		}
 
-		fd = queuer_fd;
+		if (queuer_fd >= 0)
+			fd = queuer_fd;
+		else
+			fd = get_pkt_sender_fd(entry, &noname_fd);
+		if (fd < 0) {
+			ret = -1;
+			goto err;
+		}
 		ret = sendto(fd, buf, entry->length, 0, dst_addr, dst_addrlen);
 		xfree(buf);
 		if (ret < 0) {
@@ -251,6 +259,9 @@ int __restore_sk_queue(int queuer_fd, unsigned int peer_id, struct sockaddr *dst
 		sk_packet_entry__free_unpacked(entry, NULL);
 		xfree(pkt);
 	}
+
+	if (noname_fd >= 0)
+		close(noname_fd);
 
 	close_image(img);
 	return 0;

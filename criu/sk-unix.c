@@ -907,6 +907,63 @@ static int prep_unix_sk_cwd(struct unix_sk_info *ui, int *prev_cwd_fd)
 	return 0;
 }
 
+static struct file_desc_ops unix_desc_ops;
+
+int get_pkt_sender_fd(SkPacketEntry *e, int *noname_fd)
+{
+	struct fdinfo_list_entry *fle;
+	struct unix_sk_info *ui;
+	u32 ino;
+
+	if (!e->has_sender_ino) {
+		if (*noname_fd >= 0)
+			return *noname_fd;
+		*noname_fd = socket(AF_UNIX, SOCK_DGRAM, 0);
+		return *noname_fd;
+	}
+
+	ino = e->sender_ino;
+
+	list_for_each_entry(fle, &rsti(current)->used, used_list) {
+		if (fle->desc->ops != &unix_desc_ops)
+			continue;
+		ui = container_of(fle->desc, struct unix_sk_info, d);
+		if (ui->ue->ino != ino || ui->ue->type != SOCK_DGRAM)
+			continue;
+		if (!list_empty(&ui->d.fd_info_head))
+			futex_wait_while(&ui->prepared, 0);
+		return fle->fe->fd;
+	}
+
+	pr_err("Can't find sender fd: pid=%u, ino=%u\n", current->pid.virt, ino);
+	return -1;
+}
+
+static int restore_promisc_queue(struct unix_sk_info *ui, int fd)
+{
+	struct sockaddr_un addr;
+	socklen_t addrlen;
+	int cwd_fd = -1;
+
+	addrlen = ui->ue->name.len + sizeof(addr.sun_family);
+	memcpy(&addr.sun_path, ui->ue->name.data, ui->ue->name.len);
+	addr.sun_family = AF_UNIX;
+
+	if (prep_unix_sk_cwd(ui, &cwd_fd))
+		return -1;
+
+	if (__restore_sk_queue(-1, ui->ue->id,
+			       (struct sockaddr *)&addr, addrlen) < 0) {
+		pr_err("Can't restore rcv queue\n");
+		revert_unix_sk_cwd(&cwd_fd);
+		return -1;
+	}
+
+	revert_unix_sk_cwd(&cwd_fd);
+
+	return 0;
+}
+
 static int post_open_unix_sk(struct file_desc *d, int fd)
 {
 	struct unix_sk_info *ui;
@@ -917,6 +974,10 @@ static int post_open_unix_sk(struct file_desc *d, int fd)
 	ui = container_of(d, struct unix_sk_info, d);
 	if (ui->flags & (USK_PAIR_MASTER | USK_PAIR_SLAVE))
 		return 0;
+
+	if (ui->ue->type == SOCK_DGRAM && !ui->queuer && ui->ue->name.len &&
+	    restore_promisc_queue(ui, fd))
+		return -1;
 
 	peer = ui->peer;
 
@@ -1177,7 +1238,7 @@ static int open_unixsk_standalone(struct unix_sk_info *ui)
 
 		close(sks[1]);
 		sk = sks[0];
-	} else if (ui->ue->type == SOCK_DGRAM && !ui->queuer) {
+	} else if (ui->ue->type == SOCK_DGRAM && !ui->queuer && !ui->ue->name.len) {
 		struct sockaddr_un addr;
 		int sks[2];
 
