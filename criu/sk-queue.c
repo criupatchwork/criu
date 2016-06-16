@@ -188,15 +188,15 @@ err_brk:
 	return ret;
 }
 
-int restore_sk_queue(int fd, unsigned int peer_id)
+int __restore_sk_queue(int queuer_fd, unsigned int peer_id, struct sockaddr *dst_addr, socklen_t dst_addrlen)
 {
 	struct sk_packet *pkt, *tmp;
-	int ret;
 	struct cr_img *img;
+	int fd, ret;
 
 	pr_info("Trying to restore recv queue for %u\n", peer_id);
 
-	if (restore_prepare_socket(fd))
+	if (restore_prepare_socket(queuer_fd) < 0)
 		return -1;
 
 	img = open_image(CR_FD_SK_QUEUES, O_RSTR);
@@ -235,7 +235,8 @@ int restore_sk_queue(int fd, unsigned int peer_id)
 			goto err;
 		}
 
-		ret = write(fd, buf, entry->length);
+		fd = queuer_fd;
+		ret = sendto(fd, buf, entry->length, 0, dst_addr, dst_addrlen);
 		xfree(buf);
 		if (ret < 0) {
 			pr_perror("Failed to send packet");
