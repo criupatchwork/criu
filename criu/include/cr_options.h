@@ -112,6 +112,7 @@ struct cr_options {
 	unsigned int		empty_ns;
 	bool			lazy_pages;
 	bool			tcp_skip_in_flight;
+	char			*work_dir;
 };
 
 extern struct cr_options opts;
