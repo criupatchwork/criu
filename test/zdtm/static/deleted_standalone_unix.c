@@ -4,6 +4,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/un.h>
 
 #include "zdtmtst.h"
@@ -31,6 +32,7 @@ int main(int argc, char **argv)
 {
 	struct sockaddr_un addr;
 	int sk, ret = 1;
+	struct stat sb;
 
 	test_init(argc, argv);
 
@@ -65,6 +67,11 @@ int main(int argc, char **argv)
 
 	if (getsockopt(sk, 0, 0, NULL, 0) && errno != EOPNOTSUPP) {
 		fail("socket didn't survive restore");
+		goto out;
+	}
+
+	if (stat(addr.sun_path, &sb) == 0 || errno != ENOENT) {
+		fail("%s exists after restore\n", addr.sun_path);
 		goto out;
 	}
 

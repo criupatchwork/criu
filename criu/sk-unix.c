@@ -72,6 +72,7 @@ struct unix_sk_desc {
 	unsigned int		nr_icons;
 	unsigned int		*icons;
 	unsigned char		shutdown;
+	bool			deleted;
 
 	mode_t			mode;
 	uid_t			uid;
@@ -337,6 +338,11 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 		perms->gid	= userns_gid(sk->gid);
 	}
 
+	if (sk->deleted) {
+		ue->has_deleted = true;
+		ue->deleted	= sk->deleted;
+	}
+
 	sk_encode_shutdown(ue, sk->shutdown);
 
 	if (ue->peer) {
@@ -503,7 +509,7 @@ static int unix_process_name(struct unix_sk_desc *d, const struct unix_diag_msg 
 
 	if (name[0] != '\0') {
 		struct unix_diag_vfs *uv;
-		bool drop_path = false;
+		bool deleted = false;
 		char rpath[PATH_MAX];
 		struct ns_id *ns;
 		struct stat st;
@@ -554,30 +560,21 @@ static int unix_process_name(struct unix_sk_desc *d, const struct unix_diag_msg 
 
 			pr_info("unix: Dropping path %s for unlinked sk %#x\n",
 				name, m->udiag_ino);
-			drop_path = true;
+			deleted = true;
 		} else if ((st.st_ino != uv->udiag_vfs_ino) ||
 			   !phys_stat_dev_match(st.st_dev, uv->udiag_vfs_dev, ns, name)) {
 			pr_info("unix: Dropping path %s for unlinked bound "
 				"sk %#x.%#x real %#x.%#x\n",
 				name, (int)st.st_dev, (int)st.st_ino,
 				(int)uv->udiag_vfs_dev, (int)uv->udiag_vfs_ino);
-			drop_path = true;
-		}
-
-		if (drop_path) {
-			/*
-			 * When a socket is bound to unlinked file, we
-			 * just drop his name, since no one will access
-			 * it via one.
-			 */
-			xfree(name);
-			len = 0;
-			name = NULL;
+			deleted = true;
 		}
 
 		d->mode = st.st_mode;
 		d->uid	= st.st_uid;
 		d->gid	= st.st_gid;
+
+		d->deleted = deleted;
 	}
 
 postprone:
@@ -1224,6 +1221,11 @@ out:
 
 	if (restore_socket_opts(sk, ui->ue->opts))
 		return -1;
+
+	if (ui->ue->deleted && unlink((char *)ui->ue->name.data) < 0) {
+		pr_perror("failed to unlink %s\n", ui->ue->name.data);
+		return -1;
+	}
 
 	return sk;
 }
