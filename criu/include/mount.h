@@ -128,4 +128,5 @@ extern int mntns_maybe_create_roots(void);
 extern int read_mnt_ns_img(void);
 extern void cleanup_mnt_ns(void);
 
+extern int try_mount_binfmt_misc(pid_t pid);
 #endif /* __CR_MOUNT_H__ */

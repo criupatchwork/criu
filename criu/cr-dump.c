@@ -747,6 +747,16 @@ err:
 	return ret;
 }
 
+static int prepare_dump__tasks_freezed(void)
+{
+	int ret;
+
+	/* Tasks freezed, so we do not race with systemd's autofs unmounter */
+	ret = try_mount_binfmt_misc(root_item->pid.real);
+
+	return ret;
+}
+
 static int collect_pstree_ids_predump(void)
 {
 	struct pstree_item *item;
@@ -1679,6 +1689,9 @@ int cr_dump_tasks(pid_t pid)
 	 */
 
 	if (collect_pstree())
+		goto err;
+
+	if (prepare_dump__tasks_freezed())
 		goto err;
 
 	if (collect_pstree_ids())

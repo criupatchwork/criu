@@ -41,6 +41,13 @@
 #define LOG_PREFIX "mnt: "
 
 static struct fstype fstypes[];
+static LIST_HEAD(forced_mounts_list);
+
+struct forced_mount {
+	struct list_head list;
+	unsigned int ns_id;
+	unsigned int mnt_id;
+};
 
 int ext_mount_add(char *key, char *val)
 {
@@ -3683,6 +3690,128 @@ int dump_mnt_namespaces(void)
 	}
 
 	return 0;
+}
+
+static int add_forced_mount(pid_t pid, const char *path)
+{
+	unsigned int ns_id, mnt_id = 0;
+	struct forced_mount *fm;
+	int i, len, ret = 0;
+	char *str, *p;
+	struct bfd f;
+
+	if (read_ns_id(pid, &mnt_ns_desc, &ns_id) < 0 || !ns_id) {
+		pr_err("Can't read mnt_ns id\n");
+		return -1;
+	}
+	f.fd = open_proc(pid, "mountinfo");
+	if (f.fd < 0) {
+		pr_perror("Can't open mountinfo to parse");
+		return -1;
+	}
+	if (bfdopenr(&f))
+		return -1;
+	len = strlen(path);
+
+	while (1) {
+		p = str = breadline(&f);
+		if (!p)
+			break;
+		i = 0;
+		while (i < 4) {
+			p = strchr(p, ' ');
+			if (!str)
+				break;
+			i++;
+			p++;
+		}
+
+		if (i != 4) {
+			pr_err("Can't parse mountinfo\n");
+			ret = -1;
+			break;
+		}
+
+		if (strncmp(p, path, len))
+			continue;
+		if (sscanf(str, "%u", &mnt_id) != 1) {
+			pr_err("Can't parse mountinfo\n");
+			ret = -1;
+		}
+		/* Do not break as we're interested in the last entry */
+	}
+
+	bclose(&f);
+
+	if (ret || !mnt_id) {
+		if (!ret)
+			pr_err("Can't find %s mounted\n", path);
+		return -1;
+	}
+
+	fm = xmalloc(sizeof(*fm));
+	if (!fm)
+		return -1;
+	fm->ns_id = ns_id;
+	fm->mnt_id = mnt_id;
+	list_add(&fm->list, &forced_mounts_list);
+
+	return 0;
+}
+
+#define BINFMT_MISC_HOME "/proc/sys/fs/binfmt_misc"
+
+int try_mount_binfmt_misc(pid_t pid)
+{
+	int num, mnt_fd, ret, exit_code = -1;
+	struct dirent *de;
+	DIR *dir;
+
+	ret = switch_ns(pid, &mnt_ns_desc, &mnt_fd);
+	if (ret < 0) {
+		pr_err("Can't switch mnt_ns\n");
+		return -1;
+	}
+
+	ret = mount("binfmt_misc", BINFMT_MISC_HOME, "binfmt_misc", 0, NULL);
+	if (ret < 0) {
+		if (errno == EPERM) {
+			pr_info("Can't mount binfmt_misc: EPERM. Running in user_ns?\n");
+			exit_code = 0;
+			goto restore_ns;
+		}
+		if (errno != EBUSY && errno != ENODEV && errno != ENOENT) {
+			pr_perror("Can't mount binfmt_misc");
+			goto restore_ns;
+		}
+		pr_info("Prepare binfmt_misc: skipping(%d)\n", errno);
+	} else {
+		dir = opendir(BINFMT_MISC_HOME);
+		if (!dir) {
+			pr_perror("Can't read binfmt_misc dir");
+			goto restore_ns;
+		}
+
+		num = 0;
+		/* ".", "..", "register", "status" */
+		while (num <= 4 && (de = readdir(dir)) != NULL)
+			num++;
+		if (num <= 4) {
+			/* No entries */
+			umount(BINFMT_MISC_HOME);
+		} else {
+			ret = add_forced_mount(pid, BINFMT_MISC_HOME);
+			if (ret)
+				goto restore_ns;
+		}
+		closedir(dir);
+	}
+
+	exit_code = 0;
+restore_ns:
+	ret = restore_ns(mnt_fd, &mnt_ns_desc);
+
+	return ret ? -1 : exit_code;
 }
 
 struct ns_desc mnt_ns_desc = NS_DESC_ENTRY(CLONE_NEWNS, "mnt");
