@@ -56,10 +56,8 @@
 
 static struct task_entries *task_entries;
 static futex_t thread_inprogress;
-static pid_t *helpers;
-static int n_helpers;
-static pid_t *zombies;
-static int n_zombies;
+static pid_t *allowed_to_die;
+static int n_allowed_to_die;
 
 extern void cr_restore_rt (void) asm ("__cr_restore_rt")
 			__attribute__ ((visibility ("hidden")));
@@ -71,12 +69,8 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 
 	/* We can ignore helpers that die, we expect them to after
 	 * CR_STATE_RESTORE is finished. */
-	for (i = 0; i < n_helpers; i++)
-		if (siginfo->si_pid == helpers[i])
-			return;
-
-	for (i = 0; i < n_zombies; i++)
-		if (siginfo->si_pid == zombies[i])
+	for (i = 0; i < n_allowed_to_die; i++)
+		if (siginfo->si_pid == allowed_to_die[i])
 			return;
 
 	if (siginfo->si_code & CLD_EXITED)
@@ -1083,10 +1077,8 @@ long __export_restore_task(struct task_restore_args *args)
 #endif
 
 	task_entries = args->task_entries;
-	helpers = args->helpers;
-	n_helpers = args->helpers_n;
-	zombies = args->zombies;
-	n_zombies = args->zombies_n;
+	allowed_to_die = args->allowed_to_die;
+	n_allowed_to_die = args->allowed_to_die_n;
 	*args->breakpoint = rst_sigreturn;
 
 	ksigfillset(&act.rt_sa_mask);
