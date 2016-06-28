@@ -105,6 +105,20 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
+	ret = check_file_locks(pid, fd, child_fd);
+	if (ret < 0) {
+		fail("Pre-check failed\n");
+		goto out_kill;
+	} else if (ret == 0) {
+		test_msg("Old kernel?\n");
+		test_daemon();
+		test_waitsig();
+		pass();
+		goto out_kill;
+	}
+
+	test_msg("Daemonize\n");
+
 	test_daemon();
 	test_waitsig();
 
