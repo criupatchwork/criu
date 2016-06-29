@@ -70,6 +70,7 @@ struct mount_info {
 
 	struct ext_mount	*external;
 	bool			internal_sharing;
+	bool			forced_mounted;
 
 	/* tree linkage */
 	struct mount_info	*parent;

@@ -1834,8 +1834,18 @@ uns:
 static int dump_one_fs(struct mount_info *mi)
 {
 	struct mount_info *pm = mi;
+	struct forced_mount *fm;
 	struct mount_info *t;
 	bool first = true;
+
+	list_for_each_entry(fm, &forced_mounts_list, list) {
+		if (fm->mnt_id == mi->mnt_id &&
+		    fm->ns_id == mi->nsid->kid) {
+			pr_info("Mark forced mount %u in ns %u\n", fm->mnt_id, fm->ns_id);
+			mi->forced_mounted = true;
+			break;
+		}
+	}
 
 	if (mi->is_ns_root || mi->need_plugin || mi->external || !mi->fstype->dump)
 		return 0;
@@ -1902,6 +1912,11 @@ static int dump_one_mountpoint(struct mount_info *pm, struct cr_img *img)
 	if (pm->deleted) {
 		me.has_deleted	= true;
 		me.deleted	= true;
+	}
+
+	if (pm->forced_mounted) {
+		me.forced_mounted	= pm->forced_mounted;
+		me.has_forced_mounted	= true;
 	}
 
 	if (pm->internal_sharing) {
@@ -2686,6 +2701,12 @@ static int do_mount_one(struct mount_info *mi)
 			mi->fstype = find_fstype_by_name("btrfs");
 	}
 
+	if (mi->forced_mounted) {
+		ret = umount(mi->mountpoint);
+		if (ret)
+			pr_perror("Can't umount %s\n", mi->mountpoint);
+	}
+
 	return ret;
 }
 
@@ -3000,6 +3021,8 @@ static int collect_mnt_from_image(struct mount_info **pms, struct ns_id *nsid)
 		pm->is_ns_root		= is_root(me->mountpoint);
 		if (me->has_internal_sharing)
 			pm->internal_sharing = me->internal_sharing;
+		if (me->has_forced_mounted)
+			pm->forced_mounted = me->forced_mounted;
 
 		pm->source = xstrdup(me->source);
 		if (!pm->source)
