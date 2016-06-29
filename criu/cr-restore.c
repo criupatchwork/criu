@@ -380,13 +380,15 @@ static int prepare_sigactions(void)
 	return ret;
 }
 
-static int collect_child_pids(int state, unsigned int *n)
+static int collect_child_pids(struct pstree_item *root, int state, unsigned int *n, bool recurse)
 {
 	struct pstree_item *pi;
 
-	*n = 0;
-	list_for_each_entry(pi, &current->children, sibling) {
+	list_for_each_entry(pi, &root->children, sibling) {
 		pid_t *child;
+
+		if (recurse && collect_child_pids(pi, state, n, recurse) < 0)
+			return -1;
 
 		if (pi->pid.state != state)
 			continue;
@@ -405,13 +407,28 @@ static int collect_child_pids(int state, unsigned int *n)
 static int collect_helper_pids(struct task_restore_args *ta)
 {
 	ta->helpers = (pid_t *)rst_mem_align_cpos(RM_PRIVATE);
-	return collect_child_pids(TASK_HELPER, &ta->helpers_n);
+	ta->helpers_n = 0;
+	return collect_child_pids(current, TASK_HELPER, &ta->helpers_n, false);
 }
 
 static int collect_zombie_pids(struct task_restore_args *ta)
 {
 	ta->zombies = (pid_t *)rst_mem_align_cpos(RM_PRIVATE);
-	return collect_child_pids(TASK_DEAD, &ta->zombies_n);
+	ta->zombies_n = 0;
+	return collect_child_pids(current, TASK_DEAD, &ta->zombies_n, false);
+}
+
+static int collect_allowed_to_die_pids(struct task_restore_args *ta)
+{
+	ta->allowed_to_die = (pid_t *)rst_mem_align_cpos(RM_PRIVATE);
+	ta->allowed_to_die_n = 0;
+
+	if (collect_child_pids(current, TASK_DEAD, &ta->allowed_to_die_n, current == root_item) < 0)
+		return -1;
+	if (collect_child_pids(current, TASK_HELPER, &ta->allowed_to_die_n, false) < 0)
+		return -1;
+
+	return 0;
 }
 
 static int open_core(int pid, CoreEntry **pcore)
@@ -546,6 +563,9 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 		return -1;
 
 	if (collect_zombie_pids(ta) < 0)
+		return -1;
+
+	if (collect_allowed_to_die_pids(ta) < 0)
 		return -1;
 
 	if (inherit_fd_fini() < 0)
@@ -2885,6 +2905,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	RST_MEM_FIXUP_PPTR(task_args->helpers);
 	RST_MEM_FIXUP_PPTR(task_args->zombies);
 	RST_MEM_FIXUP_PPTR(task_args->seccomp_filters);
+	RST_MEM_FIXUP_PPTR(task_args->allowed_to_die);
 
 	if (core->tc->has_seccomp_mode)
 		task_args->seccomp_mode = core->tc->seccomp_mode;
