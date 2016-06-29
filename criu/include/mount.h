@@ -129,4 +129,5 @@ extern int read_mnt_ns_img(void);
 extern void cleanup_mnt_ns(void);
 extern void cleanup_forced_mounts(void);
 
+extern int try_mount_binfmt_misc(pid_t pid);
 #endif /* __CR_MOUNT_H__ */

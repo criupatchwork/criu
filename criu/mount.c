@@ -3761,4 +3761,60 @@ void cleanup_forced_mounts(void)
 	}
 }
 
+#define BINFMT_MISC_HOME "/proc/sys/fs/binfmt_misc"
+
+int try_mount_binfmt_misc(pid_t pid)
+{
+	int num, mnt_fd, ret, exit_code = -1;
+	struct dirent *de;
+	DIR *dir;
+
+	ret = switch_ns(pid, &mnt_ns_desc, &mnt_fd);
+	if (ret < 0) {
+		pr_err("Can't switch mnt_ns\n");
+		goto out;
+	}
+
+	ret = mount("binfmt_misc", BINFMT_MISC_HOME, "binfmt_misc", 0, NULL);
+	if (ret < 0) {
+		if (errno == EPERM) {
+			pr_info("Can't mount binfmt_misc: EPERM. Running in user_ns?\n");
+			exit_code = 0;
+			goto restore_ns;
+		}
+		if (errno != EBUSY && errno != ENODEV && errno != ENOENT) {
+			pr_perror("Can't mount binfmt_misc");
+			goto restore_ns;
+		}
+		pr_info("Prepare binfmt_misc: skipping(%d)\n", errno);
+	} else {
+		dir = opendir(BINFMT_MISC_HOME);
+		if (!dir) {
+			pr_perror("Can't read binfmt_misc dir");
+			goto restore_ns;
+		}
+
+		num = 0;
+		/* ".", "..", "register", "status" */
+		while (num <= 4 && (de = readdir(dir)) != NULL)
+			num++;
+		closedir(dir);
+		if (num <= 4) {
+			/* No entries */
+			if (umount(BINFMT_MISC_HOME) < 0)
+				pr_perror("Can't umount "BINFMT_MISC_HOME"\n");
+		} else {
+			ret = add_forced_mount(pid, BINFMT_MISC_HOME);
+			if (ret)
+				goto restore_ns;
+		}
+	}
+
+	exit_code = 0;
+restore_ns:
+	ret = restore_ns(mnt_fd, &mnt_ns_desc);
+out:
+	return ret ? -1 : exit_code;
+}
+
 struct ns_desc mnt_ns_desc = NS_DESC_ENTRY(CLONE_NEWNS, "mnt");
