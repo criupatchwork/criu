@@ -41,6 +41,15 @@
 #define LOG_PREFIX "mnt: "
 
 static struct fstype fstypes[];
+static LIST_HEAD(forced_mounts_list);
+
+struct forced_mount {
+	struct list_head list;
+	unsigned int ns_id;
+	unsigned int mnt_id;
+	char *path;
+	pid_t pid;
+};
 
 int ext_mount_add(char *key, char *val)
 {
@@ -3683,6 +3692,73 @@ int dump_mnt_namespaces(void)
 	}
 
 	return 0;
+}
+
+static int add_forced_mount(pid_t pid, const char *path)
+{
+	struct forced_mount *fm;
+	int fd, mnt_id, ret = 0;
+	unsigned int ns_id;
+
+	if (read_ns_id(pid, &mnt_ns_desc, &ns_id) < 0 || !ns_id) {
+		pr_err("Can't read mnt_ns id\n");
+		return -1;
+	}
+
+	fm = xmalloc(sizeof(*fm));
+	if (!fm)
+		return -1;
+
+	fd = open(path, O_PATH|O_DIRECTORY);
+	if (fd < 0) {
+		pr_perror("Can't open %s\n", path);
+		goto err_free;
+	}
+
+	ret = get_fd_mntid(fd, &mnt_id);
+	close(fd);
+
+	if (ret < 0) {
+		pr_err("Can't get mnt_id of %s\n", path);
+		goto err_free;
+	}
+
+	fm->path = xstrdup(path);
+	if (!fm->path)
+		goto err_free;
+
+	fm->ns_id = ns_id;
+	fm->mnt_id = mnt_id;
+	fm->pid = pid;
+	list_add(&fm->list, &forced_mounts_list);
+
+	return 0;
+err_free:
+	pr_err("Can't add forced mount\n");
+	free(fm);
+	return -1;
+}
+
+void cleanup_forced_mounts(void)
+{
+	struct forced_mount *fm;
+	int mnt_fd, ret;
+
+	list_for_each_entry(fm, &forced_mounts_list, list) {
+		ret = switch_ns(fm->pid, &mnt_ns_desc, &mnt_fd);
+		if (ret) {
+			pr_err("Can't switch to pid's %u mnt_ns\n", fm->pid);
+			continue;
+		}
+
+		if (umount(fm->path) < 0)
+			pr_perror("Can't umount forced mount %s\n", fm->path);
+
+		if (restore_ns(mnt_fd, &mnt_ns_desc)) {
+			pr_err("cleanup_forced_mounts exiting with wrong mnt_ns\n");
+			return;
+		}
+	}
 }
 
 struct ns_desc mnt_ns_desc = NS_DESC_ENTRY(CLONE_NEWNS, "mnt");

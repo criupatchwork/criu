@@ -1588,6 +1588,7 @@ static int cr_dump_finish(int ret)
 	if (ret || post_dump_ret || opts.final_state == TASK_ALIVE) {
 		network_unlock();
 		delete_link_remaps();
+		cleanup_forced_mounts();
 	}
 	pstree_switch_state(root_item,
 			    (ret || post_dump_ret) ?

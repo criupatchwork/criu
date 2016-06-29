@@ -127,5 +127,6 @@ extern int ext_mount_add(char *key, char *val);
 extern int mntns_maybe_create_roots(void);
 extern int read_mnt_ns_img(void);
 extern void cleanup_mnt_ns(void);
+extern void cleanup_forced_mounts(void);
 
 #endif /* __CR_MOUNT_H__ */
