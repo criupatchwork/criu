@@ -1144,6 +1144,206 @@ static inline int dump_iptables(struct cr_imgset *fds)
 	return 0;
 }
 
+static void free_nses(NamedSysctlEntry **nses, size_t n_nses)
+{
+	int i;
+
+	if (nses) {
+		if (nses[0]) {
+			for (i = 0; i < n_nses; i++)
+				xfree(nses[i]->name);
+
+			if (nses[0]->se) {
+				for (i = 0; i < n_nses; i++)
+					xfree(nses[i]->se->sarg);
+
+				xfree(nses[0]->se);
+			}
+			xfree(nses[0]);
+		}
+		xfree(nses);
+	}
+}
+
+static int alloc_nses(NamedSysctlEntry ***nses, size_t n_nses)
+{
+	int i;
+
+	*nses = xmalloc(n_nses * sizeof(NamedSysctlEntry *));
+	if (!*nses) {
+		pr_perror("Failed to xmalloc nses pointers");
+		return -1;
+	}
+
+	(*nses)[0] = xmalloc(n_nses * sizeof(NamedSysctlEntry));
+	if (!(*nses)[0]) {
+		pr_perror("Failed to xmalloc nses");
+		return -1;
+	}
+
+	for (i = 0; i < n_nses; i++) {
+		(*nses)[i] = (*nses)[0] + i;
+		named_sysctl_entry__init((*nses)[i]);
+	}
+
+	(*nses)[0]->se = xmalloc(n_nses * sizeof(SysctlEntry));
+	if (!(*nses)[0]->se) {
+		pr_perror("Failed to xmalloc se");
+		return -1;
+	}
+
+	for (i = 0; i < n_nses; i++) {
+		(*nses)[i]->se = (*nses)[0]->se + i;
+		sysctl_entry__init((*nses)[i]->se);
+	}
+
+	for (i = 0; i < n_nses; i++) {
+		SysctlEntry *se = (*nses)[i]->se;
+
+		se->sarg = xmalloc(sizeof(char) * PROC_ARG_MAX_LEN);
+		if (!se->sarg) {
+			pr_perror("Failed to xmalloc se sarg");
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
+static int sysctl_arg_to_int(char *sarg, int *iarg)
+{
+	int ret;
+	char buf[PROC_ARG_MAX_LEN];
+
+	ret = sscanf(sarg, "%d%s", iarg, buf);
+	if (ret != 1)
+		return 0;
+	return 1;
+}
+
+#define SYSCTL_NET_DIR "/proc/sys/net"
+#define CONF_OR_NEIGH_FILTER "conf|neigh"
+
+static int dump_netns_sysctls(NetnsEntry *netns)
+{
+	struct sysctl_req *reqs = NULL;
+	size_t n_reqs = 0;
+	int ret = 0;
+	int i;
+
+	ret = prepare_sysctl_requests_filtered(SYSCTL_NET_DIR, CONF_OR_NEIGH_FILTER,
+	                             &reqs, &n_reqs);
+	if (ret)
+		goto err_req;
+
+	netns->n_nses = n_reqs;
+	ret = alloc_nses(&netns->nses, netns->n_nses);
+	if (ret)
+		goto err_req;
+
+	for (i = 0; i < netns->n_nses; i++) {
+		reqs[i].arg = netns->nses[i]->se->sarg;
+		netns->nses[i]->name = reqs[i].name;
+	}
+
+	ret = sysctl_op(reqs, netns->n_nses, CTL_READ, CLONE_NEWNET);
+	if (ret != 0) {
+		pr_err("Failed to read net sysctls\n");
+		goto err_free;
+	}
+
+	for (i = 0; i < netns->n_nses; i++) {
+		char *sarg = netns->nses[i]->se->sarg;
+
+		if (reqs[i].flags & CTL_FLAGS_HAS) {
+			/* Strip trailing newline */
+			if (sarg[strlen(sarg) - 1] == '\n')
+				sarg[strlen(sarg) - 1] = '\0';
+
+			if (sysctl_arg_to_int(sarg, &netns->nses[i]->se->iarg)) {
+				netns->nses[i]->se->type = SYSCTL_TYPE__CTL_32;
+				netns->nses[i]->se->has_iarg = true;
+				netns->nses[i]->se->sarg = NULL;
+				xfree(sarg);
+				continue;
+			}
+			netns->nses[i]->se->type = SYSCTL_TYPE__CTL_STR;
+
+			/*
+			 * Skip nf_log/xx if it is set to default "NONE"
+			 */
+			if (!strstr(reqs[i].name, "/proc/sys/net/netfilter/nf_log")
+			     || strcmp(sarg, "NONE"))
+				continue;
+
+			pr_info("Skipping net sysctl %s\n", reqs[i].name);
+		}
+
+		netns->nses[i]->se->sarg = NULL;
+		xfree(sarg);
+	}
+
+err_free:
+	xfree(reqs);
+	return ret;
+err_req:
+	free_sysctl_requests(reqs, n_reqs);
+	return ret;
+}
+
+static int restore_netns_sysctls(NetnsEntry *netns)
+{
+	struct sysctl_req *req;
+	int i, ri;
+	int ret = 0;
+
+	req = xmalloc(sizeof(struct sysctl_req) * netns->n_nses);
+	if (!req) {
+		pr_perror("Failed to alloc sysctl_req array");
+		return -1;
+	}
+
+	for (i = 0, ri = 0; i < netns->n_nses; i++) {
+		NamedSysctlEntry *nse = netns->nses[i];
+
+		/* Skip restore not writable sysctls */
+		if (access(nse->name, W_OK) != 0)
+			continue;
+
+		switch (nse->se->type) {
+			case SYSCTL_TYPE__CTL_32:
+				/* skip non-existing sysctl */
+				if (!nse->se->has_iarg)
+					continue;
+
+				req[ri].type = CTL_32;
+				req[ri].arg = &nse->se->iarg;
+				break;
+			case SYSCTL_TYPE__CTL_STR:
+				/* skip non-existing sysctl */
+				if (!nse->se->sarg)
+					continue;
+
+				req[ri].type = CTL_STR(strlen(nse->se->sarg));
+				req[ri].arg = nse->se->sarg;
+				break;
+			default:
+				continue;
+		}
+
+		req[ri].name = nse->name;
+		req[ri].flags = 0;
+		ri++;
+	}
+
+	ret = sysctl_op(req, ri, CTL_WRITE, CLONE_NEWNET);
+	if (ret < 0)
+		pr_err("Failed to write net sysctls\n");
+
+	xfree(req);
+	return ret;
+}
+
 static int dump_netns_conf(struct cr_imgset *fds)
 {
 	int ret = -1;
@@ -1211,6 +1411,10 @@ static int dump_netns_conf(struct cr_imgset *fds)
 		}
 	}
 
+	ret = dump_netns_sysctls(&netns);
+	if (ret < 0)
+		goto err_free;
+
 	ret = ipv4_conf_op("default", netns.def_conf4, size4, CTL_READ, NULL);
 	if (ret < 0)
 		goto err_free;
@@ -1227,6 +1431,7 @@ static int dump_netns_conf(struct cr_imgset *fds)
 
 	ret = pb_write_one(img_from_set(fds, CR_FD_NETNS), &netns, PB_NETNS);
 err_free:
+	free_nses(netns.nses, netns.n_nses);
 	xfree(netns.def_conf4);
 	xfree(netns.all_conf4);
 	xfree(def_confs4);
@@ -1345,6 +1550,12 @@ static int restore_netns_conf(int pid, NetnsEntry **netns)
 	if (ret < 0) {
 		pr_err("Can not read netns object\n");
 		return -1;
+	}
+
+	if ((*netns)->nses) {
+		ret = restore_netns_sysctls(*netns);
+		if (ret)
+			goto out;
 	}
 
 	if ((*netns)->def_conf4) {

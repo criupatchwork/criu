@@ -6,6 +6,8 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sched.h>
+#include <sys/stat.h>
+#include <regex.h>
 
 #include "asm/types.h"
 #include "namespaces.h"
@@ -478,5 +480,125 @@ int sysctl_op(struct sysctl_req *req, size_t nr_req, int op, unsigned int ns)
 
 	ret = userns_call(__userns_sysctl_op, 0, userns_req, MAX_UNSFD_MSG_SIZE, fd);
 	close(fd);
+	return ret;
+}
+
+static int match_pattern(char *string, char *pattern)
+{
+	int status;
+	regex_t re;
+
+	if (regcomp(&re, pattern, REG_NOSUB|REG_EXTENDED) != 0) {
+		pr_perror("Failed to regcomp \"%s\"", pattern);
+		return 0;
+	}
+
+	status = regexec(&re, string, (size_t) 0, NULL, 0);
+	regfree(&re);
+
+	if (status != 0) {
+		return 0;
+	}
+	return 1;
+}
+
+void free_sysctl_requests(struct sysctl_req *reqs, size_t n_reqs)
+{
+	int i;
+
+	for (i = 0; i < n_reqs; i++)
+		xfree(reqs[i].name);
+	xfree(reqs);
+}
+
+static int prepare_sysctl_request(char *name, struct sysctl_req **preq,
+		size_t *n_reqs)
+{
+	struct sysctl_req *req;
+
+	req = xrealloc(*preq, ++(*n_reqs) * sizeof(struct sysctl_req));
+	if (!req) {
+		(*n_reqs)--;
+		pr_perror("Failed to xrealloc requests");
+		return -1;
+	}
+
+	*preq = req;
+	req = &(*preq)[*n_reqs - 1];
+
+	req->name = xmalloc(sizeof(char) * (strlen(name) + 1));
+	if (!req->name) {
+		pr_perror("Failed to xmalloc request name");
+		return -1;
+	}
+
+	sprintf(req->name, "%s", name);
+	req->arg = NULL;
+	req->type = CTL_STR(PROC_ARG_MAX_LEN);
+	req->flags = CTL_FLAGS_OPTIONAL;
+
+	return 0;
+}
+
+/*
+ * Search sysctls in directory, allocate and setup sysctl requests
+ * to dump them.
+ * @path - where to look sysctls for
+ * @filter - regex to filter unwanted subdirs
+ * @reqs - return pointer to requests
+ * @n_reqs - return number of sysctls found
+ */
+int prepare_sysctl_requests_filtered(char *path, char *filter,
+		struct sysctl_req **reqs, size_t *n_reqs)
+{
+	DIR *dp;
+	struct dirent *de;
+	int ret = 0;
+
+	dp = opendir(path);
+	if (!dp) {
+		pr_perror("Failed to open %s", path);
+		return -1;
+	}
+
+	while ((de = readdir(dp))) {
+		char dir[PROC_PATH_MAX_LEN];
+		struct stat st;
+
+		if (!strcmp(de->d_name, ".") ||
+		    !strcmp(de->d_name, ".."))
+			continue;
+
+		/* Skip specified directories */
+		if (match_pattern(de->d_name, filter))
+			continue;
+
+		sprintf(dir, "%s/%s", path, de->d_name);
+
+		ret = stat(dir, &st);
+		if (ret == -1) {
+			pr_perror("Failed to stat %s", dir);
+			goto err_close;
+		} else {
+			if (S_ISDIR(st.st_mode)) {
+				prepare_sysctl_requests_filtered(dir, filter, reqs, n_reqs);
+			} else if (st.st_mode & S_IRUSR &&
+				   st.st_mode & S_IWUSR) {
+				/*
+				 * Need the check above to exclude sysctls like
+				 * net.netfilter.nf_conntrack_buckets, which are
+				 * readonly, from being dupmed to image. They can
+				 * not be restored through procfs. And of course
+				 * ones that can't be read
+				 */
+				ret = prepare_sysctl_request(dir, reqs, n_reqs);
+				if (ret == -1)
+					goto err_close;
+			}
+		}
+	}
+
+err_close:
+	closedir(dp);
 	return ret;
 }
