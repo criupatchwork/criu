@@ -7,7 +7,7 @@ LIBDIR	= .
 LIB	= libzdtmtst.a
 GRPS	= groups
 
-LIBSRC	= datagen.c msg.c parseargs.c test.c streamutil.c lock.c ns.c tcp.c fs.c
+LIBSRC	= datagen.c msg.c parseargs.c test.c streamutil.c lock.c ns.c tcp.c fs.c randrange.c
 LIBOBJ	= $(LIBSRC:%.c=%.o)
 LIBDEP	= $(LIBSRC:%.c=%.d)
 
