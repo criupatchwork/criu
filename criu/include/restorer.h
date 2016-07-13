@@ -149,6 +149,9 @@ struct task_restore_args {
 	struct sock_fprog		*seccomp_filters;
 	unsigned int			seccomp_filters_n;
 
+	pid_t				*allowed_to_die;
+	unsigned int			allowed_to_die_n;
+
 	/* * * * * * * * * * * * * * * * * * * * */
 
 	unsigned long			task_size;
