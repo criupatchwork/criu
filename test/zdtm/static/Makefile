@@ -199,6 +199,7 @@ TST_FILE	=				\
 		netns-nf			\
 		maps_file_prot			\
 		socket_close_data01		\
+		unbound_unix		\
 
 TST_DIR		=				\
 		cwd00				\
