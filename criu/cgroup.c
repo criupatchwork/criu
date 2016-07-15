@@ -808,12 +808,21 @@ static int dump_controllers(CgroupEntry *cg)
 	return 0;
 }
 
+static void free_sets(CgroupEntry *cg, unsigned nr)
+{
+	unsigned i;
+
+	for (i = 0; i < nr; i++)
+		xfree(cg->sets[i]->ctls);
+	xfree(cg->sets);
+}
+
 
 static int dump_sets(CgroupEntry *cg)
 {
 	struct cg_set *set;
 	struct cg_ctl *ctl;
-	int s, c;
+	unsigned s, c;
 	void *m;
 	CgSetEntry *se;
 	CgMemberEntry *ce;
@@ -843,8 +852,10 @@ static int dump_sets(CgroupEntry *cg)
 		m = xmalloc(se->n_ctls * (sizeof(CgMemberEntry *) + sizeof(CgMemberEntry)));
 		se->ctls = m;
 		ce = m + se->n_ctls * sizeof(CgMemberEntry *);
-		if (!m)
+		if (!m) {
+			free_sets(cg, s);
 			return -1;
+		}
 
 		c = 0;
 		list_for_each_entry(ctl, &set->ctls, l) {
@@ -868,6 +879,7 @@ static int dump_sets(CgroupEntry *cg)
 int dump_cgroups(void)
 {
 	CgroupEntry cg = CGROUP_ENTRY__INIT;
+	int ret = -1;
 
 	BUG_ON(!criu_cgset || !root_cgset);
 
@@ -886,11 +898,16 @@ int dump_cgroups(void)
 
 	if (dump_sets(&cg))
 		return -1;
-	if (dump_controllers(&cg))
-		return -1;
+	if (dump_controllers(&cg)) {
+		goto err;
+	}
 
 	pr_info("Writing CG image\n");
-	return pb_write_one(img_from_set(glob_imgset, CR_FD_CGROUP), &cg, PB_CGROUP);
+	ret = pb_write_one(img_from_set(glob_imgset, CR_FD_CGROUP), &cg, PB_CGROUP);
+err:
+	free_sets(&cg, cg.n_sets);
+	xfree(cg.controllers);
+	return ret;
 }
 
 static int ctrl_dir_and_opt(CgControllerEntry *ctl, char *dir, int ds,
