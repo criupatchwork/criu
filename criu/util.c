@@ -74,21 +74,23 @@ static char *xvstrcat(char *str, const char *fmt, va_list args)
 	delta = strlen(fmt) * 2;
 
 	do {
-		ret = -ENOMEM;
 		new = xrealloc(str, offset + delta);
-		if (new) {
-			va_copy(tmp, args);
-			ret = vsnprintf(new + offset, delta, fmt, tmp);
-			va_end(tmp);
-			if (ret >= delta) {
-				/* NOTE: vsnprintf returns the amount of bytes
-				 * to allocate. */
-				delta = ret +1;
-				str = new;
-				ret = 0;
-			}
+		if (!new) {
+			ret = -ENOMEM;
+			break;
 		}
-	} while (ret == 0);
+
+		va_copy(tmp, args);
+		ret = vsnprintf(new + offset, delta, fmt, tmp);
+		va_end(tmp);
+		if (ret < delta) /* an error, or all was written */
+			break;
+
+		/* NOTE: vsnprintf returns the amount of bytes
+		 * to allocate. */
+		delta = ret + 1;
+		str = new;
+	} while (1);
 
 	if (ret == -ENOMEM) {
 		/* realloc failed. We must release former string */
