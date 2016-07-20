@@ -3,6 +3,7 @@
 #include <dirent.h>
 
 #include "zdtmtst.h"
+#include "randrange.h"
 
 #define LO_CONF_DIR_PATH "/proc/sys/net/ipv4/conf/lo"
 #define DEF_CONF_DIR_PATH "/proc/sys/net/ipv4/conf/default"
@@ -11,7 +12,6 @@
 #define DEF_CONF6_DIR_PATH "/proc/sys/net/ipv6/conf/default"
 #define ALL_CONF6_DIR_PATH "/proc/sys/net/ipv6/conf/all"
 
-#define INT_MAX ((int)(~0U>>1))
 #define INT_MIN (-INT_MAX - 1)
 
 char *devconfs4[] = {
@@ -49,12 +49,7 @@ char *devconfs4[] = {
 	NULL,
 };
 
-struct range {
-	int min;
-	int max;
-};
-
-struct range rand_range4[] = {
+struct rand_range rand_range4[] = {
 	{0, 1},	/* accept_local */
 	{-1, 0},	/* accept_source_route */
 	{0, 1},	/* arp_accept */
@@ -138,7 +133,7 @@ char *devconfs6[] = {
 /* According to kernel docs do not make max_addresses too large */
 #define MAX_ADDRESSES 128
 
-struct range rand_range6[] = {
+struct rand_range rand_range6[] = {
 	{0, 2},	/* accept_dad */
 	{0, 2},	/* accept_ra */
 	{0, 1},	/* accept_ra_defrtr */
@@ -192,7 +187,7 @@ struct test_conf {
 } lo, def, all;
 
 static int save_conf(FILE *fp, int *conf, int *conf_rand,
-		struct range *range, char *path) {
+		struct rand_range *range, char *path) {
 	int ret;
 
 	/*
@@ -207,36 +202,13 @@ static int save_conf(FILE *fp, int *conf, int *conf_rand,
 	return 0;
 }
 
-static int rand_in_small_range(struct range *r) {
-	return lrand48() % (r->max - r->min + 1) + r->min;
-}
-
-static int rand_in_range(struct range *r) {
-	struct range small;
-	int mid = r->max / 2 + r->min / 2;
-	int half = r->max / 2 - r->min / 2;
-
-	if (half < INT_MAX / 2)
-		return rand_in_small_range(r);
-
-	if (lrand48() % 2) {
-		small.min = r->min;
-		small.max = mid;
-	} else {
-		small.min = mid + 1;
-		small.max = r->max;
-	}
-
-	return rand_in_small_range(&small);
-}
-
 static int gen_conf(FILE *fp, int *conf, int *conf_rand,
-		struct range *range, char *path) {
+		struct rand_range *range, char *path) {
 	int ret;
 	/*
 	 * Set random value
 	 */
-	*conf_rand = rand_in_range(range);
+	*conf_rand = irand_range(range);
 
 	ret = fprintf(fp, "%d", *conf_rand);
 	if (ret < 0) {
@@ -250,7 +222,7 @@ static int gen_conf(FILE *fp, int *conf, int *conf_rand,
 #define MAX_MSEC_GRANULARITY 10
 
 static int check_conf(FILE *fp, int *conf, int *conf_rand,
-		struct range *range, char *path) {
+		struct rand_range *range, char *path) {
 	int ret;
 	int val;
 
@@ -277,7 +249,7 @@ static int check_conf(FILE *fp, int *conf, int *conf_rand,
 }
 
 static int restore_conf(FILE *fp, int *conf, int *conf_rand,
-		struct range *range, char *path) {
+		struct rand_range *range, char *path) {
 	int ret;
 	/*
 	 * Restore opt
@@ -292,7 +264,7 @@ static int restore_conf(FILE *fp, int *conf, int *conf_rand,
 }
 
 static int for_each_option_do(int (*f)(FILE *fp, int *conf, int *conf_rand,
-			struct range *range, char *path), struct test_conf *tc) {
+			struct rand_range *range, char *path), struct test_conf *tc) {
 	int ret;
 	int i;
 
