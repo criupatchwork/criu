@@ -41,12 +41,14 @@ message net_device_entry {
 }
 
 message netns_entry {
-	repeated int32 def_conf		= 1;
-	repeated int32 all_conf		= 2;
+	repeated int32 def_conf			= 1;
+	repeated int32 all_conf			= 2;
 
-	repeated sysctl_entry def_conf4	= 3;
-	repeated sysctl_entry all_conf4	= 4;
+	repeated sysctl_entry def_conf4		= 3;
+	repeated sysctl_entry all_conf4		= 4;
 
-	repeated sysctl_entry def_conf6	= 5;
-	repeated sysctl_entry all_conf6	= 6;
+	repeated sysctl_entry def_conf6		= 5;
+	repeated sysctl_entry all_conf6		= 6;
+
+	repeated named_sysctl_entry nses	= 7;
 }

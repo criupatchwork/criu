@@ -1144,10 +1144,264 @@ static inline int dump_iptables(struct cr_imgset *fds)
 	return 0;
 }
 
+#define NR_CTL_STR 16
+
+struct sysctl_info {
+	char		*name;
+	SysctlType	type;
+} sysctl_net[] = {
+	{"net/core/somaxconn", SYSCTL_TYPE__CTL_32},
+	/* default 30 - Hard timeout in seconds for acquire requests */
+	{"net/core/xfrm_acq_expires", SYSCTL_TYPE__CTL_32},
+	/* default 10 - Default threshhold timeout to ratelimit xfrm events */
+	{"net/core/xfrm_aevent_etime", SYSCTL_TYPE__CTL_32},
+	/* default 2 - Default threshhold for packets to ratelimit xfrm events */
+	{"net/core/xfrm_aevent_rseqth", SYSCTL_TYPE__CTL_32},
+	{"net/core/xfrm_larval_drop", SYSCTL_TYPE__CTL_32},
+	{"net/ipv4/fwmark_reflect", SYSCTL_TYPE__CTL_32},
+	/* default 0 - Iignore ICMP ECHO requests */
+	{"net/ipv4/icmp_echo_ignore_all", SYSCTL_TYPE__CTL_32},
+	/* default 1 - Ignore ICMP ECHO and TIMESTAMP requests sent via broadcast/multicast */
+	{"net/ipv4/icmp_echo_ignore_broadcasts", SYSCTL_TYPE__CTL_32},
+	/* default 0 - Send back ICMP errors */
+	{"net/ipv4/icmp_errors_use_inbound_ifaddr", SYSCTL_TYPE__CTL_32},
+	/* default 0 - Disable RFC1122 violation warnings */
+	{"net/ipv4/icmp_ignore_bogus_error_responses", SYSCTL_TYPE__CTL_32},
+	/* default 1000 - Limit the maximal rates for sending ICMP packets whose type matches icmp_ratemask */
+	{"net/ipv4/icmp_ratelimit", SYSCTL_TYPE__CTL_32},
+	/* default 6168 - Bitmask(19bit) to match ICMP types */
+	{"net/ipv4/icmp_ratemask", SYSCTL_TYPE__CTL_32},
+	/* default 1 - Enable IGMP reports for local multicast groups
+	 * in v4.3-v4.5 kernels changing it can lead to kernel crashes in random places
+	 * fix: commit 87a8a2ae65b7 ("igmp: Namespaceify igmp_llm_reports sysctl knob") */
+	{"net/ipv4/igmp_link_local_mcast_reports", SYSCTL_TYPE__CTL_32},
+	{"net/ipv4/igmp_max_memberships", SYSCTL_TYPE__CTL_32},
+	{"net/ipv4/igmp_max_msf", SYSCTL_TYPE__CTL_32},
+	{"net/ipv4/igmp_qrv", SYSCTL_TYPE__CTL_32},
+	{"net/ipv4/ip_default_ttl", SYSCTL_TYPE__CTL_32},
+	{"net/ipv4/ip_dynaddr", SYSCTL_TYPE__CTL_32},
+	{"net/ipv4/ip_early_demux", SYSCTL_TYPE__CTL_32},
+	/* default 0 - Enable ip packets forwrading between interfaces, is special RFC1122 RFC1812 */
+	{"net/ipv4/ip_forward", SYSCTL_TYPE__CTL_32},
+	/* default 0 - Enable path mtus information for special userspace software */
+	{"net/ipv4/ip_forward_use_pmtu", SYSCTL_TYPE__CTL_32},
+	{"net/ipv4/ip_local_port_range", SYSCTL_TYPE__CTL_STR},
+	{"net/ipv4/ip_local_reserved_ports", SYSCTL_TYPE__CTL_STR},
+	{"net/ipv4/ip_no_pmtu_disc", SYSCTL_TYPE__CTL_32},
+	{"net/ipv4/ip_nonlocal_bind", SYSCTL_TYPE__CTL_32},
+	{"net/ipv4/ipfrag_high_thresh", SYSCTL_TYPE__CTL_32},
+	{"net/ipv4/ipfrag_low_thresh", SYSCTL_TYPE__CTL_32},
+	{"net/ipv4/ipfrag_max_dist", SYSCTL_TYPE__CTL_32},
+	{"net/ipv4/ipfrag_time", SYSCTL_TYPE__CTL_32},
+	{"net/ipv4/ping_group_range", SYSCTL_TYPE__CTL_STR},
+	{"net/ipv4/tcp_base_mss", SYSCTL_TYPE__CTL_32},
+	{"net/ipv4/tcp_ecn", SYSCTL_TYPE__CTL_32},
+	{"net/ipv4/tcp_ecn_fallback", SYSCTL_TYPE__CTL_32},
+	{"net/ipv4/tcp_fin_timeout", SYSCTL_TYPE__CTL_32},
+	{"net/ipv4/tcp_fwmark_accept", SYSCTL_TYPE__CTL_32},
+	{"net/ipv4/tcp_keepalive_intvl", SYSCTL_TYPE__CTL_32},
+	{"net/ipv4/tcp_keepalive_probes", SYSCTL_TYPE__CTL_32},
+	{"net/ipv4/tcp_keepalive_time", SYSCTL_TYPE__CTL_32},
+	{"net/ipv4/tcp_mtu_probing", SYSCTL_TYPE__CTL_32},
+	{"net/ipv4/tcp_notsent_lowat", SYSCTL_TYPE__CTL_32},
+	{"net/ipv4/tcp_orphan_retries", SYSCTL_TYPE__CTL_32},
+	{"net/ipv4/tcp_probe_interval", SYSCTL_TYPE__CTL_32},
+	{"net/ipv4/tcp_probe_threshold", SYSCTL_TYPE__CTL_32},
+	{"net/ipv4/tcp_reordering", SYSCTL_TYPE__CTL_32},
+	{"net/ipv4/tcp_retries1", SYSCTL_TYPE__CTL_32},
+	{"net/ipv4/tcp_retries2", SYSCTL_TYPE__CTL_32},
+	{"net/ipv4/tcp_syn_retries", SYSCTL_TYPE__CTL_32},
+	{"net/ipv4/tcp_synack_retries", SYSCTL_TYPE__CTL_32},
+	{"net/ipv4/tcp_syncookies", SYSCTL_TYPE__CTL_32},
+	{"net/ipv4/xfrm4_gc_thresh", SYSCTL_TYPE__CTL_32},
+	{"net/ipv6/anycast_src_echo_reply", SYSCTL_TYPE__CTL_32},
+	{"net/ipv6/auto_flowlabels", SYSCTL_TYPE__CTL_32},
+	{"net/ipv6/bindv6only", SYSCTL_TYPE__CTL_32},
+	{"net/ipv6/flowlabel_consistency", SYSCTL_TYPE__CTL_32},
+	{"net/ipv6/flowlabel_state_ranges", SYSCTL_TYPE__CTL_32},
+	{"net/ipv6/fwmark_reflect", SYSCTL_TYPE__CTL_32},
+	{"net/ipv6/icmp/ratelimit", SYSCTL_TYPE__CTL_32},
+	{"net/ipv6/idgen_delay", SYSCTL_TYPE__CTL_32},
+	{"net/ipv6/idgen_retries", SYSCTL_TYPE__CTL_32},
+	{"net/ipv6/ip6frag_high_thresh", SYSCTL_TYPE__CTL_32},
+	{"net/ipv6/ip6frag_low_thresh", SYSCTL_TYPE__CTL_32},
+	{"net/ipv6/ip6frag_time", SYSCTL_TYPE__CTL_32},
+	{"net/ipv6/ip_nonlocal_bind", SYSCTL_TYPE__CTL_32},
+	{"net/ipv6/route/gc_elasticity", SYSCTL_TYPE__CTL_32},
+	{"net/ipv6/route/gc_interval", SYSCTL_TYPE__CTL_32},
+	{"net/ipv6/route/gc_min_interval", SYSCTL_TYPE__CTL_32},
+	{"net/ipv6/route/gc_min_interval_ms", SYSCTL_TYPE__CTL_32},
+	{"net/ipv6/route/gc_thresh", SYSCTL_TYPE__CTL_32},
+	{"net/ipv6/route/gc_timeout", SYSCTL_TYPE__CTL_32},
+	{"net/ipv6/route/max_size", SYSCTL_TYPE__CTL_32},
+	{"net/ipv6/route/min_adv_mss", SYSCTL_TYPE__CTL_32},
+	{"net/ipv6/route/mtu_expires", SYSCTL_TYPE__CTL_32},
+	{"net/ipv6/xfrm6_gc_thresh", SYSCTL_TYPE__CTL_32},
+	{"net/netfilter/nf_conntrack_acct", SYSCTL_TYPE__CTL_32},
+	{"net/netfilter/nf_conntrack_checksum", SYSCTL_TYPE__CTL_32},
+	{"net/netfilter/nf_conntrack_events", SYSCTL_TYPE__CTL_32},
+	{"net/netfilter/nf_conntrack_expect_max", SYSCTL_TYPE__CTL_32},
+	{"net/netfilter/nf_conntrack_frag6_high_thresh", SYSCTL_TYPE__CTL_32},
+	{"net/netfilter/nf_conntrack_frag6_low_thresh", SYSCTL_TYPE__CTL_32},
+	{"net/netfilter/nf_conntrack_frag6_timeout", SYSCTL_TYPE__CTL_32},
+	{"net/netfilter/nf_conntrack_generic_timeout", SYSCTL_TYPE__CTL_32},
+	{"net/netfilter/nf_conntrack_helper", SYSCTL_TYPE__CTL_32},
+	{"net/netfilter/nf_conntrack_icmp_timeout", SYSCTL_TYPE__CTL_32},
+	{"net/netfilter/nf_conntrack_icmpv6_timeout", SYSCTL_TYPE__CTL_32},
+	{"net/netfilter/nf_conntrack_log_invalid", SYSCTL_TYPE__CTL_32},
+	{"net/netfilter/nf_conntrack_max", SYSCTL_TYPE__CTL_32},
+	{"net/netfilter/nf_conntrack_tcp_be_liberal", SYSCTL_TYPE__CTL_32},
+	{"net/netfilter/nf_conntrack_tcp_loose", SYSCTL_TYPE__CTL_32},
+	{"net/netfilter/nf_conntrack_tcp_max_retrans", SYSCTL_TYPE__CTL_32},
+	{"net/netfilter/nf_conntrack_tcp_timeout_close", SYSCTL_TYPE__CTL_32},
+	{"net/netfilter/nf_conntrack_tcp_timeout_close_wait", SYSCTL_TYPE__CTL_32},
+	{"net/netfilter/nf_conntrack_tcp_timeout_established", SYSCTL_TYPE__CTL_32},
+	{"net/netfilter/nf_conntrack_tcp_timeout_fin_wait", SYSCTL_TYPE__CTL_32},
+	{"net/netfilter/nf_conntrack_tcp_timeout_last_ack", SYSCTL_TYPE__CTL_32},
+	{"net/netfilter/nf_conntrack_tcp_timeout_max_retrans", SYSCTL_TYPE__CTL_32},
+	{"net/netfilter/nf_conntrack_tcp_timeout_syn_recv", SYSCTL_TYPE__CTL_32},
+	{"net/netfilter/nf_conntrack_tcp_timeout_syn_sent", SYSCTL_TYPE__CTL_32},
+	{"net/netfilter/nf_conntrack_tcp_timeout_time_wait", SYSCTL_TYPE__CTL_32},
+	{"net/netfilter/nf_conntrack_tcp_timeout_unacknowledged", SYSCTL_TYPE__CTL_32},
+	{"net/netfilter/nf_conntrack_timestamp", SYSCTL_TYPE__CTL_32},
+	{"net/netfilter/nf_conntrack_udp_timeout", SYSCTL_TYPE__CTL_32},
+	{"net/netfilter/nf_conntrack_udp_timeout_stream", SYSCTL_TYPE__CTL_32},
+	{"net/unix/max_dgram_qlen", SYSCTL_TYPE__CTL_32},
+	{"net/netfilter/nf_log/0", SYSCTL_TYPE__CTL_STR},
+	{"net/netfilter/nf_log/1", SYSCTL_TYPE__CTL_STR},
+	{"net/netfilter/nf_log/2", SYSCTL_TYPE__CTL_STR},
+	{"net/netfilter/nf_log/3", SYSCTL_TYPE__CTL_STR},
+	{"net/netfilter/nf_log/4", SYSCTL_TYPE__CTL_STR},
+	{"net/netfilter/nf_log/5", SYSCTL_TYPE__CTL_STR},
+	{"net/netfilter/nf_log/6", SYSCTL_TYPE__CTL_STR},
+	{"net/netfilter/nf_log/7", SYSCTL_TYPE__CTL_STR},
+	{"net/netfilter/nf_log/8", SYSCTL_TYPE__CTL_STR},
+	{"net/netfilter/nf_log/9", SYSCTL_TYPE__CTL_STR},
+	{"net/netfilter/nf_log/10", SYSCTL_TYPE__CTL_STR},
+	{"net/netfilter/nf_log/11", SYSCTL_TYPE__CTL_STR},
+	{"net/netfilter/nf_log/12", SYSCTL_TYPE__CTL_STR},
+};
+
+/*
+ * We have only two sysctls longer than 256:
+ * /proc/sys/dev/cdrom/info - CDROM_STR_SIZE=1000
+ * /proc/sys/net/ipv4/tcp_allowed_congestion_control - TCP_CA_BUF_MAX=2048
+ * first one is readonly and second is hostonly
+ */
+#define PROC_ARG_MAX_LEN 257
+
+static int dump_netns_sysctls(NetnsEntry *netns)
+{
+	int nr = ARRAY_SIZE(sysctl_net);
+	int ret = 0;
+	int i;
+	struct sysctl_req req[ARRAY_SIZE(sysctl_net)];
+
+	for (i = 0; i < nr; i++) {
+		NamedSysctlEntry *nse = netns->nses[i];
+		SysctlEntry *se = nse->se;
+
+		req[i].name = nse->name;
+		req[i].flags = CTL_FLAGS_OPTIONAL;
+		if (se->type == SYSCTL_TYPE__CTL_32) {
+			req[i].type = CTL_32;
+			req[i].arg = &se->iarg;
+		} else if (se->type == SYSCTL_TYPE__CTL_STR) {
+			req[i].type = CTL_STR(PROC_ARG_MAX_LEN);
+			req[i].arg = se->sarg;
+		}
+	}
+
+	ret = sysctl_op(req, nr, CTL_READ, CLONE_NEWNET);
+	if (ret != 0) {
+		pr_err("Failed to read net sysctls\n");
+		return ret;
+	}
+
+	for (i = 0; i < nr; i++) {
+		SysctlEntry *se = netns->nses[i]->se;
+
+		if (req[i].flags & CTL_FLAGS_HAS) {
+			if (se->type == SYSCTL_TYPE__CTL_32)
+				se->has_iarg = true;
+			else if (se->type == SYSCTL_TYPE__CTL_STR) {
+				/* Strip trailing newline */
+				if (se->sarg[strlen(se->sarg) - 1] == '\n')
+				    se->sarg[strlen(se->sarg) - 1] = '\0';
+
+				/*
+				 * Skip nf_log/xx if it is set to default "NONE"
+				 */
+				if (strstr(req[i].name, "net/netfilter/nf_log")
+				     || !strcmp(se->sarg, "NONE"))
+					se->sarg = NULL;
+			}
+		} else if (se->type == SYSCTL_TYPE__CTL_STR)
+			se->sarg = NULL;
+	}
+
+	return ret;
+}
+
+/*
+ * Max sysctl path is 70 chars:
+ * "/proc/sys/net/ipv4/conf/virbr0-nic/igmpv2_unsolicited_report_interval"
+ */
+#define PROC_PATH_MAX_LEN 100
+
+static int restore_netns_sysctls(NetnsEntry *netns)
+{
+	struct sysctl_req req[ARRAY_SIZE(sysctl_net)];
+	int i, ri;
+	int ret = 0;
+
+	for (i = 0, ri = 0; i < netns->n_nses; i++) {
+		NamedSysctlEntry *nse = netns->nses[i];
+		char path[PROC_PATH_MAX_LEN];
+
+		sprintf(path, "/proc/sys/%s", nse->name);
+
+		/* Skip restore not writable sysctls */
+		if (access(path, W_OK) != 0)
+			continue;
+
+		switch (nse->se->type) {
+			case SYSCTL_TYPE__CTL_32:
+				/* skip non-existing sysctl */
+				if (!nse->se->has_iarg)
+					continue;
+
+				req[ri].type = CTL_32;
+				req[ri].arg = &nse->se->iarg;
+				break;
+			case SYSCTL_TYPE__CTL_STR:
+				/* skip non-existing sysctl */
+				if (!nse->se->sarg)
+					continue;
+
+				req[ri].type = CTL_STR(strlen(nse->se->sarg));
+				req[ri].arg = nse->se->sarg;
+				break;
+			default:
+				continue;
+		}
+
+		req[ri].name = nse->name;
+		req[ri].flags = 0;
+		ri++;
+	}
+
+	ret = sysctl_op(req, ri, CTL_WRITE, CLONE_NEWNET);
+	if (ret < 0)
+		pr_err("Failed to write net sysctls\n");
+
+	return ret;
+}
+
 static int dump_netns_conf(struct cr_imgset *fds)
 {
 	int ret = -1;
-	int i;
+	int i, j;
 	NetnsEntry netns = NETNS_ENTRY__INIT;
 	SysctlEntry *def_confs4 = NULL, *all_confs4 = NULL;
 	int size4 = ARRAY_SIZE(devconfs4);
@@ -1155,6 +1409,11 @@ static int dump_netns_conf(struct cr_imgset *fds)
 	int size6 = ARRAY_SIZE(devconfs6);
 	char def_stable_secret[MAX_STR_CONF_LEN + 1] = {};
 	char all_stable_secret[MAX_STR_CONF_LEN + 1] = {};
+
+	NamedSysctlEntry	*pnses[ARRAY_SIZE(sysctl_net)];
+	NamedSysctlEntry	nses[ARRAY_SIZE(sysctl_net)];
+	SysctlEntry		ses[ARRAY_SIZE(sysctl_net)];
+	char			sargs[NR_CTL_STR][PROC_ARG_MAX_LEN];
 
 	netns.n_def_conf4 = size4;
 	netns.n_all_conf4 = size4;
@@ -1210,6 +1469,32 @@ static int dump_netns_conf(struct cr_imgset *fds)
 			netns.all_conf6[i]->sarg = all_stable_secret;
 		}
 	}
+
+	netns.nses = pnses;
+	netns.n_nses = ARRAY_SIZE(sysctl_net);
+	for (i = 0, j = 0; i < netns.n_nses; i++) {
+		/* Init PB */
+		pnses[i] = &nses[i];
+		named_sysctl_entry__init(pnses[i]);
+		nses[i].name = sysctl_net[i].name;
+		nses[i].se = &ses[i];
+		sysctl_entry__init(nses[i].se);
+		ses[i].type = sysctl_net[i].type;
+		if (ses[i].type == SYSCTL_TYPE__CTL_32)
+			ses[i].sarg = NULL;
+		else if (ses[i].type == SYSCTL_TYPE__CTL_STR) {
+			/*
+			 * We should always have NR_CTL_STR equal to
+			 * the number of string sysctls
+			 */
+			BUG_ON(j >= NR_CTL_STR);
+			ses[i].sarg = sargs[j++];
+		}
+	}
+
+	ret = dump_netns_sysctls(&netns);
+	if (ret < 0)
+		goto err_free;
 
 	ret = ipv4_conf_op("default", netns.def_conf4, size4, CTL_READ, NULL);
 	if (ret < 0)
@@ -1345,6 +1630,12 @@ static int restore_netns_conf(int pid, NetnsEntry **netns)
 	if (ret < 0) {
 		pr_err("Can not read netns object\n");
 		return -1;
+	}
+
+	if ((*netns)->nses) {
+		ret = restore_netns_sysctls(*netns);
+		if (ret)
+			goto out;
 	}
 
 	if ((*netns)->def_conf4) {

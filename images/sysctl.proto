@@ -11,3 +11,8 @@ message sysctl_entry {
 	optional int32 iarg		= 2;
 	optional string sarg		= 3;
 }
+
+message named_sysctl_entry {
+	required string name		= 1;
+	required sysctl_entry se	= 2;
+}
