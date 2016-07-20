@@ -109,6 +109,7 @@ TST_NOFILE	=				\
 		mountpoints			\
 		netns				\
 		netns-dev			\
+		netns-sysctls			\
 		session01			\
 		session02			\
 		session03			\
