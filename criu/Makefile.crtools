@@ -7,6 +7,7 @@ obj-y			+= bitmap.o
 obj-y			+= cgroup.o
 obj-y			+= cgroup-props.o
 obj-y			+= cr-check.o
+obj-y			+= cr-gc.o
 obj-y			+= cr-dedup.o
 obj-y			+= cr-dump.o
 obj-y			+= cr-errno.o

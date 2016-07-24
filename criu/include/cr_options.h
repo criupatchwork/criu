@@ -113,6 +113,7 @@ struct cr_options {
 	bool			lazy_pages;
 	bool			tcp_skip_in_flight;
 	char			*work_dir;
+	bool			show;
 };
 
 extern struct cr_options opts;
