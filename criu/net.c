@@ -1618,6 +1618,18 @@ void network_unlock(void)
 	}
 }
 
+int gc_network_unlock(void)
+{
+	/*
+	 * Unshared ps tree net ns is destroyed after successful dump.
+	 * No need to call network_unlock_internal.
+	 * Also don't call ACT_NET_UNLOCK script because we don't
+	 * resume/restore ps tree - this call would break
+	 * ACT_NET_UNLOCK semantics.
+	 */
+	return rst_unlock_tcp_connections();
+}
+
 int veth_pair_add(char *in, char *out)
 {
 	char *aux;
