@@ -130,6 +130,8 @@ static inline void collect_gen_fd(struct fdinfo_list_entry *fle, struct rst_info
 unsigned int find_unused_fd(struct list_head *head, int hint_fd);
 struct fdinfo_list_entry *find_used_fd(struct list_head *head, int fd);
 
+int reopen_as_unused_fd(int fd, struct rst_info *rst);
+
 struct file_desc {
 	u32			id;		/* File id, unique */
 	struct hlist_node	hash;		/* Descriptor hashing and lookup */
