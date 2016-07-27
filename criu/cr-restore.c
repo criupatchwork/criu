@@ -1469,16 +1469,6 @@ static int restore_task_with_children(void *_arg)
 
 	restore_pgid();
 
-	if (current->parent == NULL) {
-		/*
-		 * Wait when all tasks passed the CR_STATE_FORKING stage.
-		 * It means that all tasks entered into their namespaces.
-		 */
-		futex_wait_while_gt(&task_entries->nr_in_progress, 1);
-
-		fini_restore_mntns();
-	}
-
 	if (restore_finish_stage(CR_STATE_FORKING) < 0)
 		goto err;
 
@@ -2907,6 +2897,20 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 		goto err_nv;
 
 	/*
+	 * Make root and cwd restore _that_ late not to break any
+	 * attempts to open files by paths above (e.g. /proc).
+	 */
+	if (restore_fs(current))
+		goto err;
+
+	if (current->parent == NULL) {
+		/* Wait when all tasks restored all files */
+		futex_wait_while_gt(&task_entries->nr_in_progress,
+						current->nr_threads);
+		fini_restore_mntns();
+	}
+
+	/*
 	 * We're about to search for free VM area and inject the restorer blob
 	 * into it. No irrelevent mmaps/mremaps beyond this point, otherwise
 	 * this unwanted mapping might get overlapped by the restorer.
@@ -3150,14 +3154,6 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	 */
 	task_args->nr_threads		= current->nr_threads;
 	task_args->thread_args		= thread_args;
-
-	/*
-	 * Make root and cwd restore _that_ late not to break any
-	 * attempts to open files by paths above (e.g. /proc).
-	 */
-
-	if (restore_fs(current))
-		goto err;
 
 	close_image_dir();
 	close_proc();

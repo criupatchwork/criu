@@ -3160,9 +3160,7 @@ void fini_restore_mntns(void)
 		if (nsid->nd != &mnt_ns_desc)
 			continue;
 		close_safe(&nsid->mnt.ns_fd);
-		if (nsid->type != NS_ROOT)
-			close_safe(&nsid->mnt.root_fd);
-		nsid->ns_populated = true;
+		close_safe(&nsid->mnt.root_fd);
 	}
 }
 
@@ -3350,6 +3348,34 @@ void cleanup_mnt_ns(void)
 		pr_perror("Can't remove the directory %s", mnt_roots);
 }
 
+static int open_mnt_ns(struct ns_id *nsid, struct rst_info *rst)
+{
+	int fd, tfd;
+
+	/* Pin one with a file descriptor */
+	fd = open_proc(PROC_SELF, "ns/mnt");
+	if (fd < 0)
+		return -1;
+	tfd = reopen_as_unused_fd(fd, rst);
+	if (tfd < 0) {
+		close(fd);
+		return -1;
+	}
+	nsid->mnt.ns_fd = tfd;
+
+	fd = open_proc(PROC_SELF, "root");
+	if (fd < 0)
+		return -1;
+	tfd = reopen_as_unused_fd(fd, rst);
+	if (tfd < 0) {
+		close(fd);
+		return -1;
+	}
+	nsid->mnt.root_fd = tfd;
+
+	return 0;
+}
+
 int prepare_mnt_ns(void)
 {
 	int ret = -1, rst = -1;
@@ -3483,12 +3509,8 @@ ns_created:
 		if (nsid->nd != &mnt_ns_desc)
 			continue;
 		if (nsid->type == NS_ROOT) {
-			/* Pin one with a file descriptor */
-			nsid->mnt.ns_fd = open_proc(PROC_SELF, "ns/mnt");
-			if (nsid->mnt.ns_fd < 0)
+			if (open_mnt_ns(nsid, rsti(root_item)))
 				goto err;
-			/* we set ns_populated so we don't need to open root_fd */
-			nsid->ns_populated = true;
 			continue;
 		}
 
@@ -3504,14 +3526,7 @@ ns_created:
 		if (cr_pivot_root(path))
 			goto err;
 
-		/* Pin one with a file descriptor */
-		nsid->mnt.ns_fd = open_proc(PROC_SELF, "ns/mnt");
-		if (nsid->mnt.ns_fd < 0)
-			goto err;
-
-		/* root_fd is used to restore file mappings */
-		nsid->mnt.root_fd = open_proc(PROC_SELF, "root");
-		if (nsid->mnt.root_fd < 0)
+		if (open_mnt_ns(nsid, rsti(root_item)))
 			goto err;
 
 		/* And return back to regain the access to the roots yard */
@@ -3628,6 +3643,7 @@ int mntns_get_root_fd(struct ns_id *mntns)
 		fd = open_proc(root_item->pid.virt, "fd/%d", mntns->mnt.root_fd);
 		if (fd < 0)
 			return -1;
+		close_pid_proc();
 
 		return mntns_set_root_fd(mntns->ns_pid, fd);
 	}

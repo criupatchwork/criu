@@ -943,6 +943,7 @@ static int prepare_pstree_for_unshare(void)
 		fake_root->threads->virt = INIT_PID;
 		fake_root->ids = root_ids;
 		rsti(fake_root)->clone_flags = opts.unshare_flags | rsti(root_item)->clone_flags;
+		INIT_LIST_HEAD(&rsti(fake_root)->used);
 
 		rsti(fake_root)->helper_cb = do_fake_init;
 
