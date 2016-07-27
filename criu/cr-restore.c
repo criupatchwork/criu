@@ -1323,6 +1323,21 @@ static int create_children_and_session(void)
 	return 0;
 }
 
+static int collect_fd_shared()
+{
+	struct pstree_item *pi;
+
+	for_each_pstree_item(pi) {
+		if (pi->pid.state == TASK_HELPER)
+			continue;
+
+		if  (collect_fd_pid(pi))
+			return -1;
+	}
+
+	return 0;
+}
+
 static int restore_task_with_children(void *_arg)
 {
 	struct cr_clone_arg *ca = _arg;
@@ -1409,6 +1424,9 @@ static int restore_task_with_children(void *_arg)
 
 		pr_info("Calling restore_sid() for init\n");
 		restore_sid();
+
+		if (collect_fd_shared())
+			goto err;
 
 		/*
 		 * We need non /proc proc mount for restoring pid and mount

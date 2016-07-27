@@ -692,21 +692,30 @@ int rst_file_params(int fd, FownEntry *fown, int flags)
 	return 0;
 }
 
-static int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info)
+static struct fdinfo_list_entry *allocate_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info)
 {
-	struct fdinfo_list_entry *le, *new_le;
-	struct file_desc *fdesc;
+	struct fdinfo_list_entry *new_le;
 
 	pr_info("Collect fdinfo pid=%d fd=%d id=%#x\n",
 		pid, e->fd, e->id);
 
 	new_le = shmalloc(sizeof(*new_le));
 	if (!new_le)
-		return -1;
+		return NULL;
 
 	futex_init(&new_le->real_pid);
 	new_le->pid = pid;
 	new_le->fe = e;
+	collect_used_fd(new_le, rst_info);
+
+	return new_le;
+}
+
+static int handle_fd(struct fdinfo_list_entry *new_le, struct rst_info *rst_info)
+{
+	struct fdinfo_list_entry *le;
+	struct file_desc *fdesc;
+	FdinfoEntry *e = new_le->fe;
 
 	fdesc = find_file_desc(e);
 	if (fdesc == NULL) {
@@ -723,12 +732,21 @@ static int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info)
 	else
 		collect_gen_fd(new_le, rst_info);
 
-	collect_used_fd(new_le, rst_info);
-
 	list_add_tail(&new_le->desc_list, &le->desc_list);
 	new_le->desc = fdesc;
 
 	return 0;
+}
+
+static int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info)
+{
+	struct fdinfo_list_entry *le;
+
+	le = allocate_fd(pid, e, rst_info);
+	if (le == NULL)
+		return -1;
+
+	return handle_fd(le, rst_info);
 }
 
 FdinfoEntry *dup_fdinfo(FdinfoEntry *old, int fd, unsigned flags)
@@ -787,7 +805,7 @@ int prepare_ctl_tty(int pid, struct rst_info *rst_info, u32 ctl_tty_id)
 	return 0;
 }
 
-int prepare_fd_pid(struct pstree_item *item)
+int collect_fd_pid(struct pstree_item *item)
 {
 	int ret = 0;
 	struct cr_img *img;
@@ -811,21 +829,41 @@ int prepare_fd_pid(struct pstree_item *item)
 		return -1;
 
 	while (1) {
+		struct fdinfo_list_entry *le;
 		FdinfoEntry *e;
 
 		ret = pb_read_one_eof(img, &e, PB_FDINFO);
 		if (ret <= 0)
 			break;
 
-		ret = collect_fd(pid, e, rst_info);
-		if (ret < 0) {
+		le = allocate_fd(pid, e, rst_info);
+		if (le == NULL) {
 			fdinfo_entry__free_unpacked(e, NULL);
+			ret = -1;
 			break;
 		}
+		list_add_tail(&le->ps_list, &rst_info->fds);
 	}
 
 	close_image(img);
 	return ret;
+}
+
+int prepare_fd_pid(struct pstree_item *item)
+{
+	struct rst_info *rst_info = rsti(item);
+	struct fdinfo_list_entry *le, *t;
+	LIST_HEAD(head);
+
+	list_splice_init(&rst_info->fds, &head);
+
+	list_for_each_entry_safe(le, t, &head, ps_list) {
+		list_del(&le->ps_list);
+		if (handle_fd(le, rst_info))
+			return -1;
+	}
+
+	return 0;
 }
 
 #define SETFL_MASK (O_APPEND | O_ASYNC | O_NONBLOCK | O_NDELAY | O_DIRECT | O_NOATIME)
