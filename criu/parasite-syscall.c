@@ -515,6 +515,8 @@ static int parasite_init_daemon(struct parasite_ctl *ctl, struct ns_id *net)
 	args->sigframe = (uintptr_t)ctl->rsigframe;
 	args->log_level = log_get_loglevel();
 
+	futex_set(&args->sync, 0);
+
 	if (prepare_tsock(ctl, pid, args, net))
 		goto err;
 
@@ -525,6 +527,13 @@ static int parasite_init_daemon(struct parasite_ctl *ctl, struct ns_id *net)
 	regs = ctl->orig.regs;
 	if (parasite_run(pid, PTRACE_CONT, ctl->parasite_ip, ctl->rstack, &regs, &ctl->orig))
 		goto err;
+
+	futex_wait_while_eq(&args->sync, 0);
+	if (futex_get(&args->sync) != 1) {
+		errno = -(int)futex_get(&args->sync);
+		pr_perror("Unable to connect a transport socket");
+		goto err;
+	}
 
 	if (accept_tsock(ctl) < 0)
 		goto err;
