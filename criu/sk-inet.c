@@ -534,7 +534,7 @@ static int post_open_inet_sk(struct file_desc *d, int sk)
 
 	val = ii->ie->opts->reuseaddr;
 	if (restore_opt(sk, SOL_SOCKET, SO_REUSEADDR, &val))
-		return -1;
+		return FDO_ERROR;
 
 	return 0;
 }

@@ -993,9 +993,7 @@ static int post_open_fd(int pid, struct fdinfo_list_entry *fle)
 	if (fle != file_master(d))
 		return 0;
 
-	if (d->ops->post_open(d, fle->fe->fd))
-		return FDO_ERROR;
-	return 0;
+	return d->ops->post_open(d, fle->fe->fd);
 }
 
 

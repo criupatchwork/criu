@@ -770,17 +770,17 @@ static int autofs_post_open(struct file_desc *d, int fd)
 	mnt_fd = autofs_mnt_open(i->mnt_path, i->mnt_dev);
 	if (mnt_fd < 0) {
 		pr_err("Failed to open %s\n", i->mnt_path);
-		return -1;
+		return FDO_ERROR;
 	}
 
 	if (autofs_mnt_set_pipefd(i, mnt_fd)) {
 		pr_err("Failed to set %s owner\n", i->mnt_path);
-		return -1;
+		return FDO_ERROR;
 	}
 
 	if (autofs_mnt_close(i->mnt_path, mnt_fd) < 0) {
 		pr_err("Failed to close %s\n", i->mnt_path);
-		return -1;
+		return FDO_ERROR;
 	}
 
 	pr_info("autofs mount %s owner restored: pgrp=%d, fd=%d\n",

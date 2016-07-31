@@ -166,7 +166,7 @@ static int eventpoll_post_open(struct file_desc *d, int fd)
 
 	for (i = 0; i < info->efe->n_tfd; i++) {
 		if (eventpoll_retore_tfd(fd, info->efe->id, info->efe->tfd[i]))
-			return -1;
+			return FDO_ERROR;
 	}
 
 	list_for_each_entry(td_info, &eventpoll_tfds, list) {
@@ -174,7 +174,7 @@ static int eventpoll_post_open(struct file_desc *d, int fd)
 			continue;
 
 		if (eventpoll_retore_tfd(fd, info->efe->id, td_info->tdefe))
-			return -1;
+			return FDO_ERROR;
 
 	}
 

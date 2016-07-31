@@ -903,29 +903,29 @@ static int post_open_unix_sk(struct file_desc *d, int fd)
 	pr_info("\tConnect %#x to %#x\n", ui->ue->ino, peer->ue->ino);
 
 	if (prep_unix_sk_cwd(peer, &cwd_fd))
-		return -1;
+		return FDO_ERROR;
 
 	if (connect(fd, (struct sockaddr *)&addr,
 				sizeof(addr.sun_family) +
 				peer->ue->name.len) < 0) {
 		revert_unix_sk_cwd(&cwd_fd);
 		pr_perror("Can't connect %#x socket", ui->ue->ino);
-		return -1;
+		return FDO_ERROR;
 	}
 
 	revert_unix_sk_cwd(&cwd_fd);
 
 	if (peer->queuer == ui->ue->ino && restore_sk_queue(fd, peer->ue->id))
-		return -1;
+		return FDO_ERROR;
 
 	if (rst_file_params(fd, ui->ue->fown, ui->ue->flags))
-		return -1;
+		return FDO_ERROR;
 
 	if (restore_socket_opts(fd, ui->ue->opts))
-		return -1;
+		return FDO_ERROR;
 
 	if (shutdown_unix_sk(fd, ui))
-		return -1;
+		return FDO_ERROR;
 
 	return 0;
 }

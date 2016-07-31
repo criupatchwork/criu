@@ -667,7 +667,7 @@ static int tty_restore_ctl_terminal(struct file_desc *d, int fd)
 	if (driver->type == TTY_TYPE__EXT_TTY) {
 		slave = -1;
 		if (!inherited_fd(&info->d, &slave) && slave < 0)
-			return -1;
+			return FDO_ERROR;
 		goto out;
 	}
 	if (driver->img_get_index)
@@ -702,7 +702,7 @@ out:
 err:
 	pty_free_fake_reg(&fake);
 	close(fd);
-	return ret;
+	return ret ? FDO_ERROR: 0;
 }
 
 static bool tty_is_master(struct tty_info *info)
