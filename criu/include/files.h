@@ -69,6 +69,7 @@ struct fdinfo_list_entry {
 	struct file_desc	*desc;		/* Associated file descriptor */
 	struct list_head	ps_list;	/* To chain  per-task files */
 	struct list_head	used_list;	/* To chain per-task used fds */
+	struct list_head	postpone;	/* To chain during open_fdinfos() */
 	int			pid;
 	futex_t			real_pid;
 	FdinfoEntry		*fe;
@@ -82,6 +83,7 @@ static inline int fdinfo_rst_prio(struct fdinfo_list_entry *fd_a, struct fdinfo_
 }
 
 #define FDO_ERROR	-1
+#define FDO_REPEAT	-2
 
 struct file_desc_ops {
 	/* fd_types from images/fdinfo.proto */

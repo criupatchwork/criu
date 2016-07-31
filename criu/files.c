@@ -1096,11 +1096,24 @@ static int open_fdinfos(int pid, struct list_head *list, int state)
 {
 	int ret = 0;
 	struct fdinfo_list_entry *fle;
+	LIST_HEAD(postpone);
 
 	list_for_each_entry(fle, list, ps_list) {
 		ret = open_fdinfo(pid, fle, state);
-		if (ret)
+		if (ret == FDO_ERROR)
 			break;
+		if (ret == FDO_REPEAT)
+			list_add(&fle->postpone, &postpone);
+	}
+
+	list_for_each_entry(fle, &postpone, postpone) {
+		ret = open_fdinfo(pid, fle, state);
+		if (ret == FDO_ERROR)
+			break;
+		if (ret == FDO_REPEAT) {
+			pr_err("Twice postponed fle\n");
+			break;
+		}
 	}
 
 	return ret;
