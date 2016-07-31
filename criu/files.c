@@ -915,7 +915,7 @@ static int open_transport_fd(int pid, struct fdinfo_list_entry *fle)
 	sock = socket(PF_UNIX, SOCK_DGRAM, 0);
 	if (sock < 0) {
 		pr_perror("Can't create socket");
-		return -1;
+		return FDO_ERROR;
 	}
 	ret = bind(sock, (struct sockaddr *)&saddr, sun_len);
 	if (ret < 0) {
@@ -934,7 +934,7 @@ static int open_transport_fd(int pid, struct fdinfo_list_entry *fle)
 	return 0;
 err:
 	close(sock);
-	return -1;
+	return FDO_ERROR;
 }
 
 int send_fd_to_peer(int fd, struct fdinfo_list_entry *fle, int sock)
@@ -985,13 +985,17 @@ static int post_open_fd(int pid, struct fdinfo_list_entry *fle)
 	if (!d->ops->post_open)
 		return 0;
 
-	if (is_service_fd(fle->fe->fd, CTL_TTY_OFF))
-		return d->ops->post_open(d, fle->fe->fd);
+	if (is_service_fd(fle->fe->fd, CTL_TTY_OFF)) {
+		if (d->ops->post_open(d, fle->fe->fd))
+			return FDO_ERROR;
+	}
 
 	if (fle != file_master(d))
 		return 0;
 
-	return d->ops->post_open(d, fle->fe->fd);
+	if (d->ops->post_open(d, fle->fe->fd))
+		return FDO_ERROR;
+	return 0;
 }
 
 
@@ -1039,17 +1043,19 @@ static int open_fd(int pid, struct fdinfo_list_entry *fle)
 
 	new_fd = d->ops->open(d);
 	if (new_fd < 0)
-		return -1;
+		return FDO_ERROR;
 
 	if (reopen_fd_as(fle->fe->fd, new_fd))
-		return -1;
+		return FDO_ERROR;
 
 	if (fcntl(fle->fe->fd, F_SETFD, fle->fe->flags) == -1) {
 		pr_perror("Unable to set file descriptor flags");
-		return -1;
+		return FDO_ERROR;
 	}
 
-	return serve_out_fd(pid, fle->fe->fd, d);
+	if (serve_out_fd(pid, fle->fe->fd, d))
+		return FDO_ERROR;
+	return 0;
 }
 
 static int receive_fd(int pid, struct fdinfo_list_entry *fle)
@@ -1066,16 +1072,16 @@ static int receive_fd(int pid, struct fdinfo_list_entry *fle)
 	tmp = recv_fd(fle->fe->fd);
 	if (tmp < 0) {
 		pr_err("Can't get fd %d\n", tmp);
-		return -1;
+		return FDO_ERROR;
 	}
 	close(fle->fe->fd);
 
 	if (reopen_fd_as(fle->fe->fd, tmp) < 0)
-		return -1;
+		return FDO_ERROR;
 
 	if (fcntl(fle->fe->fd, F_SETFD, fle->fe->flags) == -1) {
 		pr_perror("Unable to set file descriptor flags");
-		return -1;
+		return FDO_ERROR;
 	}
 
 	return 0;

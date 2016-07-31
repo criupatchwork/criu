@@ -81,6 +81,8 @@ static inline int fdinfo_rst_prio(struct fdinfo_list_entry *fd_a, struct fdinfo_
 		((fd_a->pid == fd_b->pid) && (fd_a->fe->fd < fd_b->fe->fd));
 }
 
+#define FDO_ERROR	-1
+
 struct file_desc_ops {
 	/* fd_types from images/fdinfo.proto */
 	unsigned int		type;
