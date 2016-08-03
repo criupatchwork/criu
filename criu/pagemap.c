@@ -11,6 +11,8 @@
 #include "protobuf.h"
 #include "images/pagemap.pb-c.h"
 
+#include "img-remote.h"
+
 #ifndef SEEK_DATA
 #define SEEK_DATA	3
 #define SEEK_HOLE	4
@@ -129,16 +131,25 @@ static void put_pagemap(struct page_read *pr)
 static int get_pagemap(struct page_read *pr, struct iovec *iov)
 {
 	PagemapEntry *pe;
+	int ret;
 
-	for (;;) {
-		if (pr->curr_pme >= pr->nr_pmes)
-			return 0;
+	if (!opts.remote) {
+		for (;;) {
+			if (pr->curr_pme >= pr->nr_pmes)
+				return 0;
 
-		pe = pr->pmes[pr->curr_pme];
+			pe = pr->pmes[pr->curr_pme];
 
-		if (!pe->zero)
-			break;
-		put_pagemap(pr);
+			if (!pe->zero)
+				break;
+			put_pagemap(pr);
+
+			pe = pr->pmes[pr->curr_pme];
+		}
+	} else {
+		ret = pb_read_one_eof(pr->pmi, &pe, PB_PAGEMAP);
+		if (ret <= 0)
+			return ret;
 	}
 
 	pagemap2iovec(pe, iov);
@@ -268,12 +279,18 @@ static int read_pagemap_page(struct page_read *pr, unsigned long vaddr, int nr, 
 	} else {
 		int fd = img_raw_fd(pr->pi);
 		off_t current_vaddr = lseek(fd, pr->pi_off, SEEK_SET);
+		size_t curr = 0;
 
 		pr_debug("\tpr%u Read page from self %lx/%"PRIx64"\n", pr->id, pr->cvaddr, current_vaddr);
-		ret = read(fd, buf, len);
-		if (ret != len) {
-			pr_perror("Can't read mapping page %d", ret);
-			return -1;
+		while (1) {
+			ret = read(fd, buf + curr, len - curr);
+			if (ret < 1) {
+				pr_perror("Can't read mapping page %d", ret);
+				return -1;
+			}
+			curr += ret;
+			if (curr == len)
+				break;
 		}
 
 		pr->pi_off += len;
@@ -323,7 +340,7 @@ static void close_page_read(struct page_read *pr)
 	if (pr->pi)
 		close_image(pr->pi);
 
-	if (pr->pmes)
+	if (!opts.remote && pr->pmes)
 		free_pagemaps(pr);
 }
 
@@ -345,9 +362,24 @@ static int try_open_parent(int dfd, int pid, struct page_read *pr, int pr_flags)
 	int pfd, ret;
 	struct page_read *parent = NULL;
 
-	pfd = openat(dfd, CR_PARENT_LINK, O_RDONLY);
-	if (pfd < 0 && errno == ENOENT)
-		goto out;
+	if (opts.remote) {
+		/* Note: we are replacing a real directory FD for a snapshot_id
+		 * index. Since we need the parent of the current snapshot_id,
+		 * we want the current snapshot_id index minus one. It is
+		 * possible that dfd is already a snapshot_id index. We test it
+		 * by comparing it to the service FD. When opening an image (see
+		 * do_open_image) we convert the snapshot_id index into a real
+		 * snapshot_id.
+		 */
+		pfd = dfd == get_service_fd(IMG_FD_OFF) ?
+			get_curr_snapshot_id_idx() - 1 : dfd - 1;
+		if (pfd < 0)
+			goto out;
+	} else {
+		pfd = openat(dfd, CR_PARENT_LINK, O_RDONLY);
+		if (pfd < 0 && errno == ENOENT)
+			goto out;
+	}
 
 	parent = xmalloc(sizeof(*parent));
 	if (!parent)
@@ -370,7 +402,8 @@ out:
 err_free:
 	xfree(parent);
 err_cl:
-	close(pfd);
+	if (!opts.remote)
+		close(pfd);
 	return -1;
 }
 
@@ -480,7 +513,7 @@ int open_page_read_at(int dfd, int pid, struct page_read *pr, int pr_flags)
 		return -1;
 	}
 
-	if (init_pagemaps(pr)) {
+	if (!opts.remote && init_pagemaps(pr)) {
 		close_page_read(pr);
 		return -1;
 	}
@@ -489,9 +522,11 @@ int open_page_read_at(int dfd, int pid, struct page_read *pr, int pr_flags)
 	pr->put_pagemap = put_pagemap;
 	pr->read_pages = read_pagemap_page;
 	pr->close = close_page_read;
-	pr->skip_pages = skip_pagemap_pages;
-	pr->seek_page = seek_pagemap_page;
-	pr->reset = reset_pagemap;
+	if (!opts.remote) {
+		pr->skip_pages = skip_pagemap_pages;
+		pr->seek_page = seek_pagemap_page;
+		pr->reset = reset_pagemap;
+	}
 	pr->id = ids++;
 
 	pr_debug("Opened page read %u (parent %u)\n",

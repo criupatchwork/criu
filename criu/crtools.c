@@ -48,6 +48,7 @@
 #include "namespaces.h"
 #include "setproctitle.h"
 #include "sysctl.h"
+#include "img-remote.h"
 
 struct cr_options opts;
 
@@ -72,6 +73,10 @@ void init_opts(void)
 	opts.ghost_limit = DEFAULT_GHOST_LIMIT;
 	opts.timeout = DEFAULT_TIMEOUT;
 	opts.empty_ns = 0;
+	opts.addr = DEFAULT_CACHE_HOST;
+	opts.port = DEFAULT_CACHE_PORT;
+	opts.local_cache_path = DEFAULT_IMG_PATH;
+	opts.local_proxy_path = DEFAULT_IMG_PATH;
 }
 
 static int parse_join_ns(const char *ptr)
@@ -324,6 +329,9 @@ int main(int argc, char *argv[], char *envp[])
 		{ "cgroup-props-file",		required_argument,	0, 1081	},
 		{ "cgroup-dump-controller",	required_argument,	0, 1082	},
 		{ SK_INFLIGHT_PARAM,		no_argument,		0, 1083	},
+		{ "remote",			no_argument,		0, 1084 },
+		{ "local-cache-path",		required_argument,	0, 1085 },
+		{ "local-proxy-path",		required_argument,	0, 1086 },
 		{ },
 	};
 
@@ -639,6 +647,15 @@ int main(int argc, char *argv[], char *envp[])
 			pr_msg("Will skip in-flight TCP connections\n");
 			opts.tcp_skip_in_flight = true;
 			break;
+		case 1084:
+			opts.remote = true;
+			break;
+		case 1085:
+			opts.local_cache_path = optarg;
+			break;
+		case 1086:
+			opts.local_proxy_path = optarg;
+			break;
 		case 'V':
 			pr_msg("Version: %s\n", CRIU_VERSION);
 			if (strcmp(CRIU_GITID, "0"))
@@ -792,6 +809,12 @@ int main(int argc, char *argv[], char *envp[])
 	if (!strcmp(argv[optind], "page-server"))
 		return cr_page_server(opts.daemon_mode, -1) > 0 ? 0 : 1;
 
+	if (!strcmp(argv[optind], "image-cache"))
+		return image_cache(opts.local_cache_path, opts.port);
+
+	if (!strcmp(argv[optind], "image-proxy"))
+		return image_proxy(opts.local_proxy_path, opts.addr, opts.port);
+
 	if (!strcmp(argv[optind], "service"))
 		return cr_service(opts.daemon_mode);
 
@@ -819,6 +842,8 @@ usage:
 "  criu service [<options>]\n"
 "  criu dedup\n"
 "  criu lazy-pages -D DIR [<options>]\n"
+"  criu image-cache [<options>]\n"
+"  criu image-proxy [<options>]\n"
 "\n"
 "Commands:\n"
 "  dump           checkpoint a process/tree identified by pid\n"
@@ -831,6 +856,8 @@ usage:
 "  dedup          remove duplicates in memory dump\n"
 "  cpuinfo dump   writes cpu information into image file\n"
 "  cpuinfo check  validates cpu information read from image file\n"
+"  image-cache    launch destination-side cache for images sent from the source-side\n"
+"  image-proxy    launch source-side proxy to sent images to the destination-side\n"
 	);
 
 	if (usage_error) {
@@ -862,6 +889,7 @@ usage:
 "                        this requires running a second instance of criu\n"
 "                        in lazy-pages mode: 'criu lazy-pages -D DIR'\n"
 "                        --lazy-pages and lazy-pages mode require userfaultfd\n"
+"  --remote              dump/restore images directly to/from remote node using image-proxy/image-cache\n"
 "\n"
 "* Special resources support:\n"
 "  -x|--" USK_EXT_PARAM "inode,.." "      allow external unix connections (optionally can be assign socket's inode that allows one-sided dump)\n"
@@ -971,7 +999,7 @@ usage:
 "\n"
 "Page/Service server options:\n"
 "  --address ADDR        address of server or service\n"
-"  --port PORT           port of page server\n"
+"  --port PORT           port of page serve or service\n"
 "  -d|--daemon           run in the background after creating socket\n"
 "\n"
 "Other options:\n"

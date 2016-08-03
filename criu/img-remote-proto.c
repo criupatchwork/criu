@@ -236,6 +236,10 @@ int setup_TCP_client_socket(char *hostname, int port)
 
 int setup_UNIX_server_socket(char *path)
 {
+	if (!path) {
+		pr_err("Path should not be empty\n");
+		return -1;
+	}
 	struct sockaddr_un addr;
 	int sockfd = socket(AF_UNIX, SOCK_STREAM, 0);
 

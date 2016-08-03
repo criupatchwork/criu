@@ -165,7 +165,7 @@ static int generate_iovs(struct vma_area *vma, struct page_pipe *pp, u64 *map, u
 		 * page. The latter would be checked in page-xfer.
 		 */
 
-		if (page_is_zero(at[pfn])) {
+		if (page_is_zero(at[pfn]) && !opts.remote) {
 			ret = page_pipe_add_hole(pp, vaddr, PP_HOLE_ZERO);
 			pages[0]++;
 		} else if (has_parent && page_in_parent(at[pfn])) {
