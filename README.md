@@ -19,6 +19,6 @@ Pages worth starting with are:
 ### How to contribute
 
 * [How to submit patches](http://criu.org/How_to_submit_patches);
-* Send all bug reports to [mailing
-list](https://lists.openvz.org/mailman/listinfo/criu);
+* Report a bug to [CRIU mailing
+list](https://lists.openvz.org/mailman/listinfo/criu) or (create a new issue on GitHub)[https://github.com/xemul/criu/issues/new]
 * Spread the word about CRIU in [social networks](http://criu.org/Contacts);
