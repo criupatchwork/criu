@@ -650,6 +650,9 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 
 	memzero(ta, args_len);
 
+	if (open_cores(pid, core))
+		return -1;
+
 	if (prepare_fds(current))
 		return -1;
 
@@ -663,9 +666,6 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 		return -1;
 
 	if (fixup_sysv_shmems())
-		return -1;
-
-	if (open_cores(pid, core))
 		return -1;
 
 	if (prepare_signals(pid, ta, core))
