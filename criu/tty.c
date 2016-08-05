@@ -5,6 +5,7 @@
 #include <string.h>
 #include <limits.h>
 #include <fcntl.h>
+#include <sys/fsuid.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/mman.h>
@@ -555,11 +556,23 @@ static char *path_from_reg(struct file_desc *d)
 
 static int pty_open_ptmx_index(struct file_desc *d, int index, int flags)
 {
+	CredsEntry *ce = current->core[0]->thread_core->creds;
 	int fds[32], i, ret = -1, cur_idx;
+	int old_fsuid, old_fsgid;
 
 	memset(fds, 0xff, sizeof(fds));
 
 	mutex_lock(tty_mutex);
+
+	/*
+	 * The kernel creates slave peers with
+	 * fsuid/fsgid taken from mount options
+	 * or current task, so we have to setup
+	 * destination uids here and restore them
+	 * back upon open.
+	 */
+	old_fsuid = setfsuid(ce->fsuid);
+	old_fsgid = setfsgid(ce->fsgid);
 
 	for (i = 0; i < ARRAY_SIZE(fds); i++) {
 		fds[i] = open_tty_reg(d, flags);
@@ -600,8 +613,13 @@ static int pty_open_ptmx_index(struct file_desc *d, int index, int flags)
 			close(fds[i]);
 	}
 
-	mutex_unlock(tty_mutex);
+	setfsuid(old_fsuid);
+	setfsgid(old_fsgid);
 
+	if (setfsuid(-1) != old_fsuid || setfsgid(-1) != old_fsgid)
+		pr_warn("Failed to restore old fsuid/fsgid!\n");
+
+	mutex_unlock(tty_mutex);
 	return ret;
 }
 
