@@ -3,6 +3,7 @@ ifndef ____nmk_defined__tools
 #
 # System tools shorthands
 RM		:= rm -f
+CP		:= cp
 LD		:= $(CROSS_COMPILE)ld
 CC		:= $(CROSS_COMPILE)gcc
 CPP		:= $(CC) -E

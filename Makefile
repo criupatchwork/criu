@@ -189,6 +189,16 @@ test/compel/%: .FORCE
 	$(Q) $(MAKE) $(build)=compel $@
 
 #
+# Next the socket CR library
+#
+SOCCR_A := soccr/libsoccr.a
+soccr/%: .FORCE
+	$(Q) $(MAKE) $(build)=soccr $@
+soccr/built-in.o: .FORCE
+	$(Q) $(MAKE) $(build)=soccr all
+$(SOCCR_A): |soccr/built-in.o
+
+#
 # CRIU building done in own directory
 # with slightly different rules so we
 # can't use nmk engine directly (we
@@ -198,7 +208,7 @@ test/compel/%: .FORCE
 # the nmk so we can reuse it there.
 criu/%: images/built-in.o compel/compel $(VERSION_HEADER) .FORCE
 	$(Q) $(MAKE) $(build)=criu $@
-criu: images/built-in.o compel/compel $(VERSION_HEADER)
+criu: images/built-in.o compel/compel $(SOCCR_A) $(VERSION_HEADER)
 	$(Q) $(MAKE) $(build)=criu all
 .PHONY: criu
 
@@ -227,6 +237,7 @@ clean: subclean
 	$(Q) $(MAKE) $(build)=images $@
 	$(Q) $(MAKE) $(build)=compel $@
 	$(Q) $(MAKE) $(build)=criu $@
+	$(Q) $(MAKE) $(build)=soccr clean
 .PHONY: clean
 
 # mrproper depends on clean in nmk
@@ -234,6 +245,7 @@ mrproper: subclean
 	$(Q) $(MAKE) $(build)=images $@
 	$(Q) $(MAKE) $(build)=compel $@
 	$(Q) $(MAKE) $(build)=criu $@
+	$(Q) $(MAKE) $(build)=soccr clean
 	$(Q) $(RM) $(VERSION_HEADER)
 	$(Q) $(RM) cscope.*
 	$(Q) $(RM) tags TAGS
