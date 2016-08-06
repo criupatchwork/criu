@@ -68,6 +68,13 @@ static int gc_cleanup_mntns(void)
 	return ret;
 }
 
+static int gc_show(void)
+{
+	show_link_remaps();
+
+	return 0;
+}
+
 static int gc_do(void)
 {
 	if (gc_link_remaps() < 0)
@@ -115,8 +122,10 @@ int cr_gc(void)
 		goto exit;
 	}
 
-	if (gc_do())
-		ret = -1;
+	if (opts.show)
+		ret = gc_show();
+	else
+		ret = gc_do();
 
 exit:
 	if (gc_cleanup_mntns())
