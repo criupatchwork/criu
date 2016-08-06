@@ -1086,6 +1086,17 @@ def check_unshare_state(t):
 	cmp_ns("/proc/%s/ns/net" % t.getpid(), '!=', "/proc/self/ns/net", "unshare net")
 
 
+def do_run_test_cr(cr_api, test, opts):
+	state = get_visible_state(test)
+	cr(cr_api, test, opts)
+	check_visible_state(test, state, opts)
+	if opts['join_ns']:
+		check_joinns_state(test)
+	if opts['unshare']:
+		check_unshare_state(test)
+	test.stop()
+
+
 def do_run_test(tname, tdesc, flavs, opts):
 	tcname = tname.split('/')[0]
 	tclass = test_classes.get(tcname, None)
@@ -1111,20 +1122,12 @@ def do_run_test(tname, tdesc, flavs, opts):
 
 		try:
 			t.start()
-			s = get_visible_state(t)
 			try:
-				cr(cr_api, t, opts)
+				do_run_test_cr(cr_api, t, opts)
+				try_run_hook(t, ["--clean"])
 			except test_fail_expected_exc as e:
 				if e.cr_action == "dump":
 					t.stop()
-			else:
-				check_visible_state(t, s, opts)
-				if opts['join_ns']:
-					check_joinns_state(t)
-				if opts['unshare']:
-					check_unshare_state(t)
-				t.stop()
-				try_run_hook(t, ["--clean"])
 		except test_fail_exc as e:
 			print_sep("Test %s FAIL at %s" % (tname, e.step), '#')
 			t.print_output()
