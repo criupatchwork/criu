@@ -12,6 +12,7 @@
 #include "util.h"
 #include "sockets.h"
 #include "net.h"
+#include "sk-inet.h"
 
 static int gc_validate_opts(void)
 {
@@ -73,6 +74,9 @@ static int gc_cleanup_mntns(void)
 static int gc_show(void)
 {
 	show_link_remaps();
+
+	if (gc_show_locked_tcp_conns() < 0)
+		return -1;
 
 	return 0;
 }
