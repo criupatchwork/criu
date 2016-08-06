@@ -1,1 +1,1 @@
-{'flavor': 'ns', 'flags': 'suid crfail', 'opts': '--link-remap'}
+{'flavor': 'h ns', 'flags': 'suid crfail', 'opts': '--link-remap'}
