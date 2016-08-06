@@ -3160,8 +3160,7 @@ void fini_restore_mntns(void)
 		if (nsid->nd != &mnt_ns_desc)
 			continue;
 		close_safe(&nsid->mnt.ns_fd);
-		if (nsid->type != NS_ROOT)
-			close_safe(&nsid->mnt.root_fd);
+		close_safe(&nsid->mnt.root_fd);
 		nsid->ns_populated = true;
 	}
 }
@@ -3494,6 +3493,10 @@ ns_created:
 			/* Pin one with a file descriptor */
 			nsid->mnt.ns_fd = open_proc(PROC_SELF, "ns/mnt");
 			if (nsid->mnt.ns_fd < 0)
+				goto err;
+			/* root_fd is used to restore file mappings */
+			nsid->mnt.root_fd = open_proc(PROC_SELF, "root");
+			if (nsid->mnt.root_fd < 0)
 				goto err;
 			/* we set ns_populated so we don't need to open root_fd */
 			nsid->ns_populated = true;
