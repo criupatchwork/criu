@@ -81,6 +81,8 @@ struct shmem_info {
 		struct { /* For dump */
 			unsigned long	start;
 			unsigned long	end;
+			unsigned long	*pdirty_map;
+			unsigned long	*pused_map;
 		};
 	};
 };
@@ -120,6 +122,52 @@ static struct shmem_info *shmem_find(unsigned long shmid)
 	return NULL;
 }
 
+#define BLOCKS_CNT(size, block_size) \
+	(((size) + (block_size) - 1) / (block_size))
+
+static int expand_shmem(struct shmem_info *si, unsigned long new_size)
+{
+	unsigned long nr_pages, nr_map_items, map_size,
+				nr_new_map_items, new_map_size;
+
+	nr_pages = BLOCKS_CNT(si->size, PAGE_SIZE);
+	nr_map_items = BLOCKS_CNT(nr_pages, sizeof(*si->pdirty_map) * 8);
+	map_size = nr_map_items * sizeof(*si->pdirty_map);
+
+	nr_pages = BLOCKS_CNT(new_size, PAGE_SIZE);
+	nr_new_map_items = BLOCKS_CNT(nr_pages, sizeof(*si->pdirty_map) * 8);
+	new_map_size = nr_new_map_items * sizeof(*si->pdirty_map);
+
+	BUG_ON(new_map_size < map_size);
+
+	si->pdirty_map = xrealloc(si->pdirty_map, new_map_size);
+	if (!si->pdirty_map)
+		return -1;
+	memzero(si->pdirty_map + nr_map_items, new_map_size - map_size);
+
+	si->pused_map = xrealloc(si->pused_map, new_map_size);
+	if (!si->pused_map)
+		return -1;
+	memzero(si->pused_map + nr_map_items, new_map_size - map_size);
+
+	si->size = new_size;
+	return 0;
+}
+
+static void update_shmem_pmaps(struct shmem_info *si, u64 *map,
+		unsigned long off)
+{
+	unsigned long p, pcount, poff;
+
+	pcount = BLOCKS_CNT(si->size - off, PAGE_SIZE);
+	poff = BLOCKS_CNT(off, PAGE_SIZE);
+	for (p = 0; p < pcount; ++p) {
+		if (map[p] & PME_SOFT_DIRTY)
+			set_bit(p + poff, si->pdirty_map);
+		if ((map[p] & PME_PRESENT) || (map[p] & PME_SWAP))
+			set_bit(p + poff, si->pused_map);
+	}
+}
 
 int collect_sysv_shmem(unsigned long shmid, unsigned long size)
 {
@@ -489,25 +537,31 @@ int add_shmem_area(pid_t pid, VmaEntry *vma, u64 *map)
 {
 	struct shmem_info *si;
 	unsigned long size = vma->pgoff + (vma->end - vma->start);
-	(void)map;
 
 	si = shmem_find(vma->shmid);
 	if (si) {
-		if (si->size < size)
-			si->size = size;
+		if (si->size < size) {
+			if (expand_shmem(si, size))
+				return -1;
+		}
+		update_shmem_pmaps(si, map, vma->pgoff);
+
 		return 0;
 	}
 
-	si = xmalloc(sizeof(*si));
+	si = xzalloc(sizeof(*si));
 	if (!si)
 		return -1;
 
-	si->size = size;
 	si->pid = pid;
 	si->start = vma->start;
 	si->end = vma->end;
 	si->shmid = vma->shmid;
 	shmem_hash_add(si);
+
+	if (expand_shmem(si, size))
+		return -1;
+	update_shmem_pmaps(si, map, vma->pgoff);
 
 	return 0;
 }
