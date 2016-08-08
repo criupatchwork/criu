@@ -80,13 +80,16 @@ int vdso_map_compat(unsigned long map_at, unsigned long park_size,
 		struct vdso_symtable *sym_rt)
 {
 	unsigned long search_vdso;
-	int ret;
+	int i, ret;
 
 	pr_debug("Mapping compatible vDSO at %lx\n", map_at);
 
 	ret = sys_arch_prctl(ARCH_MAP_VDSO_32, map_at);
 	if (ret)
 		return ret;
+
+	for (i = 0; i < VDSO_SYMBOL_MAX; i++)
+		sym_rt->symbols[i].offset = VDSO_BAD_ADDR;
 
 	/*
 	 * We could map VVAR firstly, or VDSO.
