@@ -76,6 +76,18 @@ int vdso_do_park(struct vdso_symtable *sym_rt, unsigned long park_at, unsigned l
 extern int vdso_fill_symtable_compat(uintptr_t mem, size_t size,
 		struct vdso_symtable *t);
 
+static int vdso_remap_compat(unsigned long from, unsigned long to,
+		unsigned long size)
+{
+	/*
+	 * Older kernels like v3.11 doesn't support remapping 32-bit vDSO.
+	 * Adding remapping support to such kernels may be challenging task.
+	 * We can work around it if we have arch_prctl(ARCH_MAP_VDSO_32)
+	 * backported which is quite simple patch.
+	 */
+	return sys_arch_prctl(ARCH_MAP_VDSO_32, to);
+}
+
 int vdso_map_compat(unsigned long map_at, unsigned long park_size,
 		struct vdso_symtable *sym_rt)
 {
@@ -116,6 +128,12 @@ int __vdso_fill_symtable(uintptr_t mem, size_t size,
 		return vdso_fill_symtable(mem, size, t);
 }
 #else
+static int vdso_remap_compat(unsigned long from, unsigned long to,
+		unsigned long size)
+{
+	return 0;
+}
+
 int vdso_map_compat(unsigned long __always_unused map_at,
 		unsigned long __always_unused park_size,
 		struct vdso_symtable __always_unused *sym_rt)
@@ -245,6 +263,10 @@ int vdso_proxify(char *who, struct vdso_symtable *sym_rt,
 			}
 		} else
 			ret = vdso_remap(who, vdso_rt_parked_at, vma_vdso->start, vdso_vma_size(sym_rt));
+		if (ret && compat_vdso) /* try remap with arch_prctl() */
+			ret = vdso_remap_compat(vdso_rt_parked_at,
+					vma_vdso->start, vdso_vma_size(sym_rt));
+
 
 		return ret;
 	}
