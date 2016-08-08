@@ -180,7 +180,7 @@ int vdso_proxify(char *who, struct vdso_symtable *sym_rt,
 	 *    b) Symbols offsets must match
 	 *    c) Have same number of vDSO zones
 	 */
-	if (vma_entry_len(vma_vdso) == vdso_vma_size(sym_rt)) {
+	if (vma_entry_len(vma_vdso) == vdso_vma_size(sym_rt) || compat_vdso) {
 		size_t i;
 
 		for (i = 0; i < ARRAY_SIZE(s.symbols); i++) {
