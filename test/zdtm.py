@@ -645,6 +645,7 @@ class criu_cli:
 		self.__iter = 0
 		self.__prev_dump_iter = None
 		self.__page_server = (opts['page_server'] and True or False)
+		self.__remote = (opts['remote'] and True or False)
 		self.__restore_sibling = (opts['sibling'] and True or False)
 		self.__join_ns = (opts['join_ns'] and True or False)
 		self.__unshare = (opts['unshare'] and True or False)
@@ -768,6 +769,32 @@ class criu_cli:
 
 		a_opts += self.__test.getdopts()
 
+		if self.__remote:
+			from subprocess import check_output
+			os.system("killall -9 criu")
+
+			logdir = os.getcwd() + "/" + self.__dump_path + "/" + str(self.__iter)
+			print "Adding image cache"
+
+			cache_opts = [criu_bin, "image-cache", "--port", "12345", "--local-cache-path",
+				      logdir + "/image-cache.sock", "-v4", "-o", logdir + "/image-cache.log"]
+
+			cpid = subprocess.Popen(cache_opts).pid
+			time.sleep(1)
+
+			print "Adding image proxy"
+
+			proxy_opts = [criu_bin, "image-proxy", "--port", "12345", "--local-proxy-path",
+				      logdir + "/image-proxy.sock", "--address", "localhost",
+				      "-v4", "-o", logdir + "/image-proxy.log"]
+
+			ppid = subprocess.Popen(proxy_opts).pid
+			time.sleep(1)
+
+			a_opts += ["--remote", "--local-proxy-path", logdir + "/image-proxy.sock"]
+
+		a_opts += self.__test.getdopts()
+
 		if self.__dedup:
 			a_opts += ["--auto-dedup"]
 
@@ -785,6 +812,8 @@ class criu_cli:
 
 	def restore(self):
 		r_opts = []
+		logdir = os.getcwd() + "/" + self.__dump_path + "/" + str(self.__iter)
+
 		if self.__restore_sibling:
 			r_opts = ["--restore-sibling"]
 			self.__test.auto_reap = False
@@ -796,12 +825,16 @@ class criu_cli:
 			r_opts.append("--unshare")
 			r_opts.append("pid,user,mnt,proc")
 
+		if self.__remote:
+			r_opts += ["--remote", "--local-cache-path",  logdir + "/image-cache.sock"]
+
 		self.__prev_dump_iter = None
 		criu_dir = os.path.dirname(os.getcwd())
 		if os.getenv("GCOV"):
 			r_opts.append("--ext-mount-map")
 			r_opts.append("zdtm:%s" % criu_dir)
 		self.__criu_act("restore", opts = r_opts + ["--restore-detached"])
+
 
 	@staticmethod
 	def check(feature):
@@ -1154,7 +1187,7 @@ class launcher:
 
 		nd = ('nocr', 'norst', 'pre', 'iters', 'page_server', 'sibling', 'unshare',
 				'fault', 'keep_img', 'report', 'snaps', 'sat', 'script',
-				'join_ns', 'dedup', 'sbs', 'freezecg', 'user', 'dry_run')
+				'join_ns', 'dedup', 'sbs', 'freezecg', 'user', 'dry_run', 'remote')
 		arg = repr((name, desc, flavor, {d: self.__opts[d] for d in nd}))
 
 		if self.__use_log:
@@ -1603,6 +1636,7 @@ rp.add_argument("--freezecg", help = "Use freeze cgroup (path:state)")
 rp.add_argument("--user", help = "Run CRIU as regular user", action = 'store_true')
 
 rp.add_argument("--page-server", help = "Use page server dump", action = 'store_true')
+rp.add_argument("--remote", help = "Use remote option for diskless C/R", action = 'store_true')
 rp.add_argument("-p", "--parallel", help = "Run test in parallel")
 rp.add_argument("--dry-run", help="Don't run tests, just pretend to", action='store_true')
 rp.add_argument("--script", help="Add script to get notified by criu")
