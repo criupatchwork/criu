@@ -749,6 +749,33 @@ int gc_link_remaps(void)
 	return 0;
 }
 
+void show_link_remaps(void)
+{
+	struct remap_info *ri;
+
+	if (list_empty(&remaps))
+		return;
+
+	list_for_each_entry(ri, &remaps, list) {
+		if (ri->rfe->remap_type != REMAP_TYPE__LINKED)
+			continue;
+
+		/* Don't print " (deleted)" suffix if it exists */
+		const char DELETED_SUFFIX[] = " (deleted)";
+		size_t path_size = strlen(ri->rfi->path) + 1;
+
+		if (path_size >= sizeof(DELETED_SUFFIX)) {
+			char *path_no_suffix = ri->rfi->path + path_size
+				- sizeof(DELETED_SUFFIX);
+			if (!strcmp(path_no_suffix, DELETED_SUFFIX))
+				path_size -= sizeof(DELETED_SUFFIX) - 1;
+		}
+
+		pr_msg("Link remap: /%s -> /%.*s\n",
+					ri->rfi->remap->rpath, (int)path_size - 1, ri->rfi->path);
+	}
+}
+
 static int create_link_remap(char *path, int len, int lfd,
 				u32 *idp, struct ns_id *nsid)
 {
