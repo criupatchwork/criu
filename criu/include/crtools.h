@@ -24,6 +24,7 @@ extern int cr_check(void);
 extern int cr_exec(int pid, char **opts);
 extern int cr_dedup(void);
 extern int cr_lazy_pages(void);
+extern int cr_gc(void);
 
 extern int check_add_feature(char *arg);
 
