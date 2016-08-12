@@ -113,6 +113,14 @@ struct cr_options {
 	bool			lazy_pages;
 	bool			tcp_skip_in_flight;
 	char			*work_dir;
+
+	/*
+	 * When we scheduler for removal some functionality we first
+	 * deprecate it and it sits in criu for some time. By default
+	 * the deprecated stuff is not working, but it's still possible
+	 * to turn one ON while the code is in.
+	 */
+	bool			deprecated_ok;
 };
 
 extern struct cr_options opts;
