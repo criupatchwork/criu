@@ -2186,6 +2186,9 @@ static int prepare_itimers_from_fd(int pid, struct task_restore_args *args)
 	struct cr_img *img;
 	ItimerEntry *ie;
 
+	if (!deprecated_ok("Itimers"))
+		return -1;
+
 	img = open_image(CR_FD_ITIMERS, O_RSTR, pid);
 	if (!img)
 		return -1;
@@ -2307,6 +2310,9 @@ static int prepare_posix_timers_from_fd(int pid, struct task_restore_args *ta)
 	struct cr_img *img;
 	int ret = -1;
 	struct restore_posix_timer *t;
+
+	if (!deprecated_ok("Posix timers"))
+		return -1;
 
 	img = open_image(CR_FD_POSIX_TIMERS, O_RSTR, pid);
 	if (!img)
@@ -2497,6 +2503,9 @@ static int prepare_rlimits_from_fd(int pid, struct task_restore_args *ta)
 	struct rlimit *r;
 	int ret;
 	struct cr_img *img;
+
+	if (!deprecated_ok("Rlimits"))
+		return -1;
 
 	/*
 	 * Old image -- read from the file.
