@@ -1421,8 +1421,6 @@ def run_tests(opts):
 				run_flavs -= set(['ns', 'uns'])
 			if opts['unshare']:
 				run_flavs -= set(['ns', 'uns'])
-			if opts['lazy_pages']:
-				run_flavs -= set(['ns', 'uns'])
 
 			if run_flavs:
 				l.run_test(t, tdesc, run_flavs)
