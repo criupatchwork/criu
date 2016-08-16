@@ -648,7 +648,7 @@ static int vma_list_add(struct vma_area *vma_area,
 }
 
 int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list,
-					dump_filemap_t dump_filemap)
+					parse_filemap_t parse_filemap)
 {
 	struct vma_area *vma_area = NULL;
 	unsigned long start, end, pgoff, prev_end = 0;
@@ -754,7 +754,7 @@ int parse_smaps(pid_t pid, struct vm_area_list *vma_area_list,
 
 		if (vma_entry_is(vma_area->e, VMA_FILE_PRIVATE) ||
 				vma_entry_is(vma_area->e, VMA_FILE_SHARED)) {
-			if (dump_filemap && dump_filemap(vma_area, vm_file_fd))
+			if (parse_filemap && parse_filemap(vma_area, vm_file_fd))
 				goto err;
 		}
 	}
