@@ -6,7 +6,7 @@
 #define LOCK_PREFIX "\n\tlock; "
 
 typedef struct {
-	int counter;
+	u32 counter;
 } atomic_t;
 
 #define ATOMIC_INIT(i)	{ (i) }
