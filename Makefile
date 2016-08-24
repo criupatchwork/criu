@@ -181,12 +181,9 @@ $(eval $(call gen-built-in,images))
 
 .PHONY: .FORCE
 
+#
 # Compel get used by CRIU, build it earlier
-compel/%: .FORCE
-	$(Q) $(MAKE) $(build)=compel $@
-
-test/compel/%: .FORCE
-	$(Q) $(MAKE) $(build)=compel $@
+include Makefile.compel
 
 #
 # CRIU building done in own directory
