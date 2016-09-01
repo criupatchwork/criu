@@ -1281,6 +1281,36 @@ static int next_device_entry(char *buf)
 	return pos - buf;
 }
 
+static int dev_exceptions_add(CgroupPropEntry *prop, char *paux, size_t off)
+{
+	char *old_val, *old_name, *pos;
+	int ret;
+
+	if (prop->perms->mode != 0200)
+		prop->perms->mode = 0200;
+
+	old_val = prop->value;
+	old_name = prop->name;
+
+	prop->name = "devices.allow";
+	pos = prop->value;
+
+	while (*pos) {
+		int offset = next_device_entry(pos);
+		prop->value = pos;
+		ret = restore_cgroup_prop(prop, paux, off);
+		if (ret < 0)
+			goto out;
+		pos += offset;
+	}
+
+	ret = 0;
+out:
+	prop->value = old_val;
+	prop->name = old_name;
+	return ret;
+}
+
 static int prepare_cgroup_dir_properties(char *path, int off, CgroupDirEntry **ents,
 					 unsigned int n_ents)
 {
@@ -1319,63 +1349,26 @@ static int prepare_cgroup_dir_properties(char *path, int off, CgroupDirEntry **e
 				if (special)
 					continue;
 
-				/* The devices cgroup must be restored in a
+				/*
+				 * The devices cgroup must be restored in a
 				 * special way: only the contents of
 				 * devices.list can be read, and it is a
 				 * whitelist of all the devices the cgroup is
-				 * allowed to create. To re-creat this
-				 * whitelist, we first deny everything via
-				 * devices.deny, and then write the list back
-				 * into devices.allow.
+				 * allowed to create.
+				 *
+				 * If the cgroup already exist then we assume
+				 * the default "deny" strategy already set by
+				 * a caller, if it doesn't then our "special"
+				 * properties handling routine will deny
+				 * everything on toplevel cgroup.
 				 *
 				 * Further, we must have a write() call for
 				 * each line, because the kernel only parses
 				 * the first line of any write().
 				 */
 				if (!strcmp(e->properties[j]->name, "devices.list")) {
-					CgroupPropEntry *pe = e->properties[j];
-					char *old_val = pe->value, *old_name = pe->name;
-					int ret;
-					char *pos;
-
-					/* A bit of a fudge here. These are
-					 * write only by owner by default, but
-					 * the container engine could have
-					 * changed the perms. We should come up
-					 * with a better way to restore all of
-					 * this stuff.
-					 */
-					pe->perms->mode = 0200;
-
-					pe->name = "devices.deny";
-					pe->value = "a";
-					ret = restore_cgroup_prop(e->properties[j], path, off2);
-					pe->name = old_name;
-					pe->value = old_val;
-
-					if (ret < 0)
+					if (dev_exceptions_add(e->properties[j], path, off2) < 0)
 						return -1;
-
-					pe->name = xstrdup("devices.allow");
-					if (!pe->name) {
-						pe->name = old_name;
-						return -1;
-					}
-					xfree(old_name);
-
-					pos = pe->value;
-					while (*pos) {
-						int offset = next_device_entry(pos);
-						pe->value = pos;
-						ret = restore_cgroup_prop(pe, path, off2);
-						if (ret < 0) {
-							pe->value = old_val;
-							return -1;
-						}
-						pos += offset;
-					}
-					pe->value = old_val;
-
 				} else if (restore_cgroup_prop(e->properties[j], path, off2) < 0) {
 					return -1;
 				}
@@ -1411,11 +1404,45 @@ int prepare_cgroup_properties(void)
 	return 0;
 }
 
-static int restore_special_props(char *paux, size_t off, CgroupDirEntry *e)
+static int restore_special_props(char *paux, size_t off, CgroupDirEntry *e, bool toplevel)
 {
 	int i, j;
 
 	pr_info("Restore special props\n");
+
+	/*
+	 * For freshly created toplevel cgroup we need to
+	 * take care of devices list separately: deny everything
+	 * by default and setup allowed devices. Upon children
+	 * creation the list get propagated.
+	 */
+	if (toplevel) {
+		for (j = 0; j < e->n_properties; j++) {
+			CgroupPropEntry *prop = e->properties[j];
+			char *old_val, *old_name;
+			int ret;
+
+			if (strcmp(prop->name, "device.list"))
+				continue;
+
+			prop->perms->mode = 0200;
+
+			old_val = prop->value;
+			old_name = prop->name;
+
+			prop->name = "devices.deny";
+			prop->value = "a";
+			ret = restore_cgroup_prop(prop, paux, off);
+			prop->value = old_val;
+			prop->name = old_name;
+
+			if (ret < 0)
+				return -1;
+
+			if (dev_exceptions_add(prop, paux, off))
+				return -1;
+		}
+	}
 
 	for (i = 0; special_props[i]; i++) {
 		const char *name = special_props[i];
@@ -1494,8 +1521,10 @@ static int prepare_cgroup_dirs(char **controllers, int n_controllers, char *paux
 				return -1;
 
 			for (j = 0; j < n_controllers; j++) {
-				if (!strcmp(controllers[j], "cpuset") || !strcmp(controllers[j], "memory")) {
-					if (restore_special_props(paux, off2, e) < 0) {
+				if (!strcmp(controllers[j], "cpuset") ||
+				    !strcmp(controllers[j], "memory") ||
+				    !strcmp(controllers[j], "devices")) {
+					if (restore_special_props(paux, off2, e, i == 0) < 0) {
 						pr_err("Restoring special cpuset props failed!\n");
 						return -1;
 					}
