@@ -763,6 +763,7 @@ class criu:
 		self.__script = opts['script']
 		self.__sat = (opts['sat'] and True or False)
 		self.__dedup = (opts['dedup'] and True or False)
+		self.__mdedup = (opts['noauto_dedup'] and True or False)
 		self.__user = (opts['user'] and True or False)
 		self.__leave_stopped = (opts['stop'] and True or False)
 		self.__criu = (opts['rpc'] and criu_rpc or criu_cli)
@@ -888,6 +889,8 @@ class criu:
 			a_opts += ['--leave-stopped']
 
 		self.__criu_act(action, opts = a_opts + opts)
+		if self.__mdedup and self.__iter > 1:
+			self.__criu_act("dedup", opts = [])
 
 		if self.__leave_stopped:
 			pstree_check_stopped(self.__test.getpid())
@@ -1354,8 +1357,9 @@ class launcher:
 		self.__show_progress()
 
 		nd = ('nocr', 'norst', 'pre', 'iters', 'page_server', 'sibling', 'unshare',
-				'fault', 'keep_img', 'report', 'snaps', 'sat', 'script', 'stop', 'rpc',
-				'join_ns', 'dedup', 'sbs', 'freezecg', 'user', 'dry_run', 'lazy_pages')
+				'fault', 'keep_img', 'report', 'snaps', 'sat', 'script', 'stop',
+				'join_ns', 'dedup', 'sbs', 'freezecg', 'user', 'dry_run', 'rpc',
+				'lazy_pages', 'noauto_dedup')
 		arg = repr((name, desc, flavor, {d: self.__opts[d] for d in nd}))
 
 		if self.__use_log:
@@ -1795,6 +1799,7 @@ rp.add_argument("--join-ns", help = "Restore tests and join existing namespace",
 rp.add_argument("--pre", help = "Do some pre-dumps before dump (n[:pause])")
 rp.add_argument("--snaps", help = "Instead of pre-dumps do full dumps", action = 'store_true')
 rp.add_argument("--dedup", help = "Auto-deduplicate images on iterations", action = 'store_true')
+rp.add_argument("--noauto-dedup", help = "Manual deduplicate images on iterations", action = 'store_true')
 rp.add_argument("--nocr", help = "Do not CR anything, just check test works", action = 'store_true')
 rp.add_argument("--norst", help = "Don't restore tasks, leave them running after dump", action = 'store_true')
 rp.add_argument("--stop", help = "Check that --leave-stopped option stops ps tree.", action = 'store_true')
