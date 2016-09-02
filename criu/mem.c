@@ -365,14 +365,14 @@ again:
 				BUG_ON(delayed_dump);
 
 				ret = dump_pages(pp, ctl, args, &xfer, false);
-				if (ret)
-					goto out_xfer;
-				page_pipe_reinit(pp);
-				goto again;
+				if (!ret) {
+					page_pipe_reinit(pp);
+					goto again;
+				}
 			}
-			if (ret < 0)
-				goto out_xfer;
 		}
+		if (ret < 0)
+			goto out_xfer;
 	}
 
 	if (lazy)
