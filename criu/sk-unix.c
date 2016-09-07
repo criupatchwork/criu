@@ -525,6 +525,7 @@ static int unix_process_name(struct unix_sk_desc *d, const struct unix_diag_msg 
 			ret = -ENOENT;
 			goto out;
 		}
+		ns->mnt.mntinfo_tree = mntinfo;
 
 		mntns_root = mntns_get_root_fd(ns);
 		if (mntns_root < 0) {
