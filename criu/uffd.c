@@ -372,6 +372,9 @@ static int get_page(struct lazy_pages_info *lpi, unsigned long addr, void *dest)
 	if (ret <= 0)
 		return ret;
 
+	if (lpi->pr.pe->zero)
+		return 0;
+
 	ret = lpi->pr.read_pages(&lpi->pr, addr, 1, buf);
 	pr_debug("read_pages ret %d\n", ret);
 	if (ret <= 0)

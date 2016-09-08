@@ -121,30 +121,33 @@ int dedup_one_iovec(struct page_read *pr, struct iovec *iov)
 	return 0;
 }
 
+static int advance(struct page_read *pr)
+{
+	pr->curr_pme++;
+	if (pr->curr_pme >= pr->nr_pmes)
+		return 0;
+
+	pr->pe = pr->pmes[pr->curr_pme];
+	pr->cvaddr = pr->pe->vaddr;
+
+	return 1;
+}
+
 static int get_pagemap(struct page_read *pr, struct iovec *iov)
 {
-	PagemapEntry *pe;
-
 	for (;;) {
-		pr->curr_pme++;
-		if (pr->curr_pme >= pr->nr_pmes)
+		if (!advance(pr))
 			return 0;
-
-		pe = pr->pmes[pr->curr_pme];
-
-		if (!pe->zero)
+		if (!pr->pe->zero)
 			break;
 	}
 
-	pagemap2iovec(pe, iov);
-
-	pr->pe = pe;
-	pr->cvaddr = (unsigned long)iov->iov_base;
-
-	if (pe->in_parent && !pr->parent) {
+	if (pr->pe->in_parent && !pr->parent) {
 		pr_err("No parent for snapshot pagemap\n");
 		return -1;
 	}
+
+	pagemap2iovec(pr->pe, iov);
 
 	return 1;
 }
@@ -163,38 +166,25 @@ static void skip_pagemap_pages(struct page_read *pr, unsigned long len)
 static int seek_pagemap_page(struct page_read *pr, unsigned long vaddr,
 			     bool warn)
 {
-	int ret;
-	struct iovec iov;
+	pr->reset(pr);
 
-	if (pr->pe)
-		pagemap2iovec(pr->pe, &iov);
-	else
-		goto new_pagemap;
+	while (advance(pr)) {
+		unsigned long start = pr->pe->vaddr;
+		unsigned long len = pr->pe->nr_pages * PAGE_SIZE;
+		unsigned long end = start + len;
 
-	while (1) {
-		unsigned long iov_end;
-
-		if (vaddr < pr->cvaddr) {
-			if (warn)
-				pr_err("Missing %lx in parent pagemap, current iov: base=%lx,len=%zu\n",
-					vaddr, (unsigned long)iov.iov_base, iov.iov_len);
-			return 0;
-		}
-		iov_end = (unsigned long)iov.iov_base + iov.iov_len;
-
-		if (iov_end <= vaddr) {
-			skip_pagemap_pages(pr, iov_end - pr->cvaddr);
-new_pagemap:
-			ret = get_pagemap(pr, &iov);
-			if (ret <= 0)
-				return ret;
-
-			continue;
+		if (vaddr >= start && vaddr < end) {
+			skip_pagemap_pages(pr, vaddr - pr->cvaddr);
+			return 1;
 		}
 
-		skip_pagemap_pages(pr, vaddr - pr->cvaddr);
-		return 1;
+		if (end <= vaddr)
+			skip_pagemap_pages(pr, end - pr->cvaddr);
 	}
+
+	if (warn)
+		pr_err("Missing %lx in parent pagemap\n", vaddr);
+	return 0;
 }
 
 static inline void pagemap_bound_check(PagemapEntry *pe, unsigned long vaddr, int nr)
