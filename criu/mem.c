@@ -718,6 +718,17 @@ static int restore_priv_vma_content(struct pstree_item *t)
 		va = (unsigned long)iov.iov_base;
 		nr_pages = iov.iov_len / PAGE_SIZE;
 
+		/*
+		 * This means that userfaultfd is used to load the pages
+		 * on demand.
+		 */
+		if (opts.lazy_pages && pagemap_lazy(pr.pe)) {
+			pr_debug("Lazy restore skips %ld pages at %p\n", nr_pages, iov.iov_base);
+			pr.skip_pages(&pr, iov.iov_len);
+			nr_lazy += nr_pages;
+			continue;
+		}
+
 		for (i = 0; i < nr_pages; i++) {
 			unsigned char buf[PAGE_SIZE];
 			void *p;
@@ -748,17 +759,6 @@ static int restore_priv_vma_content(struct pstree_item *t)
 			off = (va - vma->e->start) / PAGE_SIZE;
 			p = decode_pointer((off) * PAGE_SIZE +
 					vma->premmaped_addr);
-
-			/*
-			 * This means that userfaultfd is used to load the pages
-			 * on demand.
-			 */
-			if (opts.lazy_pages && vma_entry_can_be_lazy(vma->e)) {
-				pr_debug("Lazy restore skips %#016"PRIx64"\n", vma->e->start);
-				pr.skip_pages(&pr, PAGE_SIZE);
-				nr_lazy++;
-				continue;
-			}
 
 			set_bit(off, vma->page_bitmap);
 			if (vma->ppage_bitmap) { /* inherited vma */
