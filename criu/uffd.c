@@ -490,9 +490,6 @@ static int collect_uffd_pages(struct page_read *pr, struct lazy_pages_info *lpi)
 	base = (unsigned long) iov.iov_base;
 	pr_debug("iov.iov_base 0x%lx (%ld pages)\n", base, nr_pages);
 
-	if (pr->put_pagemap)
-		pr->put_pagemap(pr);
-
 	for (i = 0; i < nr_pages; i++) {
 		bool uffd_page = false;
 		base = (unsigned long) iov.iov_base + (i * ps);
