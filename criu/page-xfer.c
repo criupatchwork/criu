@@ -159,6 +159,7 @@ static int write_pagemap_loc(struct page_xfer *xfer,
 	PagemapEntry pe = PAGEMAP_ENTRY__INIT;
 
 	iovec2pagemap(iov, &pe);
+	pe.has_flags = true;
 	if (opts.auto_dedup && xfer->parent != NULL) {
 		ret = dedup_one_iovec(xfer->parent, iov);
 		if (ret == -1) {
@@ -234,6 +235,7 @@ static int write_hole_loc(struct page_xfer *xfer, struct iovec *iov, int type)
 	PagemapEntry pe = PAGEMAP_ENTRY__INIT;
 
 	iovec2pagemap(iov, &pe);
+	pe.has_flags = true;
 
 	switch (type) {
 	case PS_IOV_HOLE:
@@ -247,17 +249,13 @@ static int write_hole_loc(struct page_xfer *xfer, struct iovec *iov, int type)
 				return -1;
 			}
 		}
-
-		pe.has_in_parent = true;
-		pe.in_parent = true;
+		pe.flags |= PE_PARENT;
 		break;
 	case PS_IOV_ZERO:
-		pe.has_zero = true;
-		pe.zero = true;
+		pe.flags |= PE_ZERO;
 		break;
 	case PS_IOV_LAZY:
-		pe.has_lazy = true;
-		pe.lazy = true;
+		pe.flags |= PE_LAZY;
 		break;
 	default:
 		return -1;
