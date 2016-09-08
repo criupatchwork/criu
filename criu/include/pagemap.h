@@ -97,6 +97,7 @@ extern int dedup_one_iovec(struct page_read *pr, struct iovec *iov);
 #define PE_PARENT	(1 << 0)	/* pages are in parent snapshot */
 #define PE_ZERO		(1 << 1)	/* pages can be lazily restored */
 #define PE_LAZY		(1 << 2)	/* pages are mapped to zero pfn */
+#define PE_PRESENT	(1 << 3)	/* pages are present in pages*img */
 
 static inline bool pagemap_in_parent(PagemapEntry *pe)
 {
@@ -111,6 +112,11 @@ static inline bool pagemap_zero(PagemapEntry *pe)
 static inline bool pagemap_lazy(PagemapEntry *pe)
 {
 	return !!(pe->flags & PE_LAZY);
+}
+
+static inline bool pagemap_present(PagemapEntry *pe)
+{
+	return !!(pe->flags & PE_PRESENT);
 }
 
 #endif /* __CR_PAGE_READ_H__ */
