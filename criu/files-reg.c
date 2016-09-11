@@ -712,6 +712,23 @@ static void __rollback_link_remaps(bool do_unlink)
 void delete_link_remaps(void) { __rollback_link_remaps(true); }
 void free_link_remaps(void) { __rollback_link_remaps(false); }
 
+static void show_one_link_remap(struct remap_info *ri)
+{
+	/* Don't print " (deleted)" suffix if it exists */
+	const char DELETED_SUFFIX[] = " (deleted)";
+	size_t path_size = strlen(ri->rfi->path) + 1;
+
+	if (path_size >= sizeof(DELETED_SUFFIX)) {
+		char *path_no_suffix = ri->rfi->path + path_size
+			- sizeof(DELETED_SUFFIX);
+		if (!strcmp(path_no_suffix, DELETED_SUFFIX))
+			path_size -= sizeof(DELETED_SUFFIX) - 1;
+	}
+
+	pr_msg("Link remap: /%s -> /%.*s\n",
+			ri->rfi->remap->rpath, (int)path_size - 1, ri->rfi->path);
+}
+
 int gc_link_remaps(void)
 {
 	struct remap_info *ri;
@@ -720,6 +737,11 @@ int gc_link_remaps(void)
 	list_for_each_entry(ri, &remaps, list) {
 		if (ri->rfe->remap_type != REMAP_TYPE__LINKED)
 			continue;
+
+		if (opts.show) {
+			show_one_link_remap(ri);
+			continue;
+		}
 
 		remap = ri->rfi->remap;
 		struct ns_id *remap_mntns = lookup_nsid_by_mnt_id(remap->rmnt_id);
