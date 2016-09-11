@@ -948,13 +948,41 @@ class criu:
 			sys.exit(1)
 
 
-def try_run_hook(test, args):
-	hname = test.getname() + '.hook'
-	if os.access(hname, os.X_OK):
-		print "Running %s(%s)" % (hname, ', '.join(args))
-		hook = subprocess.Popen([hname] + args)
-		if hook.wait() != 0:
-			raise test_fail_exc("hook " + " ".join(args))
+def hook_name(test):
+	return test.getname() + '.hook'
+
+
+def run_hook(test, args, cap_output = False):
+	result = {'stdout': None, 'stderr': None}
+
+	subproc_args = {"args": [hook_name(test)] + args}
+	if cap_output:
+		subproc_args["stdout"] = subprocess.PIPE
+		subproc_args["stderr"] = subprocess.PIPE
+	print "Running %s" % str(subproc_args)
+	try:
+		hook = subprocess.Popen(**subproc_args)
+		if cap_output:
+			result['stdout'], result['stderr'] = hook.communicate()
+		else:
+			hook.wait()
+		if hook.returncode != 0:
+			print "Hook %s return code %d" % (
+				hook_name(test), hook.returncode)
+			if cap_output:
+				print result['stdout']
+				print result['stderr']
+			raise Exception()
+	except:
+		raise test_fail_exc("hook " + " ".join(args))
+
+	return result
+
+
+def try_run_hook(test, args, cap_output = False):
+	if os.access(hook_name(test), os.X_OK):
+		return run_hook(test, args, cap_output)
+	return {'stdout': None, 'stderr': None}
 
 #
 # Step by step execution
