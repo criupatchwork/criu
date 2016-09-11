@@ -292,6 +292,7 @@ int main(int argc, char *argv[], char *envp[])
 		{ "cgroup-dump-controller",	required_argument,	0, 1082	},
 		{ SK_INFLIGHT_PARAM,		no_argument,		0, 1083	},
 		{ "deprecated",			no_argument,		0, 1084 },
+		{ "show",			no_argument,		0, 1085	},
 		{ },
 	};
 
@@ -607,6 +608,9 @@ int main(int argc, char *argv[], char *envp[])
 			pr_msg("Turn deprecated stuff ON\n");
 			opts.deprecated_ok = true;
 			break;
+		case 1085:
+			opts.show = true;
+			break;
 		case 'V':
 			pr_msg("Version: %s\n", CRIU_VERSION);
 			if (strcmp(CRIU_GITID, "0"))
@@ -784,6 +788,9 @@ int main(int argc, char *argv[], char *envp[])
 			return cpuinfo_check();
 	}
 
+	if (!strcmp(argv[optind], "gc"))
+		return cr_gc();
+
 	pr_msg("Error: unknown command: %s\n", argv[optind]);
 usage:
 	pr_msg("\n"
@@ -796,6 +803,7 @@ usage:
 "  criu service [<options>]\n"
 "  criu dedup\n"
 "  criu lazy-pages -D DIR [<options>]\n"
+"  criu gc -D DIR [<options>]\n"
 "\n"
 "Commands:\n"
 "  dump           checkpoint a process/tree identified by pid\n"
@@ -808,6 +816,8 @@ usage:
 "  dedup          remove duplicates in memory dump\n"
 "  cpuinfo dump   writes cpu information into image file\n"
 "  cpuinfo check  validates cpu information read from image file\n"
+"  gc             deletes helper objects needed for restore that were left\n"
+"                 in the system after dump. Makes dump not restorable\n"
 	);
 
 	if (usage_error) {
@@ -943,6 +953,9 @@ usage:
 "  --address ADDR        address of server or service\n"
 "  --port PORT           port of page server\n"
 "  -d|--daemon           run in the background after creating socket\n"
+"\n"
+"Garbage collection options:\n"
+"  --show                show what will be deleted without actual deletion\n"
 "\n"
 "Other options:\n"
 "  -h|--help             show this text\n"
