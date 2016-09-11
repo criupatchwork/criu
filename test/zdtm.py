@@ -957,6 +957,12 @@ class criu:
 		if lazy_pages_p and lazy_pages_p.wait():
 			raise test_fail_exc("CRIU lazy-pages")
 
+	def gc(self, show):
+		opts = self.__test.getropts()
+		if show:
+			opts.append("--show")
+		return self.__criu_act("gc", opts, cap_output = True)
+
 	@staticmethod
 	def check(feature):
 		result = criu_cli.run("check", ["-v0", "--feature", feature])
@@ -1305,6 +1311,35 @@ def do_run_test_cr(cr_api, test, opts):
 	test.stop()
 
 
+def do_run_test_gc(cr_api, test, flavor):
+	cr_api.set_test(test)
+	sbs('pre-dump')
+	cr_api.dump("dump")
+	test.gone()
+
+	sbs('pre-gc-show')
+	gc_output = cr_api.gc(True)['stdout']
+
+	hook_output = eval(run_hook(test, ['--gc'], cap_output = True)['stdout'])
+	hook_lremaps = hook_output.get('lremaps') or []
+	hook_tcps = hook_output.get('tcps') or []
+
+	for lremap in hook_lremaps:
+		regex = 'Link remap: ' + lremap[0] + ' -> ' + lremap[1]
+		if not re.search(regex, gc_output):
+			raise test_fail_exc('No garbage for regex: %s' % regex)
+
+	if flavor == 'h':
+		for tcp in hook_tcps:
+			regex = 'Locked tcp connection: ' + tcp[0] + ' -> ' + tcp[1]
+			if not re.search(regex, gc_output):
+				raise test_fail_exc('No garbage for regex: %s' % regex)
+
+	sbs('pre-gc')
+	cr_api.gc(False)
+	test.kill()
+
+
 def do_run_test(tname, tdesc, flavs, opts):
 	tcname = tname.split('/')[0]
 	tclass = test_classes.get(tcname, None)
@@ -1331,7 +1366,10 @@ def do_run_test(tname, tdesc, flavs, opts):
 		try:
 			t.start()
 			try:
-				do_run_test_cr(cr_api, t, opts)
+				if opts['gc']:
+					do_run_test_gc(cr_api, t, f)
+				else:
+					do_run_test_cr(cr_api, t, opts)
 				try_run_hook(t, ["--clean"])
 			except test_fail_expected_exc as e:
 				if e.cr_action == "dump":
@@ -1412,7 +1450,7 @@ class launcher:
 		nd = ('nocr', 'norst', 'pre', 'iters', 'page_server', 'sibling', 'unshare',
 				'fault', 'keep_img', 'report', 'snaps', 'sat', 'script', 'stop',
 				'join_ns', 'dedup', 'sbs', 'freezecg', 'user', 'dry_run', 'rpc',
-				'lazy_pages', 'noauto_dedup')
+				'lazy_pages', 'noauto_dedup', 'gc')
 		arg = repr((name, desc, flavor, {d: self.__opts[d] for d in nd}))
 
 		if self.__use_log:
@@ -1856,6 +1894,7 @@ rp.add_argument("--noauto-dedup", help = "Manual deduplicate images on iteration
 rp.add_argument("--nocr", help = "Do not CR anything, just check test works", action = 'store_true')
 rp.add_argument("--norst", help = "Don't restore tasks, leave them running after dump", action = 'store_true')
 rp.add_argument("--stop", help = "Check that --leave-stopped option stops ps tree.", action = 'store_true')
+rp.add_argument("--gc", help = "Don't restore tasks. Run gc after dump and validate its success", action = 'store_true')
 rp.add_argument("--iters", help = "Do CR cycle several times before check (n[:pause])")
 rp.add_argument("--fault", help = "Test fault injection")
 rp.add_argument("--sat", help = "Generate criu strace-s for sat tool (restore is fake, images are kept)", action = 'store_true')
