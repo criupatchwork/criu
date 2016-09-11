@@ -712,6 +712,43 @@ static void __rollback_link_remaps(bool do_unlink)
 void delete_link_remaps(void) { __rollback_link_remaps(true); }
 void free_link_remaps(void) { __rollback_link_remaps(false); }
 
+int gc_link_remaps(void)
+{
+	struct remap_info *ri;
+	struct file_remap *remap;
+
+	list_for_each_entry(ri, &remaps, list) {
+		if (ri->rfe->remap_type != REMAP_TYPE__LINKED)
+			continue;
+
+		remap = ri->rfi->remap;
+		struct ns_id *remap_mntns = lookup_nsid_by_mnt_id(remap->rmnt_id);
+
+		if (!remap_mntns) {
+			pr_err("Can't get remap %s mnt ns %d\n",
+					remap->rpath, remap->rmnt_id);
+			return -1;
+		}
+
+		if (remap_mntns->nd->cflag != CLONE_NEWNS) {
+			pr_err("Wrong clone flag of remap mntns %x (id:%d)",
+					remap_mntns->nd->cflag, remap->rmnt_id);
+			return -1;
+		}
+
+		/*
+		 * We are root ps tree item in restore cmd terms.
+		 * All the mnt namespaces and their fds are created
+		 * by root ps tree item on restore.
+		 * So we can simply use mnt ns fds here.
+		 */
+		if (clean_one_remap(remap, remap_mntns->mnt.root_fd))
+			return -1;
+	}
+
+	return 0;
+}
+
 static int create_link_remap(char *path, int len, int lfd,
 				u32 *idp, struct ns_id *nsid)
 {

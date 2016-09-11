@@ -52,6 +52,7 @@ extern void delete_link_remaps(void);
 extern void free_link_remaps(void);
 extern int prepare_remaps(void);
 extern void try_clean_remaps(void);
+extern int gc_link_remaps(void);
 
 extern int strip_deleted(struct fd_link *link);
 
