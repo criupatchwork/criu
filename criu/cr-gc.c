@@ -11,6 +11,7 @@
 #include "util.h"
 #include "sockets.h"
 #include "net.h"
+#include "sk-inet.h"
 
 static int root_mntns = -1;
 
