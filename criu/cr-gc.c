@@ -9,6 +9,8 @@
 #include "mount.h"
 #include "namespaces.h"
 #include "util.h"
+#include "sockets.h"
+#include "net.h"
 
 static int root_mntns = -1;
 
@@ -55,6 +57,9 @@ static int gc_do(void)
 	if (gc_link_remaps() < 0)
 		return -1;
 
+	if (gc_network_unlock() < 0)
+		return -1;
+
 	return 0;
 }
 
@@ -93,6 +98,11 @@ int cr_gc(void)
 	}
 
 	if (prepare_remaps() < 0) {
+		ret = -1;
+		goto exit;
+	}
+
+	if (collect_inet_sockets()) {
 		ret = -1;
 		goto exit;
 	}

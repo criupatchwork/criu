@@ -785,16 +785,19 @@ void tcp_locked_conn_add(struct inet_sk_info *ii)
 	ii->sk_fd = -1;
 }
 
-void rst_unlock_tcp_connections(void)
+int rst_unlock_tcp_connections(void)
 {
 	struct inet_sk_info *ii;
 
 	/* Network will be unlocked by network-unlock scripts */
 	if (root_ns_mask & CLONE_NEWNET)
-		return;
+		return 0;
 
 	list_for_each_entry(ii, &rst_tcp_repair_sockets, rlist)
-		nf_unlock_connection_info(ii);
+		if (nf_unlock_connection_info(ii))
+			return -1;
+
+	return 0;
 }
 
 int check_tcp(void)
