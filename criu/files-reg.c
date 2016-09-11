@@ -523,11 +523,12 @@ static void try_clean_ghost(struct remap_info *ri)
 	pr_perror(" `- XFail [%s] ghost", path);
 }
 
-static int clean_one_remap(struct file_remap *remap)
+static int clean_one_remap(struct file_remap *remap, int rmntns_root)
 {
-	int rmntns_root, ret = 0;
+	int ret = 0;
 
-	rmntns_root = mntns_get_root_by_mnt_id(remap->rmnt_id);
+	if (rmntns_root == -1)
+		rmntns_root = mntns_get_root_by_mnt_id(remap->rmnt_id);
 	if (rmntns_root < 0)
 		return -1;
 
@@ -625,7 +626,7 @@ void remap_put(struct file_remap *remap)
 {
 	mutex_lock(ghost_file_mutex);
 	if (--remap->users == 0)
-		clean_one_remap(remap);
+		clean_one_remap(remap, -1);
 	mutex_unlock(ghost_file_mutex);
 }
 
@@ -1505,7 +1506,7 @@ ext:
 
 		BUG_ON(!rfi->remap->users);
 		if (--rfi->remap->users == 0)
-			clean_one_remap(rfi->remap);
+			clean_one_remap(rfi->remap, -1);
 
 		mutex_unlock(ghost_file_mutex);
 	}
