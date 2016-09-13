@@ -65,6 +65,7 @@ struct mount_info {
 	bool			need_plugin;
 	bool			is_ns_root;
 	bool			deleted;
+	bool			remap;
 	struct mount_info	*next;
 	struct ns_id		*nsid;
 

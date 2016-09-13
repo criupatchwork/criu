@@ -2718,7 +2718,146 @@ static int do_umount_one(struct mount_info *mi)
 	return 0;
 }
 
-static int cr_pivot_root(char *root)
+static struct mount_info *roots_mp = NULL;
+
+static inline int print_ns_root(struct ns_id *ns, int remap_id, char *buf, int bs);
+static int get_mp_mountpoint(char *mountpoint, struct mount_info *mi, char *root, int root_len);
+
+static LIST_HEAD(mnt_remap_list);
+static int remap_id;
+
+struct mnt_remap_entry {
+	struct mount_info *parent, *child;
+	struct list_head node;
+};
+
+/*
+ * If a mount overmounts other mounts, it is restored
+ * separetly and then moved to the right place.
+ * All these mounts are moved into the root yard.
+ */
+static int do_mnt_remap(struct mount_info *m)
+{
+	int len;
+
+	if (m->nsid->type == NS_OTHER) {
+		/* A path in root_yard has a fixed size, so it can be replaced. */
+		len = print_ns_root(m->nsid, remap_id, m->mountpoint, PATH_MAX);
+		m->mountpoint[len] = '/';
+	} else {
+		char root[PATH_MAX], *mp, *ns_mp;
+		int len, ret;
+
+		/* Add a root_yard path */
+		mp = m->mountpoint;
+		ns_mp = m->ns_mountpoint;
+
+		len = print_ns_root(m->nsid, remap_id, root, PATH_MAX);
+
+		ret = get_mp_mountpoint(ns_mp, m, root, len);
+		if (ret < 0)
+			return ret;
+		xfree(mp);
+	}
+	return 0;
+}
+
+static int remap_mnt(struct mount_info *m)
+{
+	struct mnt_remap_entry *r;
+
+	if (!does_mnt_overmount(m))
+		return 0;
+
+	BUG_ON(!m->parent || !list_empty(&m->parent->mnt_share));
+
+	r = xmalloc(sizeof(struct mnt_remap_entry));
+	if (!r)
+		return -1;
+
+	r->child = m;
+	list_add(&r->node, &mnt_remap_list);
+
+	return 0;
+}
+
+static int handle_overmounts(struct mount_info *root)
+{
+	struct mnt_remap_entry *r;
+	struct mount_info *m;
+
+	/*
+	 * Mark mounts which have to be restored separetly,
+	 * because it's imposiable to remove them from
+	 * a tree without interrupting enumeration.
+	 */
+	if (mnt_tree_for_each(root, remap_mnt))
+		return -1;
+
+	/* Move remapped mounts to root_yard */
+	list_for_each_entry(r, &mnt_remap_list, node) {
+		m = r->child;
+		r->parent = m->parent;
+		m->parent = roots_mp;
+		list_del(&m->siblings);
+		list_add(&m->siblings, &roots_mp->children);
+
+		remap_id++;
+		mnt_tree_for_each(m, do_mnt_remap);
+		pr_debug("Restore the %d mount in %s\n", m->mnt_id, m->mountpoint);
+	}
+
+	return 0;
+}
+
+/* Move remapped mounts to places where they have to be */
+static int handle_mnt_remaps(int nsid, char *put_root)
+{
+	struct mnt_remap_entry *r;
+	int cwd, exit_code = -1;
+
+	cwd = open(".", O_PATH);
+	if (cwd < 0) {
+		pr_perror("Unable to open \".\"\n");
+		return -1;
+	}
+
+	if (nsid != root_item->ids->mnt_ns_id && chdir(put_root)) {
+		pr_perror("Unable to change working directory");
+		return -1;
+	}
+
+	list_for_each_entry(r, &mnt_remap_list, node) {
+		struct mount_info *m = r->child;
+
+		if (r->child->nsid->id != nsid)
+			continue;
+
+		pr_debug("Move mount %s -> %s\n", m->mountpoint, m->ns_mountpoint);
+		if (mount(m->mountpoint, m->ns_mountpoint, NULL, MS_MOVE, NULL)) {
+			pr_perror("Unable to move mount %s -> %s", m->mountpoint, m->ns_mountpoint);
+			goto err;
+		}
+
+		list_del(&r->child->siblings);
+		list_add(&r->child->siblings, &r->parent->children);
+		r->child->parent = r->parent;
+	}
+
+	exit_code = 0;
+err:
+	if (fchdir(cwd)) {
+		pr_perror("Unable to change working directory");
+		close(cwd);
+		return -1;
+	}
+	close(cwd);
+
+	return exit_code;
+}
+
+
+static int cr_pivot_root(char *root, int nsid)
 {
 	char tmp_dir_tmpl[] = "crtools-put-root.XXXXXX";
 	bool tmp_dir = false;
@@ -2758,6 +2897,9 @@ static int cr_pivot_root(char *root)
 		pr_perror("pivot_root(., %s) failed", put_root);
 		goto err_tmpfs;
 	}
+
+	if (nsid > 0 && handle_mnt_remaps(nsid, put_root))
+		return -1;
 
 	if (mount("none", put_root, "none", MS_REC|MS_SLAVE, NULL)) {
 		pr_perror("Can't remount root with MS_PRIVATE");
@@ -3196,6 +3338,7 @@ void fini_restore_mntns(void)
  */
 static int populate_roots_yard(void)
 {
+	struct mnt_remap_entry *r;
 	char path[PATH_MAX];
 	struct ns_id *nsid;
 
@@ -3216,6 +3359,13 @@ static int populate_roots_yard(void)
 		}
 	}
 
+	list_for_each_entry(r, &mnt_remap_list, node) {
+		if (mkdirpat(AT_FDCWD, r->child->mountpoint)) {
+			pr_perror("Unable to create %s", r->child->mountpoint);
+			return -1;
+		}
+	}
+
 	return 0;
 }
 
@@ -3223,7 +3373,6 @@ static int populate_mnt_ns(void)
 {
 	struct mount_info *pms;
 	struct ns_id *nsid;
-	struct mount_info *roots_mp = NULL;
 	int ret;
 
 	if (mnt_roots) {
@@ -3256,6 +3405,9 @@ static int populate_mnt_ns(void)
 	}
 
 	if (validate_mounts(mntinfo, false))
+		return -1;
+
+	if (handle_overmounts(pms))
 		return -1;
 
 	/*
@@ -3462,7 +3614,7 @@ int prepare_mnt_ns(void)
 
 	ret = populate_mnt_ns();
 	if (!ret && opts.root)
-		ret = cr_pivot_root(NULL);
+		ret = cr_pivot_root(NULL, root_item->ids->mnt_ns_id);
 	if (ret)
 		return -1;
 
@@ -3495,7 +3647,7 @@ int prepare_mnt_ns(void)
 		/* Set its root */
 		path[0] = '/';
 		print_ns_root(nsid, 0, path + 1, sizeof(path) - 1);
-		if (cr_pivot_root(path))
+		if (cr_pivot_root(path, nsid->id))
 			goto err;
 
 		/* Pin one with a file descriptor */
