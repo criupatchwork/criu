@@ -18,8 +18,6 @@
 #include "tty.h"
 #include "aio.h"
 
-#include <string.h>
-
 #include "asm/types.h"
 #include "asm/parasite.h"
 #include "asm/restorer.h"
