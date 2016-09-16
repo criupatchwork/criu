@@ -32,13 +32,6 @@ typedef struct {
 	u64 sig[_KNSIG_WORDS];
 } k_rtsigset_t;
 
-static inline void ksigfillset(k_rtsigset_t *set)
-{
-	int i;
-	for (i = 0; i < _KNSIG_WORDS; i++)
-		set->sig[i] = (unsigned long)-1;
-}
-
 #define SA_RESTORER	0x04000000
 
 typedef struct {
