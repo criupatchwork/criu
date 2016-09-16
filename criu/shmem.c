@@ -599,12 +599,46 @@ static int dump_pages(struct page_pipe *pp, struct page_xfer *xfer, void *addr)
 	return page_xfer_dump_pages(xfer, pp, (unsigned long)addr, true);
 }
 
+/*
+ * Walk over memroy range causing pages to swapout
+ * if they were swapin'ed, otherwise we won't be
+ * able to detect if page swapped needs to be dumped.
+ * mincore won't help(see mincore_page in kernel code).
+ */
+int shmem_swapout(pid_t pid, VmaEntry *vma)
+{
+	unsigned long size = vma->pgoff + (vma->end - vma->start);
+	unsigned long pfn, nrpages = (size + PAGE_SIZE - 1) / PAGE_SIZE;
+	void *addr;
+	int fd;
+
+	fd = open_proc(pid, "map_files/%lx-%lx", vma->start, vma->end);
+	if (fd < 0)
+		return -1;
+
+	addr = mmap(NULL, size, PROT_READ, MAP_SHARED, fd, 0);
+	close(fd);
+
+	if (addr == MAP_FAILED) {
+		pr_err("Can't map shmem %#lx (0x%lx-0x%lx)\n",
+		       vma->shmid, vma->start, vma->end);
+		return -1;
+	}
+
+	for (pfn = 0; pfn < nrpages; pfn++) {
+		unsigned char v = *(char *)((unsigned long)addr + pfn * PAGE_SIZE);
+		(void)v;
+	}
+
+	munmap(addr, size);
+	return 0;
+}
+
 static int dump_one_shmem(struct shmem_info *si)
 {
 	struct page_pipe *pp;
 	struct page_xfer xfer;
 	int err, ret = -1, fd;
-	unsigned char *mc_map = NULL;
 	void *addr = NULL;
 	unsigned long pfn, nrpages;
 
@@ -612,24 +646,17 @@ static int dump_one_shmem(struct shmem_info *si)
 
 	fd = open_proc(si->pid, "map_files/%lx-%lx", si->start, si->end);
 	if (fd < 0)
-		goto err;
+		return -1;
 
 	addr = mmap(NULL, si->size, PROT_READ, MAP_SHARED, fd, 0);
 	close(fd);
 	if (addr == MAP_FAILED) {
 		pr_err("Can't map shmem 0x%lx (0x%lx-0x%lx)\n",
 				si->shmid, si->start, si->end);
-		goto err;
+		return -1;
 	}
 
 	nrpages = (si->size + PAGE_SIZE - 1) / PAGE_SIZE;
-	mc_map = xmalloc(nrpages * sizeof(*mc_map));
-	if (!mc_map)
-		goto err_unmap;
-	/* We can't rely only on PME bits for anon shmem */
-	err = mincore(addr, si->size, mc_map);
-	if (err)
-		goto err_unmap;
 
 	pp = create_page_pipe((nrpages + 1) / 2, NULL, PP_CHUNK_MODE);
 	if (!pp)
@@ -644,7 +671,7 @@ static int dump_one_shmem(struct shmem_info *si)
 		unsigned long pgaddr;
 
 		pgstate = get_pstate(si->pstate_map, pfn);
-		if ((pgstate == PST_DONT_DUMP) && !(mc_map[pfn] & PAGE_RSS))
+		if (pgstate == PST_DONT_DUMP)
 			continue;
 
 		pgaddr = (unsigned long)addr + pfn * PAGE_SIZE;
@@ -674,8 +701,6 @@ err_pp:
 	destroy_page_pipe(pp);
 err_unmap:
 	munmap(addr,  si->size);
-err:
-	xfree(mc_map);
 	return ret;
 }
 

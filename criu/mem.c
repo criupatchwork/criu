@@ -351,6 +351,11 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 			has_parent = false;
 		}
 
+		ret = -1;
+		if (vma_area_is(vma_area, VMA_ANON_SHARED) &&
+		    shmem_swapout(ctl->pid.real, vma_area->e))
+			goto out_xfer;
+
 		map = pmc_get_map(&pmc, vma_area);
 		if (!map)
 			goto out_xfer;
