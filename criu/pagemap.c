@@ -166,12 +166,16 @@ static void skip_pagemap_pages(struct page_read *pr, unsigned long len)
 static int seek_pagemap_page(struct page_read *pr, unsigned long vaddr,
 			     bool warn)
 {
-	pr->reset(pr);
+	if (!pr->pe)
+		advance(pr);
 
-	while (advance(pr)) {
+	do {
 		unsigned long start = pr->pe->vaddr;
 		unsigned long len = pr->pe->nr_pages * PAGE_SIZE;
 		unsigned long end = start + len;
+
+		if (vaddr < pr->cvaddr)
+			break;
 
 		if (vaddr >= start && vaddr < end) {
 			skip_pagemap_pages(pr, vaddr - pr->cvaddr);
@@ -180,7 +184,7 @@ static int seek_pagemap_page(struct page_read *pr, unsigned long vaddr,
 
 		if (end <= vaddr)
 			skip_pagemap_pages(pr, end - pr->cvaddr);
-	}
+	} while (advance(pr));
 
 	if (warn)
 		pr_err("Missing %lx in parent pagemap\n", vaddr);
