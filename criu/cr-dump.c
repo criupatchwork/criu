@@ -1176,7 +1176,7 @@ static int pre_dump_one_task(struct pstree_item *item)
 
 	parasite_ctl->pid.virt = item->pid.virt = misc.pid;
 
-	mdc.delayed_dump = true;
+	mdc.pre_dump = true;
 	mdc.lazy = false;
 
 	ret = parasite_dump_pages_seized(parasite_ctl, &vmas, &mdc);
@@ -1336,7 +1336,7 @@ static int dump_one_task(struct pstree_item *item)
 		}
 	}
 
-	mdc.delayed_dump = opts.lazy_pages;
+	mdc.pre_dump = false;
 	mdc.lazy = opts.lazy_pages;
 
 	ret = parasite_dump_pages_seized(parasite_ctl, &vmas, &mdc);

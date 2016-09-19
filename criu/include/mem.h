@@ -11,7 +11,7 @@ struct page_pipe;
 struct pstree_item;
 
 struct mem_dump_ctl {
-	bool	delayed_dump;
+	bool	pre_dump;
 	bool	lazy;
 };
 
