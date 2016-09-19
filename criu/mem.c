@@ -279,7 +279,7 @@ static int dump_pages(struct page_pipe *pp, struct parasite_ctl *ctl,
 static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 		struct parasite_dump_pages_args *args,
 		struct vm_area_list *vma_area_list,
-		bool delayed_dump, bool lazy)
+		struct mem_dump_ctl *mdc)
 {
 	pmc_t pmc = PMC_INIT;
 	struct page_pipe *pp;
@@ -288,7 +288,7 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 	int ret = -1;
 	unsigned cpp_flags = 0;
 	unsigned long pmc_size;
-	bool should_xfer = (!delayed_dump || lazy);
+	bool should_xfer = (!mdc->delayed_dump || mdc->lazy);
 
 	pr_info("\n");
 	pr_info("Dumping pages (type: %d pid: %d)\n", CR_FD_PAGES, ctl->pid.real);
@@ -310,12 +310,12 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 		return -1;
 
 	ret = -1;
-	if (!delayed_dump)
+	if (!mdc->delayed_dump)
 		cpp_flags |= PP_CHUNK_MODE;
 	if (!seized_native(ctl))
 		cpp_flags |= PP_COMPAT;
 	ctl->mem_pp = pp = create_page_pipe(vma_area_list->priv_size,
-					    lazy ? NULL : pargs_iovs(args),
+					    mdc->lazy ? NULL : pargs_iovs(args),
 					    cpp_flags);
 	if (!pp)
 		goto out;
@@ -346,7 +346,7 @@ static int __parasite_dump_pages_seized(struct parasite_ctl *ctl,
 				!vma_area_is(vma_area, VMA_ANON_SHARED))
 			continue;
 		if (vma_entry_is(vma_area->e, VMA_AREA_AIORING)) {
-			if (delayed_dump)
+			if (mdc->delayed_dump)
 				continue;
 			has_parent = false;
 		}
@@ -361,7 +361,7 @@ again:
 			ret = generate_iovs(vma_area, pp, map, &off,
 				has_parent);
 			if (ret == -EAGAIN) {
-				BUG_ON(delayed_dump);
+				BUG_ON(mdc->delayed_dump);
 
 				ret = dump_pages(pp, ctl, args, &xfer, false);
 				if (!ret) {
@@ -374,10 +374,10 @@ again:
 			goto out_xfer;
 	}
 
-	if (lazy)
+	if (mdc->lazy)
 		memcpy(pargs_iovs(args), pp->iovs,
 		       sizeof(struct iovec) * pp->nr_iovs);
-	ret = dump_pages(pp, ctl, args, should_xfer ? &xfer : NULL, lazy);
+	ret = dump_pages(pp, ctl, args, should_xfer ? &xfer : NULL, mdc->lazy);
 	if (ret)
 		goto out_xfer;
 
@@ -392,7 +392,7 @@ out_xfer:
 	if (should_xfer)
 		xfer.close(&xfer);
 out_pp:
-	if (ret || !delayed_dump)
+	if (ret || !mdc->delayed_dump)
 		destroy_page_pipe(pp);
 out:
 	pmc_fini(&pmc);
@@ -401,13 +401,13 @@ out:
 }
 
 int parasite_dump_pages_seized(struct parasite_ctl *ctl,
-		struct vm_area_list *vma_area_list, bool delayed_dump,
-		bool lazy)
+		struct vm_area_list *vma_area_list,
+		struct mem_dump_ctl *mdc)
 {
 	int ret;
 	struct parasite_dump_pages_args *pargs;
 
-	pargs = prep_dump_pages_args(ctl, vma_area_list, delayed_dump);
+	pargs = prep_dump_pages_args(ctl, vma_area_list, mdc->delayed_dump);
 
 	/*
 	 * Add PROT_READ protection for all VMAs we're about to
@@ -429,9 +429,7 @@ int parasite_dump_pages_seized(struct parasite_ctl *ctl,
 		return -1;
 	}
 
-	ret = __parasite_dump_pages_seized(ctl, pargs, vma_area_list,
-					   delayed_dump, lazy);
-
+	ret = __parasite_dump_pages_seized(ctl, pargs, vma_area_list, mdc);
 	if (ret) {
 		pr_err("Can't dump page with parasite\n");
 		/* Parasite will unprotect VMAs after fail in fini() */
