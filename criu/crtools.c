@@ -59,7 +59,6 @@ void init_opts(void)
 	/* Default options */
 	opts.final_state = TASK_DEAD;
 	INIT_LIST_HEAD(&opts.ext_unixsk_ids);
-	INIT_LIST_HEAD(&opts.veth_pairs);
 	INIT_LIST_HEAD(&opts.ext_mounts);
 	INIT_LIST_HEAD(&opts.inherit_fds);
 	INIT_LIST_HEAD(&opts.external);
@@ -835,6 +834,7 @@ usage:
 "                            dev[maj:min]:VAL\n"
 "                        Formats of RES on restore:\n"
 "                            dev[VAL]:DEVPATH\n"
+"                            veth[IFNAME]:OUTNAME{@BRIDGE}\n"
 "\n"
 "* Special resources support:\n"
 "  -x|--" USK_EXT_PARAM " [inode,...]\n"
@@ -845,9 +845,6 @@ usage:
 "  -r|--root PATH        change the root filesystem (when run in mount namespace)\n"
 "  --evasive-devices     use any path to a device file if the original one\n"
 "                        is inaccessible\n"
-"  --veth-pair IN=OUT    map inside veth device name to outside one\n"
-"                        can optionally append @<bridge-name> to OUT for moving\n"
-"                        the outside veth to the named bridge\n"
 "  --link-remap          allow one to link unlinked files back when possible\n"
 "  --ghost-limit size    limit max size of deleted file contents inside image\n"
 "  --action-script FILE  add an external action script\n"
