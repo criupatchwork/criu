@@ -340,6 +340,9 @@ include Makefile.install
 
 .DEFAULT_GOAL := all
 
+# Disable implicit rules in _this_ Makefile.
+.SUFFIXES:
+
 #
 # Optional local include.
 -include Makefile.local
