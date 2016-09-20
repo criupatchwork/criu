@@ -494,7 +494,7 @@ static int try_resolve_ext_mount(struct mount_info *info)
 		char *val;
 
 		val = external_lookup_by_key(devstr);
-		if (val) {
+		if (!IS_ERR_OR_NULL(val)) {
 			char *source;
 			int len;
 
@@ -2266,7 +2266,7 @@ static char *resolve_source(struct mount_info *mi)
 		char *val;
 
 		val = external_lookup_by_key(mi->source);
-		if (val)
+		if (!IS_ERR_OR_NULL(val))
 			return val;
 
 		if (!stat(mi->source, &st) && S_ISBLK(st.st_mode) &&
