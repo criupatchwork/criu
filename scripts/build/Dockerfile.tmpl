@@ -21,5 +21,7 @@ RUN apt-get install -y \
 COPY . /criu
 WORKDIR /criu
 
-RUN make clean && make -j $(nproc)
+RUN make clean
+RUN make -j $(nproc) criu/parasite-syscall.o
+RUN make -j $(nproc)
 RUN make test/compel/handle_binary && ./test/compel/handle_binary
