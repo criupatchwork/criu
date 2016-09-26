@@ -193,10 +193,12 @@ int syscall_seized(struct parasite_ctl *ctl, int nr, unsigned long *ret,
 	((user_regs_native(pregs)) ? (int64_t)((pregs)->native.name) :	\
 				(int32_t)((pregs)->compat.name))
 
+static int save_task_regs(CoreEntry *core,
+		user_regs_struct_t *regs, user_fpregs_struct_t *fpregs);
+
 int get_task_regs(pid_t pid, user_regs_struct_t regs, CoreEntry *core)
 {
-	user_fpregs_struct_t xsave	= {  };
-	UserX86RegsEntry *gpregs	= core->thread_info->gpregs;
+	user_fpregs_struct_t xsave	= {  }, *xs = NULL;
 
 	struct iovec iov;
 	int ret = -1;
@@ -220,60 +222,6 @@ int get_task_regs(pid_t pid, user_regs_struct_t regs, CoreEntry *core)
 			break;
 		}
 	}
-
-#define assign_reg(dst, src, e)		do { dst->e = (__typeof__(dst->e))src.e; } while (0)
-#define assign_array(dst, src, e)	memcpy(dst->e, &src.e, sizeof(src.e))
-
-	if (user_regs_native(&regs)) {
-		assign_reg(gpregs, regs.native, r15);
-		assign_reg(gpregs, regs.native, r14);
-		assign_reg(gpregs, regs.native, r13);
-		assign_reg(gpregs, regs.native, r12);
-		assign_reg(gpregs, regs.native, bp);
-		assign_reg(gpregs, regs.native, bx);
-		assign_reg(gpregs, regs.native, r11);
-		assign_reg(gpregs, regs.native, r10);
-		assign_reg(gpregs, regs.native, r9);
-		assign_reg(gpregs, regs.native, r8);
-		assign_reg(gpregs, regs.native, ax);
-		assign_reg(gpregs, regs.native, cx);
-		assign_reg(gpregs, regs.native, dx);
-		assign_reg(gpregs, regs.native, si);
-		assign_reg(gpregs, regs.native, di);
-		assign_reg(gpregs, regs.native, orig_ax);
-		assign_reg(gpregs, regs.native, ip);
-		assign_reg(gpregs, regs.native, cs);
-		assign_reg(gpregs, regs.native, flags);
-		assign_reg(gpregs, regs.native, sp);
-		assign_reg(gpregs, regs.native, ss);
-		assign_reg(gpregs, regs.native, fs_base);
-		assign_reg(gpregs, regs.native, gs_base);
-		assign_reg(gpregs, regs.native, ds);
-		assign_reg(gpregs, regs.native, es);
-		assign_reg(gpregs, regs.native, fs);
-		assign_reg(gpregs, regs.native, gs);
-		gpregs->mode = USER_X86_REGS_MODE__NATIVE;
-	} else {
-		assign_reg(gpregs, regs.compat, bx);
-		assign_reg(gpregs, regs.compat, cx);
-		assign_reg(gpregs, regs.compat, dx);
-		assign_reg(gpregs, regs.compat, si);
-		assign_reg(gpregs, regs.compat, di);
-		assign_reg(gpregs, regs.compat, bp);
-		assign_reg(gpregs, regs.compat, ax);
-		assign_reg(gpregs, regs.compat, ds);
-		assign_reg(gpregs, regs.compat, es);
-		assign_reg(gpregs, regs.compat, fs);
-		assign_reg(gpregs, regs.compat, gs);
-		assign_reg(gpregs, regs.compat, orig_ax);
-		assign_reg(gpregs, regs.compat, ip);
-		assign_reg(gpregs, regs.compat, cs);
-		assign_reg(gpregs, regs.compat, flags);
-		assign_reg(gpregs, regs.compat, sp);
-		assign_reg(gpregs, regs.compat, ss);
-		gpregs->mode = USER_X86_REGS_MODE__COMPAT;
-	}
-	gpregs->has_mode = true;
 
 #ifndef PTRACE_GETREGSET
 # define PTRACE_GETREGSET 0x4204
@@ -304,37 +252,102 @@ int get_task_regs(pid_t pid, user_regs_struct_t regs, CoreEntry *core)
 		}
 	}
 
-	assign_reg(core->thread_info->fpregs, xsave.i387, cwd);
-	assign_reg(core->thread_info->fpregs, xsave.i387, swd);
-	assign_reg(core->thread_info->fpregs, xsave.i387, twd);
-	assign_reg(core->thread_info->fpregs, xsave.i387, fop);
-	assign_reg(core->thread_info->fpregs, xsave.i387, rip);
-	assign_reg(core->thread_info->fpregs, xsave.i387, rdp);
-	assign_reg(core->thread_info->fpregs, xsave.i387, mxcsr);
-	assign_reg(core->thread_info->fpregs, xsave.i387, mxcsr_mask);
+	xs = &xsave;
+out:
+	ret = save_task_regs(core, &regs, xs);
+err:
+	return ret;
+}
+
+static int save_task_regs(CoreEntry *core,
+		user_regs_struct_t *regs, user_fpregs_struct_t *fpregs)
+{
+	UserX86RegsEntry *gpregs	= core->thread_info->gpregs;
+
+#define assign_reg(dst, src, e)		do { dst->e = (__typeof__(dst->e))src.e; } while (0)
+#define assign_array(dst, src, e)	memcpy(dst->e, &src.e, sizeof(src.e))
+
+	if (user_regs_native(regs)) {
+		assign_reg(gpregs, regs->native, r15);
+		assign_reg(gpregs, regs->native, r14);
+		assign_reg(gpregs, regs->native, r13);
+		assign_reg(gpregs, regs->native, r12);
+		assign_reg(gpregs, regs->native, bp);
+		assign_reg(gpregs, regs->native, bx);
+		assign_reg(gpregs, regs->native, r11);
+		assign_reg(gpregs, regs->native, r10);
+		assign_reg(gpregs, regs->native, r9);
+		assign_reg(gpregs, regs->native, r8);
+		assign_reg(gpregs, regs->native, ax);
+		assign_reg(gpregs, regs->native, cx);
+		assign_reg(gpregs, regs->native, dx);
+		assign_reg(gpregs, regs->native, si);
+		assign_reg(gpregs, regs->native, di);
+		assign_reg(gpregs, regs->native, orig_ax);
+		assign_reg(gpregs, regs->native, ip);
+		assign_reg(gpregs, regs->native, cs);
+		assign_reg(gpregs, regs->native, flags);
+		assign_reg(gpregs, regs->native, sp);
+		assign_reg(gpregs, regs->native, ss);
+		assign_reg(gpregs, regs->native, fs_base);
+		assign_reg(gpregs, regs->native, gs_base);
+		assign_reg(gpregs, regs->native, ds);
+		assign_reg(gpregs, regs->native, es);
+		assign_reg(gpregs, regs->native, fs);
+		assign_reg(gpregs, regs->native, gs);
+		gpregs->mode = USER_X86_REGS_MODE__NATIVE;
+	} else {
+		assign_reg(gpregs, regs->compat, bx);
+		assign_reg(gpregs, regs->compat, cx);
+		assign_reg(gpregs, regs->compat, dx);
+		assign_reg(gpregs, regs->compat, si);
+		assign_reg(gpregs, regs->compat, di);
+		assign_reg(gpregs, regs->compat, bp);
+		assign_reg(gpregs, regs->compat, ax);
+		assign_reg(gpregs, regs->compat, ds);
+		assign_reg(gpregs, regs->compat, es);
+		assign_reg(gpregs, regs->compat, fs);
+		assign_reg(gpregs, regs->compat, gs);
+		assign_reg(gpregs, regs->compat, orig_ax);
+		assign_reg(gpregs, regs->compat, ip);
+		assign_reg(gpregs, regs->compat, cs);
+		assign_reg(gpregs, regs->compat, flags);
+		assign_reg(gpregs, regs->compat, sp);
+		assign_reg(gpregs, regs->compat, ss);
+		gpregs->mode = USER_X86_REGS_MODE__COMPAT;
+	}
+	gpregs->has_mode = true;
+
+	if (!fpregs)
+		return 0;
+
+	assign_reg(core->thread_info->fpregs, fpregs->i387, cwd);
+	assign_reg(core->thread_info->fpregs, fpregs->i387, swd);
+	assign_reg(core->thread_info->fpregs, fpregs->i387, twd);
+	assign_reg(core->thread_info->fpregs, fpregs->i387, fop);
+	assign_reg(core->thread_info->fpregs, fpregs->i387, rip);
+	assign_reg(core->thread_info->fpregs, fpregs->i387, rdp);
+	assign_reg(core->thread_info->fpregs, fpregs->i387, mxcsr);
+	assign_reg(core->thread_info->fpregs, fpregs->i387, mxcsr_mask);
 
 	/* Make sure we have enough space */
-	BUG_ON(core->thread_info->fpregs->n_st_space != ARRAY_SIZE(xsave.i387.st_space));
-	BUG_ON(core->thread_info->fpregs->n_xmm_space != ARRAY_SIZE(xsave.i387.xmm_space));
+	BUG_ON(core->thread_info->fpregs->n_st_space != ARRAY_SIZE(fpregs->i387.st_space));
+	BUG_ON(core->thread_info->fpregs->n_xmm_space != ARRAY_SIZE(fpregs->i387.xmm_space));
 
-	assign_array(core->thread_info->fpregs, xsave.i387, st_space);
-	assign_array(core->thread_info->fpregs, xsave.i387, xmm_space);
+	assign_array(core->thread_info->fpregs, fpregs->i387, st_space);
+	assign_array(core->thread_info->fpregs, fpregs->i387, xmm_space);
 
 	if (cpu_has_feature(X86_FEATURE_XSAVE)) {
-		BUG_ON(core->thread_info->fpregs->xsave->n_ymmh_space != ARRAY_SIZE(xsave.ymmh.ymmh_space));
+		BUG_ON(core->thread_info->fpregs->xsave->n_ymmh_space != ARRAY_SIZE(fpregs->ymmh.ymmh_space));
 
-		assign_reg(core->thread_info->fpregs->xsave, xsave.xsave_hdr, xstate_bv);
-		assign_array(core->thread_info->fpregs->xsave, xsave.ymmh, ymmh_space);
+		assign_reg(core->thread_info->fpregs->xsave, fpregs->xsave_hdr, xstate_bv);
+		assign_array(core->thread_info->fpregs->xsave, fpregs->ymmh, ymmh_space);
 	}
 
 #undef assign_reg
 #undef assign_array
 
-out:
-	ret = 0;
-
-err:
-	return ret;
+	return 0;
 }
 
 int ptrace_get_regs(pid_t pid, user_regs_struct_t *regs)

@@ -501,14 +501,13 @@ static int put_tm_regs(struct rt_sigframe *f, UserPpc64TmRegsEntry *tme)
 	return 0;
 }
 
+static int save_task_regs(CoreEntry *core,
+		user_regs_struct_t *regs, user_fpregs_struct_t *fpregs);
+
 /****************************************************************************/
 int get_task_regs(pid_t pid, user_regs_struct_t regs, CoreEntry *core)
 {
 	user_fpregs_struct_t fpregs;
-	UserPpc64RegsEntry *gpregs;
-	UserPpc64FpstateEntry **fpstate;
-	UserPpc64VrstateEntry **vrstate;
-	UserPpc64VsxstateEntry **vsxstate;
 	int ret;
 
 	pr_info("Dumping GP/FPU registers for %d\n", pid);
@@ -557,7 +556,50 @@ int get_task_regs(pid_t pid, user_regs_struct_t regs, CoreEntry *core)
 	} else
 		fpregs.flags = 0;
 
-	if (fpregs.flags) {
+	if (get_fpu_regs(pid, &fpregs))
+		return -1;
+
+	ret = get_altivec_regs(pid, &fpregs);
+	if (ret < 0)
+		return -1;
+
+	if (ret == 1) {
+		/*
+		 * Force the MSR_VEC bit of the restored MSR otherwise the
+		 * kernel will not restore them from the signal frame.
+		 */
+
+		fpregs.flags |= 0x16;
+
+		/*
+		 * Save the VSX registers if Altivec registers are supported
+		 */
+		ret = get_vsx_regs(pid, &fpregs);
+		if (ret < 0)
+			return -1;
+
+		if (ret == 0) {
+			/*
+			 * Force the MSR_VSX bit of the restored MSR otherwise
+			 * the kernel will not restore them from the signal
+			 * frame.
+			 */
+			fpregs.flags |= 0x32;
+		}
+	}
+
+	return save_task_regs(core, &regs, &fpregs);
+}
+
+static int save_task_regs(CoreEntry *core,
+		user_regs_struct_t *regs, user_fpregs_struct_t *fpregs)
+{
+	UserPpc64RegsEntry *gpregs;
+	UserPpc64FpstateEntry **fpstate;
+	UserPpc64VrstateEntry **vrstate;
+	UserPpc64VsxstateEntry **vsxstate;
+
+	if (fpregs->flags) {
 		UserPpc64TmRegsEntry *tme;
 		tme = xmalloc(sizeof(*tme));
 		if (!tme)
@@ -575,28 +617,28 @@ int get_task_regs(pid_t pid, user_regs_struct_t regs, CoreEntry *core)
 		gpregs = core->ti_ppc64->gpregs;
 
 		gpregs->has_tfhar 	= true;
-		gpregs->tfhar 		= fpregs.tm.tm_spr_regs.tfhar;
+		gpregs->tfhar 		= fpregs->tm.tm_spr_regs.tfhar;
 		gpregs->has_texasr 	= true;
-		gpregs->texasr		= fpregs.tm.tm_spr_regs.texasr;
+		gpregs->texasr		= fpregs->tm.tm_spr_regs.texasr;
 		gpregs->has_tfiar 	= true;
-		gpregs->tfiar		= fpregs.tm.tm_spr_regs.tfiar;
+		gpregs->tfiar		= fpregs->tm.tm_spr_regs.tfiar;
 
-		copy_gp_regs(gpregs, &fpregs.tm.regs);
+		copy_gp_regs(gpregs, &fpregs->tm.regs);
 
-		if (fpregs.flags & 0x2) {
-			core->ti_ppc64->fpstate = copy_fp_regs(fpregs.tm.fpregs);
+		if (fpregs->flags & 0x2) {
+			core->ti_ppc64->fpstate = copy_fp_regs(fpregs->tm.fpregs);
 			if (!core->ti_ppc64->fpstate)
 				return -1;
 		}
 
-		if (fpregs.flags & 0x4) {
-			core->ti_ppc64->vrstate = copy_altivec_regs((unsigned char *)fpregs.tm.vmxregs);
+		if (fpregs->flags & 0x4) {
+			core->ti_ppc64->vrstate = copy_altivec_regs((unsigned char *)fpregs->tm.vmxregs);
 			if (!core->ti_ppc64->vrstate)
 				return -1;
 		}
 
-		if (fpregs.flags & 0x8) {
-			core->ti_ppc64->vsxstate = copy_vsx_regs(fpregs.tm.vsxregs);
+		if (fpregs->flags & 0x8) {
+			core->ti_ppc64->vsxstate = copy_vsx_regs(fpregs->tm.vsxregs);
 			if (!core->ti_ppc64->vsxstate)
 				return -1;
 		}
@@ -612,47 +654,18 @@ int get_task_regs(pid_t pid, user_regs_struct_t regs, CoreEntry *core)
 		vsxstate = &(core->ti_ppc64->vsxstate);
 	}
 
-	if (get_fpu_regs(pid, &fpregs))
-		return -1;
-
-	ret = get_altivec_regs(pid, &fpregs);
-	if (ret < 0)
-		return -1;
-
-	if (ret == 1) {
-		/*
-		 * Force the MSR_VEC bit of the restored MSR otherwise the
-		 * kernel will not restore them from the signal frame.
-		 */
-		gpregs->msr |= MSR_VEC;
-
-		/*
-		 * Save the VSX registers if Altivec registers are supported
-		 */
-		ret = get_vsx_regs(pid, &fpregs);
-		if (ret < 0)
-			return -1;
-
-		if (ret == 0) {
-			/*
-			 * Force the MSR_VSX bit of the restored MSR otherwise
-			 * the kernel will not restore them from the signal
-			 * frame.
-			 */
-			gpregs->msr |= MSR_VSX;
-		}
-	}
-
-	copy_gp_regs(gpregs, &regs);
-	*fpstate = copy_fp_regs(fpregs.fpregs);
+	copy_gp_regs(gpregs, regs);
+	*fpstate = copy_fp_regs(fpregs->fpregs);
 	if (!*fpstate)
 		return -1;
-	if (gpregs->msr & MSR_VEC) {
-		*vrstate = copy_altivec_regs(fpregs.vrregs);
+	if (fpregs->flags & 0x16) {
+		gpregs->msr |= MSR_VEC;
+		*vrstate = copy_altivec_regs(fpregs->vrregs);
 		if (!*vrstate)
 			return -1;
-		if (gpregs->msr & MSR_VSX) {
-			*vsxstate = copy_vsx_regs(fpregs.vsregs);
+		if (fpregs->flags & 0x32) {
+			gpregs->msr |= MSR_VSX;
+			*vsxstate = copy_vsx_regs(fpregs->vsregs);
 			if (!*vsxstate)
 				return -1;
 		}
