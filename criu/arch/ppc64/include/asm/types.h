@@ -61,6 +61,33 @@ typedef struct {
         unsigned long result;           /* Result of a system call */
 } user_regs_struct_t;
 
+#define NVSXREG	32
+
+typedef struct {
+	uint64_t fpregs[NFPREG];
+	/* The kernel returns :
+	 *   32 Vector registers (128bit)
+	 *   VSCR (32bit) stored in a 128bit entry (odd)
+	 *   VRSAVE (32bit) store at the end.
+	 *
+	 * Kernel setup_sigcontext's comment mentions:
+	 * "Userland shall check AT_HWCAP to know whether it can rely on the
+	 * v_regs pointer or not"
+	 */
+	unsigned char vrregs[(NVRREG-1) * 16 + 4];
+	uint64_t vsregs[NVSXREG];
+
+	int flags;
+	struct tm_regs {
+		struct {
+			uint64_t tfhar, texasr, tfiar;
+		} tm_spr_regs;
+		user_regs_struct_t regs;
+		uint64_t fpregs[NFPREG], vmxregs[34][2], vsxregs[32];
+	} tm;
+} user_fpregs_struct_t;
+
+
 typedef UserPpc64RegsEntry UserRegsEntry;
 
 #define CORE_ENTRY__MARCH	CORE_ENTRY__MARCH__PPC64
