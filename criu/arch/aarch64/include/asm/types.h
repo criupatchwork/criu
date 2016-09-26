@@ -45,6 +45,7 @@ typedef struct {
  */
 
 typedef struct user_pt_regs user_regs_struct_t;
+typedef struct user_fpsimd_state user_fpregs_struct_t;
 
 
 #define REG_RES(r)		((u64)(r).regs[0])
