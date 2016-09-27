@@ -775,7 +775,6 @@ static int handle_user_fault(struct lazy_pages_info *lpi, void *dest)
 	struct uffd_msg msg;
 	__u64 flags;
 	__u64 address;
-	struct uffd_pages_struct *uffd_pages;
 	int ret;
 
 	ret = read(lpi->uffd, &msg, sizeof(msg));
@@ -791,11 +790,6 @@ static int handle_user_fault(struct lazy_pages_info *lpi, void *dest)
 	/* Align requested address to the next page boundary */
 	address = msg.arg.pagefault.address & ~(page_size() - 1);
 	pr_debug("msg.arg.pagefault.address 0x%llx\n", address);
-
-	/* Make sure to not transfer a page twice */
-	list_for_each_entry(uffd_pages, &lpi->pages, list)
-		if ((uffd_pages->addr == address) && (uffd_pages->flags & UFFD_FLAG_SENT))
-			return 0;
 
 	/* Now handle the pages actually requested. */
 	flags = msg.arg.pagefault.flags;
