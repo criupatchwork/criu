@@ -476,10 +476,9 @@ out:
 	return NULL;
 }
 
-static int get_page(struct lazy_pages_info *lpi, unsigned long addr)
+static int get_pages(struct lazy_pages_info *lpi, unsigned long addr, int nr)
 {
 	int ret;
-	unsigned char buf[PAGE_SIZE];
 
 	lpi->pr.reset(&lpi->pr);
 
@@ -491,14 +490,12 @@ static int get_page(struct lazy_pages_info *lpi, unsigned long addr)
 	if (pagemap_zero(lpi->pr.pe))
 		return 0;
 
-	ret = lpi->pr.read_pages(&lpi->pr, addr, 1, buf);
+	ret = lpi->pr.read_pages(&lpi->pr, addr, nr, lpi->buf);
 	pr_debug("read_pages ret %d\n", ret);
 	if (ret <= 0)
 		return ret;
 
-	memcpy(lpi->buf, buf, PAGE_SIZE);
-
-	return 1;
+	return nr;
 }
 
 static int uffd_copy(struct lazy_pages_info *lpi, __u64 address)
@@ -509,7 +506,7 @@ static int uffd_copy(struct lazy_pages_info *lpi, __u64 address)
 	if (opts.use_page_server)
 		rc = get_remote_pages(lpi->pid, address, 1, lpi->buf);
 	else
-		rc = get_page(lpi, address);
+		rc = get_pages(lpi, address, 1);
 	if (rc <= 0)
 		return rc;
 
