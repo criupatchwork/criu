@@ -54,7 +54,6 @@ struct lazy_pages_info {
 	int pid;
 	int uffd;
 
-	struct list_head pages;
 	struct list_head iovs;
 
 	struct page_read pr;
@@ -79,7 +78,6 @@ static struct lazy_pages_info *lpi_init(void)
 	}
 
 	memset(lpi, 0, sizeof(*lpi));
-	INIT_LIST_HEAD(&lpi->pages);
 	INIT_LIST_HEAD(&lpi->iovs);
 	INIT_HLIST_NODE(&lpi->hash);
 
@@ -494,14 +492,6 @@ static int get_page(struct lazy_pages_info *lpi, unsigned long addr, void *dest)
 
 	return 1;
 }
-
-#define UFFD_FLAG_SENT	0x1
-
-struct uffd_pages_struct {
-	struct list_head list;
-	unsigned long addr;
-	int flags;
-};
 
 static int uffd_copy_page(struct lazy_pages_info *lpi, __u64 address,
 			  void *dest)
