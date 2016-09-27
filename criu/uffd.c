@@ -663,21 +663,11 @@ static int handle_regular_pages(struct lazy_pages_info *lpi, void *dest,
 				__u64 address)
 {
 	int rc;
-	struct uffd_pages_struct *uffd_pages;
 
 	rc = uffd_handle_page(lpi, address, dest);
 	if (rc < 0) {
 		pr_err("Error during UFFD copy\n");
 		return -1;
-	}
-
-	/*
-	 * Mark this page as having been already transferred, so
-	 * that it has not to be copied again later.
-	 */
-	list_for_each_entry(uffd_pages, &lpi->pages, list) {
-		if (uffd_pages->addr == address)
-			uffd_pages->flags |= UFFD_FLAG_SENT;
 	}
 
 	rc = update_lazy_iovecs(lpi, address, PAGE_SIZE);
