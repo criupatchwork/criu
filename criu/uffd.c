@@ -505,7 +505,7 @@ static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, int nr_pages)
 	int rc;
 
 	if (opts.use_page_server)
-		rc = get_remote_pages(lpi->pid, address, 1, lpi->buf);
+		rc = get_remote_pages(lpi->pid, address, nr_pages, lpi->buf);
 	else
 		rc = get_pages(lpi, address, nr_pages);
 	if (rc <= 0)
