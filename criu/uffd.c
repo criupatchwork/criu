@@ -559,13 +559,13 @@ static int uffd_zero(struct lazy_pages_info *lpi, __u64 address, int nr_pages)
 	return len;
 }
 
-static int uffd_handle_page(struct lazy_pages_info *lpi, __u64 address)
+static int uffd_handle_pages(struct lazy_pages_info *lpi, __u64 address, int nr)
 {
 	int rc;
 
-	rc = uffd_copy(lpi, address, 1);
+	rc = uffd_copy(lpi, address, nr);
 	if (rc == 0)
-		rc = uffd_zero(lpi, address, 1);
+		rc = uffd_zero(lpi, address, nr);
 
 	return rc;
 }
@@ -585,7 +585,7 @@ static int handle_remaining_pages(struct lazy_pages_info *lpi)
 		for (i = 0; i < nr_pages; i++) {
 			addr = base + i * PAGE_SIZE;
 
-			err = uffd_handle_page(lpi, addr);
+			err = uffd_handle_pages(lpi, addr, 1);
 			if (err < 0) {
 				pr_err("Error during UFFD copy\n");
 				return -1;
@@ -596,17 +596,18 @@ static int handle_remaining_pages(struct lazy_pages_info *lpi)
 	return 0;
 }
 
-static int handle_regular_pages(struct lazy_pages_info *lpi, __u64 address)
+static int handle_regular_pages(struct lazy_pages_info *lpi, __u64 address,
+				int nr)
 {
 	int rc;
 
-	rc = uffd_handle_page(lpi, address);
+	rc = uffd_handle_pages(lpi, address, nr);
 	if (rc < 0) {
 		pr_err("Error during UFFD copy\n");
 		return -1;
 	}
 
-	rc = update_lazy_iovecs(lpi, address, PAGE_SIZE);
+	rc = update_lazy_iovecs(lpi, address, PAGE_SIZE * nr);
 	if (rc < 0)
 		return -1;
 
@@ -643,7 +644,7 @@ static int handle_user_fault(struct lazy_pages_info *lpi)
 		return -1;
 	}
 
-	ret = handle_regular_pages(lpi, address);
+	ret = handle_regular_pages(lpi, address, 1);
 	if (ret < 0) {
 		pr_err("Error during regular page copy\n");
 		return -1;
