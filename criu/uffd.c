@@ -325,6 +325,56 @@ out:
 
 static int find_vmas(struct lazy_pages_info *lpi);
 
+static int update_lazy_iovecs(struct lazy_pages_info *lpi, unsigned long addr,
+			       int len)
+{
+	struct lazy_iovec *lazy_iov, *n;
+
+	list_for_each_entry_safe(lazy_iov, n, &lpi->iovs, l) {
+		unsigned long start = (unsigned long)lazy_iov->iov.iov_base;
+		unsigned long end = start + lazy_iov->iov.iov_len;
+
+		if (len <= 0)
+			break;
+
+		if (addr < start || addr >= end)
+			continue;
+
+		if (addr + len < end) {
+			if (addr == start) {
+				lazy_iov->iov.iov_base += len;
+				lazy_iov->iov.iov_len -= len;
+			} else {
+				struct lazy_iovec *new;
+
+				lazy_iov->iov.iov_len -= (end - addr);
+
+				new = xzalloc(sizeof(*new));
+				if (!new)
+					return -1;
+
+				new->iov.iov_base = (void *)(addr + len);
+				new->iov.iov_len = end - (addr + len);
+
+				list_add(&new->l, &lazy_iov->l);
+			}
+			break;
+		}
+
+		if (addr == start) {
+			list_del(&lazy_iov->l);
+			xfree(lazy_iov);
+		} else {
+			lazy_iov->iov.iov_len -= (end - addr);
+		}
+
+		len -= (end - addr);
+		addr = end;
+	}
+
+	return 0;
+}
+
 static int collect_lazy_iovecs(struct lazy_pages_info *lpi)
 {
 	struct page_read *pr = &lpi->pr;
@@ -585,27 +635,29 @@ static int collect_uffd_pages(struct page_read *pr, struct lazy_pages_info *lpi)
 
 static int handle_remaining_pages(struct lazy_pages_info *lpi, void *dest)
 {
-	struct uffd_pages_struct *uffd_pages;
-	int rc;
+	struct lazy_iovec *lazy_iov;
+	int nr_pages, i, err;
+	unsigned long base, addr;
 
-	list_for_each_entry(uffd_pages, &lpi->pages, list) {
-		pr_debug("Checking remaining pages 0x%lx (flags 0x%x)\n",
-			 uffd_pages->addr, uffd_pages->flags);
-		if (uffd_pages->flags & UFFD_FLAG_SENT)
-			continue;
+	lpi->pr.reset(&lpi->pr);
 
-		rc = uffd_handle_page(lpi, uffd_pages->addr, dest);
-		if (rc < 0) {
-			pr_err("Error during UFFD copy\n");
-			return -1;
+	list_for_each_entry(lazy_iov, &lpi->iovs, l) {
+		nr_pages = lazy_iov->iov.iov_len / PAGE_SIZE;
+		base = (unsigned long)lazy_iov->iov.iov_base;
+
+		for (i = 0; i < nr_pages; i++) {
+			addr = base + i * PAGE_SIZE;
+
+			err = uffd_handle_page(lpi, addr, dest);
+			if (err < 0) {
+				pr_err("Error during UFFD copy\n");
+				return -1;
+			}
 		}
-
-		uffd_pages->flags |= UFFD_FLAG_SENT;
 	}
 
 	return 0;
 }
-
 
 static int handle_regular_pages(struct lazy_pages_info *lpi, void *dest,
 				__u64 address)
@@ -627,6 +679,10 @@ static int handle_regular_pages(struct lazy_pages_info *lpi, void *dest,
 		if (uffd_pages->addr == address)
 			uffd_pages->flags |= UFFD_FLAG_SENT;
 	}
+
+	rc = update_lazy_iovecs(lpi, address, PAGE_SIZE);
+	if (rc < 0)
+		return -1;
 
 	return 0;
 }
