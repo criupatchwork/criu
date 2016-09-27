@@ -323,8 +323,6 @@ out:
 	return -1;
 }
 
-static int find_vmas(struct lazy_pages_info *lpi);
-
 static int update_lazy_iovecs(struct lazy_pages_info *lpi, unsigned long addr,
 			       int len)
 {
@@ -441,12 +439,21 @@ static struct lazy_pages_info *ud_open(int client)
 	uffd_flags = fcntl(lpi->uffd, F_GETFD, NULL);
 	pr_debug("uffd_flags are 0x%x\n", uffd_flags);
 
+	ret = open_page_read(lpi->pid, &lpi->pr, PR_TASK);
+	if (ret <= 0) {
+		ret = -1;
+		goto out;
+	}
+
 	/*
 	 * Find the memory pages belonging to the restored process
 	 * so that it is trackable when all pages have been transferred.
 	 */
-	if ((lpi->total_pages = find_vmas(lpi)) == -1)
+	lpi->total_pages = collect_lazy_iovecs(lpi);
+	if (lpi->total_pages < 0)
 		goto out;
+
+	pr_debug("Found %ld pages to be handled by UFFD\n", lpi->total_pages);
 
 	hlist_add_head(&lpi->hash, &lpi_hash[lpi->uffd % LPI_HASH_SIZE]);
 
@@ -612,78 +619,6 @@ static int handle_regular_pages(struct lazy_pages_info *lpi, void *dest,
 		return -1;
 
 	return 0;
-}
-
-/*
- *  Setting up criu infrastructure and scan for VMAs.
- */
-static int find_vmas(struct lazy_pages_info *lpi)
-{
-	struct cr_img *img;
-	int ret;
-	struct vm_area_list vmas;
-	int vn = 0;
-	struct rst_info *ri;
-	struct pstree_item *item = pstree_item_by_virt(lpi->pid);
-
-	BUG_ON(!item);
-
-	vm_area_list_init(&vmas);
-
-	ri = rsti(item);
-	if (!ri)
-		return -1;
-
-	img = open_image(CR_FD_MM, O_RSTR, lpi->pid);
-	if (!img)
-		return -1;
-
-	ret = pb_read_one_eof(img, &ri->mm, PB_MM);
-	close_image(img);
-	if (ret == -1)
-		return -1;
-
-	pr_debug("Found %zd VMAs in image\n", ri->mm->n_vmas);
-
-	while (vn < ri->mm->n_vmas) {
-		struct vma_area *vma;
-
-		ret = -1;
-		vma = alloc_vma_area();
-		if (!vma)
-			goto out;
-
-		ret = 0;
-		ri->vmas.nr++;
-		vma->e = ri->mm->vmas[vn++];
-
-		list_add_tail(&vma->list, &ri->vmas.h);
-
-		if (vma_area_is_private(vma, kdat.task_size)) {
-			vmas.priv_size += vma_area_len(vma);
-			if (vma->e->flags & MAP_GROWSDOWN)
-				vmas.priv_size += PAGE_SIZE;
-		}
-
-		pr_info("vma 0x%"PRIx64" 0x%"PRIx64"\n", vma->e->start, vma->e->end);
-	}
-
-	ret = open_page_read(lpi->pid, &lpi->pr, PR_TASK);
-	if (ret <= 0) {
-		ret = -1;
-		goto out;
-	}
-
-	ret = collect_lazy_iovecs(lpi);
-	if (ret < 0) {
-		pr_err("collect_lazy_iovecs=%d\n", ret);
-		goto out;
-	}
-
-	pr_debug("Found %d pages to be handled by UFFD\n", ret);
-
-out:
-	return ret;
 }
 
 static int handle_user_fault(struct lazy_pages_info *lpi, void *dest)
