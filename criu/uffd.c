@@ -570,69 +570,6 @@ static int uffd_handle_page(struct lazy_pages_info *lpi, __u64 address,
 	return rc;
 }
 
-static int collect_uffd_pages(struct page_read *pr, struct lazy_pages_info *lpi)
-{
-	unsigned long base;
-	int i;
-	struct iovec iov;
-	unsigned long nr_pages;
-	unsigned long ps;
-	int rc;
-	struct uffd_pages_struct *uffd_pages;
-	struct vma_area *vma;
-	struct vm_area_list *vmas;
-	struct pstree_item *item = pstree_item_by_virt(lpi->pid);
-
-	BUG_ON(!item);
-
-	vmas = &rsti(item)->vmas;
-
-	rc = pr->get_pagemap(pr, &iov);
-	if (rc <= 0)
-		return 0;
-
-	ps = page_size();
-	nr_pages = iov.iov_len / ps;
-	base = (unsigned long) iov.iov_base;
-	pr_debug("iov.iov_base 0x%lx (%ld pages)\n", base, nr_pages);
-
-	for (i = 0; i < nr_pages; i++) {
-		bool uffd_page = false;
-		base = (unsigned long) iov.iov_base + (i * ps);
-		/*
-		 * Only pages which are MAP_ANONYMOUS and MAP_PRIVATE
-		 * are relevant for userfaultfd handling.
-		 * Loop over all VMAs to see if the flags matching.
-		 */
-		list_for_each_entry(vma, &vmas->h, list) {
-			/*
-			 * This loop assumes that base can actually be found
-			 * in the VMA list.
-			 */
-			if (base >= vma->e->start && base < vma->e->end) {
-				if (vma_entry_can_be_lazy(vma->e)) {
-					uffd_page = true;
-					break;
-				}
-			}
-		}
-
-		/* This is not a page we are looking for. Move along */
-		if (!uffd_page)
-			continue;
-
-		pr_debug("Adding 0x%lx to our list\n", base);
-
-		uffd_pages = xzalloc(sizeof(struct uffd_pages_struct));
-		if (!uffd_pages)
-			return -1;
-		uffd_pages->addr = base;
-		list_add(&uffd_pages->list, &lpi->pages);
-	}
-
-	return 1;
-}
-
 static int handle_remaining_pages(struct lazy_pages_info *lpi, void *dest)
 {
 	struct lazy_iovec *lazy_iov;
@@ -687,7 +624,6 @@ static int find_vmas(struct lazy_pages_info *lpi)
 	struct vm_area_list vmas;
 	int vn = 0;
 	struct rst_info *ri;
-	struct uffd_pages_struct *uffd_pages;
 	struct pstree_item *item = pstree_item_by_virt(lpi->pid);
 
 	BUG_ON(!item);
@@ -737,22 +673,12 @@ static int find_vmas(struct lazy_pages_info *lpi)
 		ret = -1;
 		goto out;
 	}
-	/*
-	 * This puts all pages which should be handled by userfaultfd
-	 * in the list uffd_list. This list is later used to detect if
-	 * a page has already been transferred or if it needs to be
-	 * pushed into the process using userfaultfd.
-	 */
-	do {
-		ret = collect_uffd_pages(&lpi->pr, lpi);
-		if (ret == -1) {
-			goto out;
-		}
-	} while (ret);
 
-	/* Count detected pages */
-	list_for_each_entry(uffd_pages, &lpi->pages, list)
-	    ret++;
+	ret = collect_lazy_iovecs(lpi);
+	if (ret < 0) {
+		pr_err("collect_lazy_iovecs=%d\n", ret);
+		goto out;
+	}
 
 	pr_debug("Found %d pages to be handled by UFFD\n", ret);
 
