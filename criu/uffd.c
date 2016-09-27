@@ -45,11 +45,17 @@
 
 static mutex_t *lazy_sock_mutex;
 
+struct lazy_iovec {
+	struct iovec iov;
+	struct list_head l;
+};
+
 struct lazy_pages_info {
 	int pid;
 	int uffd;
 
 	struct list_head pages;
+	struct list_head iovs;
 
 	struct page_read pr;
 
@@ -74,6 +80,7 @@ static struct lazy_pages_info *lpi_init(void)
 
 	memset(lpi, 0, sizeof(*lpi));
 	INIT_LIST_HEAD(&lpi->pages);
+	INIT_LIST_HEAD(&lpi->iovs);
 	INIT_HLIST_NODE(&lpi->hash);
 
 	return lpi;
@@ -81,8 +88,12 @@ static struct lazy_pages_info *lpi_init(void)
 
 static void lpi_fini(struct lazy_pages_info *lpi)
 {
+	struct lazy_iovec *p, *n;
+
 	if (!lpi)
 		return;
+	list_for_each_entry_safe(p, n, &lpi->iovs, l)
+		xfree(p);
 	if (lpi->uffd > 0)
 		close(lpi->uffd);
 	if (lpi->pr.close)
@@ -314,6 +325,42 @@ out:
 
 static int find_vmas(struct lazy_pages_info *lpi);
 
+static int collect_lazy_iovecs(struct lazy_pages_info *lpi)
+{
+	struct page_read *pr = &lpi->pr;
+	struct lazy_iovec *lazy_iov, *n;
+	int nr_pages = 0;
+
+	pr->reset(pr);
+
+	while (pr->advance(pr)) {
+		PagemapEntry *pe = pr->pe;
+
+		if (!pagemap_lazy(pe))
+			continue;
+
+		lazy_iov = xzalloc(sizeof(*lazy_iov));
+		if (!lazy_iov) {
+			pr_err("Out of memory\n");
+			goto free_iovs;
+		}
+
+		pagemap2iovec(pe, &lazy_iov->iov);
+		list_add_tail(&lazy_iov->l, &lpi->iovs);
+		nr_pages += pe->nr_pages;
+
+		pr_debug("adding IOV: %p:%lx (%d)\n", lazy_iov->iov.iov_base, lazy_iov->iov.iov_len, pe->nr_pages);
+	}
+
+	return nr_pages;
+
+free_iovs:
+	list_for_each_entry_safe(lazy_iov, n, &lpi->iovs, l)
+		xfree(lazy_iov);
+
+	return -1;
+}
+
 static struct lazy_pages_info *ud_open(int client)
 {
 	struct lazy_pages_info *lpi;
@@ -352,6 +399,12 @@ static struct lazy_pages_info *ud_open(int client)
 		goto out;
 
 	hlist_add_head(&lpi->hash, &lpi_hash[lpi->uffd % LPI_HASH_SIZE]);
+
+	ret = collect_lazy_iovecs(lpi);
+	if (ret != lpi->total_pages) {
+		pr_err("collect_lazy_iovecs=%d\n", ret);
+		goto out;
+	}
 
 	return lpi;
 
