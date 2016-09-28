@@ -43,7 +43,7 @@ typedef struct user_pt_regs user_regs_struct_t;
 
 int munmap(void *addr, size_t length);
 
-static inline unsigned long task_size() {
+static inline unsigned long task_size(void) {
 	unsigned long task_size;
 
 	for (task_size = TASK_SIZE_MIN; task_size < TASK_SIZE_MAX; task_size <<= 1)
