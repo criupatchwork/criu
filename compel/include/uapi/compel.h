@@ -14,4 +14,8 @@ typedef struct {
 	long		value;
 } compel_reloc_t;
 
+extern int libcompel_pack_argv(void *blob, size_t blob_size,
+			       int argc, char **argv,
+			       void **arg_p, size_t *arg_size);
+
 #endif /* UAPI_COMPEL_H__ */
