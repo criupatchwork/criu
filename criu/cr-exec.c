@@ -2,10 +2,10 @@
 #include <string.h>
 #include <stdlib.h>
 #include "crtools.h"
+#include "parasite-syscall.h"
 #include "proc_parse.h"
 #include "ptrace.h"
 #include "pstree.h"
-#include "parasite-syscall.h"
 #include "vma.h"
 #include "log.h"
 #include "util.h"
