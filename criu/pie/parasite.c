@@ -314,7 +314,7 @@ static int pie_atoi(char *str)
 	return ret;
 }
 
-static int get_proc_fd()
+static int get_proc_fd(void)
 {
 	int ret;
 	char buf[11];
@@ -351,7 +351,7 @@ static int get_proc_fd()
 	return open_detach_mount(proc_mountpoint);
 }
 
-static int parasite_get_proc_fd()
+static int parasite_get_proc_fd(void)
 {
 	int fd, ret;
 
@@ -610,7 +610,7 @@ static noinline void fini_sigreturn(unsigned long new_sp)
 	ARCH_RT_SIGRETURN(new_sp, sigframe);
 }
 
-static int fini()
+static int fini(void)
 {
 	unsigned long new_sp;
 
