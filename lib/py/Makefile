@@ -9,7 +9,6 @@ images:
 # it is safe to rename it, dropping ugly _pb2 suffix.
 rpc.py:
 	$(Q) protoc -I=$(SRC_DIR)/images/ --python_out=./ $(SRC_DIR)/images/$(@:.py=.proto)
-	$(Q) mv $(@:.py=_pb2.py) $@
 
 clean:
 	$(Q) $(MAKE) -C images clean
