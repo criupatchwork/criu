@@ -10,6 +10,7 @@
 #include "util.h"
 #include "cr_options.h"
 #include "lsm.h"
+#include "apparmor.h"
 
 #include "protobuf.h"
 #include "images/inventory.pb-c.h"
@@ -121,6 +122,7 @@ void kerndat_lsm(void)
 		get_label = apparmor_get_label;
 		lsmtype = LSMTYPE__APPARMOR;
 		name = "apparmor";
+		ns_dumping_enabled = check_aa_ns_dumping();
 		return;
 	}
 
@@ -157,6 +159,11 @@ int collect_lsm_profile(pid_t pid, CredsEntry *ce)
 
 	if (get_label(pid, &ce->lsm_profile) < 0)
 		return -1;
+
+	if (lsmtype == LSMTYPE__APPARMOR && collect_aa_namespace(ce->lsm_profile) < 0) {
+		pr_err("failed to collect AA namespace\n");
+		return -1;
+	}
 
 	if (ce->lsm_profile)
 		pr_info("%d has lsm profile %s\n", pid, ce->lsm_profile);
