@@ -351,7 +351,24 @@ bool check_aa_ns_dumping(void)
 	return major >= 1 && minor >= 2;
 }
 
-static int restore_aa_namespace(AaNamespace *ns, char *path, int offset)
+#define NEXT_AA_TOKEN(pos)					\
+	while (*pos) {						\
+		if (*pos == '/' &&				\
+				*(pos+1) && *(pos+1) == '/' &&	\
+				*(pos+2) && *(pos+2) == '&') {	\
+			pos += 3;				\
+			break;					\
+		}						\
+		if (*pos == ':' &&				\
+				*(pos+1) && *(pos+1) == '/' &&	\
+				*(pos+2) && *(pos+2) == '/') {	\
+			pos += 3;				\
+			break;					\
+		}						\
+		pos++;						\
+	}
+
+static int restore_aa_namespace(AaNamespace *ns, char *path, int offset, char *rewrite)
 {
 	pid_t pid;
 	int status;
@@ -364,9 +381,30 @@ static int restore_aa_namespace(AaNamespace *ns, char *path, int offset)
 
 	if (!pid) {
 		int i, my_offset, ret, fd;
-		char buf[1024];
+		char buf[PATH_MAX], *rewrite_pos = rewrite, namespace[PATH_MAX];
 
-		ret = snprintf(buf, sizeof(buf), "changeprofile :%s:", ns->name);
+		if (!rewrite) {
+			strncpy(namespace, ns->name, sizeof(namespace));
+		} else {
+			NEXT_AA_TOKEN(rewrite_pos);
+			switch(*rewrite) {
+			case ':':
+				*(rewrite_pos-3) = 0;
+				strncpy(namespace, rewrite_pos+1, sizeof(namespace));
+				*(rewrite_pos-3) = ':';
+				break;
+			default:
+				strncpy(namespace, ns->name, sizeof(namespace));
+				*(rewrite_pos-3) = 0;
+				for (i = 0; i < ns->n_policies; i++) {
+					if (strcmp(ns->policies[i]->name, rewrite_pos))
+						pr_warn("binary rewriting of apparmor policies not supported right now, not renaming %s to %s\n", ns->policies[i]->name, rewrite_pos);
+				}
+				*(rewrite_pos-3) = '/';
+			}
+		}
+
+		ret = snprintf(buf, sizeof(buf), "changeprofile :%s:", namespace);
 		if (ret < 0 || ret >= sizeof(buf)) {
 			pr_err("profile %s too big\n", ns->name);
 			exit(1);
@@ -402,7 +440,7 @@ static int restore_aa_namespace(AaNamespace *ns, char *path, int offset)
 		}
 
 		for (i = 0; i < ns->n_namespaces; i++) {
-			if (restore_aa_namespace(ns, path, offset + my_offset) < 0)
+			if (restore_aa_namespace(ns, path, offset + my_offset, rewrite_pos) < 0)
 				goto fail;
 		}
 
@@ -465,7 +503,7 @@ int prepare_apparmor_namespaces(void)
 	for (i = 0; i < ae->n_namespaces; i++) {
 		char path[PATH_MAX] = AA_SECURITYFS_PATH "/policy";
 
-		if (restore_aa_namespace(ae->namespaces[i], path, strlen(path)) < 0) {
+		if (restore_aa_namespace(ae->namespaces[i], path, strlen(path), opts.lsm_profile) < 0) {
 			ret = -1;
 			goto out;
 		}
@@ -475,4 +513,75 @@ int prepare_apparmor_namespaces(void)
 out:
 	apparmor_entry__free_unpacked(ae, NULL);
 	return ret;
+}
+
+int render_aa_profile(char **out, const char *cur)
+{
+	const char *pos;
+	int n_namespaces = 0, n_profiles = 0;
+	bool last_namespace = false;
+
+	/* no rewriting necessary */
+	if (!opts.lsm_supplied) {
+		*out = xsprintf("changeprofile %s", cur);
+		if (!*out)
+			return -1;
+
+		return 0;
+	}
+
+	/* user asked to re-write to an unconfined profile */
+	if (!opts.lsm_profile) {
+		*out = NULL;
+		return 0;
+	}
+
+	pos = opts.lsm_profile;
+	while (*pos) {
+		switch(*pos) {
+		case ':':
+			n_namespaces++;
+			break;
+		default:
+			n_profiles++;
+		}
+
+		NEXT_AA_TOKEN(pos);
+	}
+
+	/* special case: there is no namespacing or stacking; we can just
+	 * changeprofile to the rewritten string
+	 */
+	if (n_profiles == 1 && n_namespaces == 0) {
+		*out = xsprintf("changeprofile %s", opts.lsm_profile);
+		if (!*out)
+			return -1;
+
+		pr_info("rewrote apparmor profile from %s to %s\n", cur, *out);
+		return 0;
+	}
+
+	pos = cur;
+	while (*pos) {
+		switch(*pos) {
+		case ':':
+			n_namespaces--;
+			last_namespace = true;
+			break;
+		default:
+			n_profiles--;
+		}
+
+		NEXT_AA_TOKEN(pos);
+
+		if (n_profiles == 0 && n_namespaces == 0)
+			break;
+	}
+
+	*out = xsprintf("changeprofile %s//%s%s", opts.lsm_profile, last_namespace ? "" : "&", pos);
+	if (!*out)
+		return -1;
+
+	pr_info("rewrote apparmor profile from %s to %s\n", cur, *out);
+	return 0;
 }

@@ -174,37 +174,30 @@ int collect_lsm_profile(pid_t pid, CredsEntry *ce)
 // in inventory.c
 extern Lsmtype image_lsm;
 
-int validate_lsm(char *lsm_profile)
-{
-	if (image_lsm == LSMTYPE__NO_LSM || image_lsm == lsmtype)
-		return 0;
-
-	/*
-	 * This is really only a problem if the processes have actually
-	 * specified an LSM profile. If not, we won't restore anything anyway,
-	 * so it's fine.
-	 */
-	if (lsm_profile) {
-		pr_err("mismatched lsm types and lsm profile specified\n");
-		return -1;
-	}
-
-	return 0;
-}
-
 int render_lsm_profile(char *profile, char **val)
 {
 	*val = NULL;
 
+	if (image_lsm != lsmtype) {
+		pr_err("image lsm doesn't match current kernel's lsm\n");
+		return -1;
+	}
+
+	/* nothing to do */
+	if (!profile)
+		return 0;
+
 	switch (lsmtype) {
 	case LSMTYPE__APPARMOR:
-		if (strcmp(profile, "unconfined") != 0 && asprintf(val, "changeprofile %s", profile) < 0) {
-			pr_err("allocating lsm profile failed");
-			*val = NULL;
-			return -1;
-		}
-		break;
+		return render_aa_profile(val, profile);
 	case LSMTYPE__SELINUX:
+		if (opts.lsm_supplied) {
+			if (!opts.lsm_profile)
+				return 0;
+
+			profile = opts.lsm_profile;
+		}
+
 		if (asprintf(val, "%s", profile) < 0) {
 			*val = NULL;
 			return -1;
