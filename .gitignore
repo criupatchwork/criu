@@ -27,6 +27,7 @@ criu/arch/*/sys-exec-tbl*.c
 !criu/arch/x86/sys-exec-tbl.c
 criu/arch/*/syscalls*.S
 criu/include/config.h
+soccr/config.h
 criu/include/syscall-codes*.h
 criu/include/syscall*.h
 criu/include/version.h
