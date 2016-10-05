@@ -40,7 +40,11 @@
 #include "tun.h"
 #include "namespaces.h"
 #include "pstree.h"
+#include "lsm.h"
+#include "apparmor.h"
 #include "cr_options.h"
+
+#include "images/inventory.pb-c.h"
 
 static char *feature_name(int (*func)());
 
@@ -933,6 +937,14 @@ static int check_tcp_window(void)
 	return 0;
 }
 
+static int check_apparmor_stacking(void)
+{
+	if (!check_aa_ns_dumping())
+		return -1;
+
+	return 0;
+}
+
 static int (*chk_feature)(void);
 
 /*
@@ -1031,6 +1043,7 @@ int cr_check(void)
 		ret |= check_clone_parent_vs_pid();
 		ret |= check_cgroupns();
 		ret |= check_tcp_window();
+		ret |= check_apparmor_stacking();
 	}
 
 	/*
@@ -1110,6 +1123,7 @@ static struct feature_list feature_list[] = {
 	{ "loginuid", check_loginuid },
 	{ "cgroupns", check_cgroupns },
 	{ "autofs", check_autofs },
+	{ "apparmor_stacking", check_apparmor_stacking },
 	{ NULL, NULL },
 };
 
