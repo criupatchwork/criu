@@ -139,6 +139,7 @@ TST_NOFILE	:=				\
 		aio01				\
 		fd				\
 		apparmor				\
+		apparmor_stacking				\
 		seccomp_strict			\
 		seccomp_filter			\
 		seccomp_filter_tsync			\
