@@ -81,6 +81,7 @@
 #include "seccomp.h"
 #include "seize.h"
 #include "fault-injection.h"
+#include "apparmor.h"
 
 #include "asm/dump.h"
 
@@ -1811,6 +1812,9 @@ int cr_dump_tasks(pid_t pid)
 	if (root_ns_mask)
 		if (dump_namespaces(root_item, root_ns_mask) < 0)
 			goto err;
+
+	if (dump_aa_namespaces() < 0)
+		goto err;
 
 	ret = dump_cgroups();
 	if (ret)
