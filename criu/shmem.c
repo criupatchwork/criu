@@ -631,8 +631,8 @@ static int dump_one_shmem(struct shmem_info *si)
 {
 	struct page_pipe *pp;
 	struct page_xfer xfer;
-	int err, ret = -1, fd;
-	unsigned char *mc_map = NULL;
+	int err, ret = -1, fd, fd_map;
+	u64 *mc_map = NULL;
 	void *addr = NULL;
 	unsigned long pfn, nrpages;
 
@@ -651,13 +651,32 @@ static int dump_one_shmem(struct shmem_info *si)
 	}
 
 	nrpages = (si->size + PAGE_SIZE - 1) / PAGE_SIZE;
+
+	/*
+	 * Make sure PTEs are created in our space
+	 * so pagemap would show us the proper results.
+	 */
+	for (pfn = 0; pfn < nrpages; pfn++) {
+		volatile char v = *(char *)((unsigned long)addr + pfn * PAGE_SIZE);
+		(void)v;
+	}
+
 	mc_map = xmalloc(nrpages * sizeof(*mc_map));
 	if (!mc_map)
 		goto err_unmap;
-	/* We can't rely only on PME bits for anon shmem */
-	err = mincore(addr, si->size, mc_map);
-	if (err)
+
+	fd_map = open_proc(PROC_SELF, "pagemap");
+	if (fd_map < 0) {
 		goto err_unmap;
+	}
+	if (pread(fd_map, mc_map, nrpages * sizeof(*mc_map),
+		  PAGE_PFN((unsigned long)addr) * sizeof(u64)) != nrpages * sizeof(*mc_map)) {
+		pr_perror("Can't read shmem 0x%lx (0x%lx-0x%lx) pagemap\n",
+			  si->shmid, si->start, si->end);
+		close(fd_map);
+		goto err_unmap;
+	}
+	close(fd_map);
 
 	pp = create_page_pipe((nrpages + 1) / 2, NULL, PP_CHUNK_MODE);
 	if (!pp)
@@ -677,7 +696,9 @@ static int dump_one_shmem(struct shmem_info *si)
 			use_mc = pgstate == PST_DONT_DUMP;
 		}
 
-		if (use_mc && !(mc_map[pfn] & PAGE_RSS))
+		if (use_mc &&
+		   (!(mc_map[pfn] & (PME_PRESENT | PME_SWAP)) ||
+		    page_is_zero(mc_map[pfn])))
 			continue;
 
 		pgaddr = (unsigned long)addr + pfn * PAGE_SIZE;
