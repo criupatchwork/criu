@@ -635,7 +635,7 @@ static int fini(void)
 
 static noinline __used int noinline parasite_daemon(void *args)
 {
-	struct ctl_msg m = { };
+	struct ctl_msg m;
 	int ret = -1;
 
 	pr_debug("Running daemon thread leader\n");
