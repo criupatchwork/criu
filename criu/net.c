@@ -337,14 +337,14 @@ static int ipv4_conf_op_old(char *tgt, int *conf, int n, int op, int *def_conf)
 	return 0;
 }
 
-int write_netdev_img(NetDeviceEntry *nde, struct cr_imgset *fds)
+int write_netdev_img(NetDeviceEntry *nde, struct cr_imgset *fds, struct nlattr **data)
 {
 	return pb_write_one(img_from_set(fds, CR_FD_NETDEV), nde, PB_NETDEV);
 }
 
 static int dump_one_netdev(int type, struct ifinfomsg *ifi,
 		struct nlattr **tb, struct cr_imgset *fds,
-		int (*dump)(NetDeviceEntry *, struct cr_imgset *))
+		int (*dump)(NetDeviceEntry *, struct cr_imgset *, struct nlattr **data))
 {
 	int ret = -1;
 	int i;
@@ -421,7 +421,7 @@ static int dump_one_netdev(int type, struct ifinfomsg *ifi,
 	if (!dump)
 		dump = write_netdev_img;
 
-	ret = dump(&netdev, fds);
+	ret = dump(&netdev, fds, tb);
 err_free:
 	xfree(netdev.conf4);
 	xfree(confs4);
@@ -463,7 +463,7 @@ static int dump_unknown_device(struct ifinfomsg *ifi, char *kind,
 	return -1;
 }
 
-static int dump_bridge(NetDeviceEntry *nde, struct cr_imgset *imgset)
+static int dump_bridge(NetDeviceEntry *nde, struct cr_imgset *imgset, struct nlattr **data)
 {
 	char spath[IFNAMSIZ + 16]; /* len("class/net//brif") + 1 for null */
 	int ret, fd;
@@ -495,7 +495,7 @@ static int dump_bridge(NetDeviceEntry *nde, struct cr_imgset *imgset)
 		return -1;
 	}
 
-	return write_netdev_img(nde, imgset);
+	return write_netdev_img(nde, imgset, data);
 }
 
 static int dump_one_ethernet(struct ifinfomsg *ifi, char *kind,
