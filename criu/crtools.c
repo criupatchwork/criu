@@ -279,6 +279,7 @@ int main(int argc, char *argv[], char *envp[])
 		{ "cgroup-dump-controller",	required_argument,	0, 1082	},
 		{ SK_INFLIGHT_PARAM,		no_argument,		0, 1083	},
 		{ "deprecated",			no_argument,		0, 1084 },
+		{ "check-only",			no_argument,		0, 1085 },
 		{ "display-stats",		no_argument,		0, 1086 },
 		{ },
 	};
@@ -595,6 +596,11 @@ int main(int argc, char *argv[], char *envp[])
 			pr_msg("Turn deprecated stuff ON\n");
 			opts.deprecated_ok = true;
 			break;
+		case 1085:
+			pr_msg("Only checking if requested operation will succeed\n");
+			opts.check_only = true;
+			opts.final_state = TASK_ALIVE;
+			break;
 		case 1086:
 			opts.display_stats = true;
 			break;
@@ -831,6 +837,9 @@ usage:
 "                        this requires running a second instance of criu\n"
 "                        in lazy-pages mode: 'criu lazy-pages -D DIR'\n"
 "                        --lazy-pages and lazy-pages mode require userfaultfd\n"
+"  --check-only          check if checkpointing/restoring will actually work\n"
+"                        the process will keep on running and memory pages\n"
+"                        will not be dumped\n"
 "\n"
 "* External resources support:\n"
 "  --external RES        dump objects from this list as external resources:\n"

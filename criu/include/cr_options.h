@@ -115,6 +115,7 @@ struct cr_options {
 	 */
 	bool			deprecated_ok;
 	bool			display_stats;
+	bool			check_only;
 };
 
 extern struct cr_options opts;
