@@ -174,6 +174,9 @@ static int seek_pagemap_page(struct page_read *pr, unsigned long vaddr,
 		unsigned long len = pr->pe->nr_pages * PAGE_SIZE;
 		unsigned long end = start + len;
 
+		if (pagemap_zero(pr->pe))
+			continue;
+
 		if (vaddr < pr->cvaddr)
 			break;
 
