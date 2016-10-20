@@ -10,7 +10,7 @@
 #include <sys/mman.h>
 
 #include "asm/string.h"
-#include "asm/page.h"
+#include "page.h"
 
 #include "uapi/std/syscall.h"
 #include "image.h"

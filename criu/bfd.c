@@ -14,7 +14,7 @@
 #include "list.h"
 #include "util.h"
 #include "xmalloc.h"
-#include "asm/page.h"
+#include "page.h"
 
 #undef	LOG_PREFIX
 #define LOG_PREFIX "bfd: "

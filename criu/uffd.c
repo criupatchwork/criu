@@ -18,7 +18,7 @@
 
 #include "linux/userfaultfd.h"
 
-#include "asm/page.h"
+#include "page.h"
 #include "log.h"
 #include "criu-plugin.h"
 #include "pagemap.h"
