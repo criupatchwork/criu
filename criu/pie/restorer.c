@@ -21,7 +21,6 @@
 
 #include "compiler.h"
 #include "asm/string.h"
-#include "asm/types.h"
 #include "uapi/std/syscall.h"
 #include "signal.h"
 #include "config.h"

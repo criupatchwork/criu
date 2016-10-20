@@ -8,11 +8,11 @@
 
 #include "../soccr/soccr.h"
 
+#include "asm/int.h"
 #include "cr_options.h"
 #include "util.h"
 #include "list.h"
 #include "log.h"
-#include "asm/types.h"
 #include "files.h"
 #include "sockets.h"
 #include "sk-inet.h"

@@ -19,6 +19,7 @@
 #include "uapi/std/syscall-codes.h"
 #include "asm/bitops.h"
 #include "criu-log.h"
+#include "asm/page.h"
 
 #include "protobuf.h"
 #include "images/pagemap.pb-c.h"

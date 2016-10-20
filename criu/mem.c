@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <sys/syscall.h>
 
+#include "types.h"
 #include "cr_options.h"
 #include "servicefd.h"
 #include "mem.h"

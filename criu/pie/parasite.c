@@ -7,6 +7,7 @@
 #include <stdarg.h>
 #include <sys/ioctl.h>
 
+#include "types.h"
 #include "uapi/std/syscall.h"
 #include "parasite.h"
 #include "config.h"
@@ -18,7 +19,6 @@
 #include "tty.h"
 #include "aio.h"
 
-#include "asm/types.h"
 #include "asm/parasite.h"
 #include "asm/restorer.h"
 

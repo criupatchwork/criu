@@ -7,6 +7,7 @@
 #include <sys/wait.h>
 #include <sys/stat.h>
 
+#include "types.h"
 #include "cr_options.h"
 #include "servicefd.h"
 #include "image.h"

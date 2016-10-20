@@ -3,6 +3,8 @@
 #undef LOG_PREFIX
 #define LOG_PREFIX "page-pipe: "
 
+#include "asm/int.h"
+#include "asm/page.h"
 #include "config.h"
 #include "util.h"
 #include "page-pipe.h"
