@@ -17,7 +17,7 @@
 #include "mem.h"
 #include "config.h"
 #include "uapi/std/syscall-codes.h"
-#include "asm/bitops.h"
+#include "bitops.h"
 #include "criu-log.h"
 #include "page.h"
 

@@ -91,7 +91,6 @@
 
 #include "asm/restore.h"
 #include "asm/atomic.h"
-#include "asm/bitops.h"
 #include "asm/parasite-syscall.h"
 
 #include "cr-errno.h"
