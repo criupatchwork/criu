@@ -20,7 +20,7 @@
 #include "aio.h"
 
 #include "asm/parasite.h"
-#include "asm/restorer.h"
+#include "restorer.h"
 
 int compel_main(void *arg_p, unsigned int arg_s)
 {
