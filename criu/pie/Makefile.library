@@ -58,7 +58,7 @@ $(eval $(call map,gen-compat-objs,$(OBJS)))
 #
 iquotes			:= -iquote $(SRC_DIR)/$(PIE_DIR)/piegen
 iquotes			+= -iquote $(SRC_DIR)/$(ARCH_DIR)/include
-iquotes			+= -iquote $(SRC_DIR) -iquote $(SRC_DIR)/criu/include
+iquotes			+= -iquote $(SRC_DIR) -iquote $(SRC_DIR)/criu/include -iquote $(SRC_DIR)/include/common
 CFLAGS			:= $(filter-out -pg $(CFLAGS-GCOV),$(CFLAGS)) $(iquotes)
 asflags-y		:= -D__ASSEMBLY__ $(iquotes)
 ccflags-y		+= -iquote $(SRC_DIR)/compel/plugins/include

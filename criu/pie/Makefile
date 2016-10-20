@@ -49,6 +49,7 @@ CFLAGS			:= $(filter-out -DCONFIG_X86_64,$(CFLAGS))
 CFLAGS			+= -iquote $(SRC_DIR)/compel/include
 CFLAGS			+= -iquote $(SRC_DIR)/criu/arch/$(ARCH)/include
 CFLAGS			+= -iquote $(SRC_DIR)/criu/include
+CFLAGS			+= -iquote $(SRC_DIR)/include/common
 CFLAGS			+= -iquote $(SRC_DIR)
 
 ccflags-y		+= -iquote $(SRC_DIR)/compel/plugins/include
