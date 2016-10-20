@@ -1,8 +1,6 @@
 #include <unistd.h>
 #include <string.h>
-
-#include "asm/restore.h"
-
+#include "restore.h"
 #include "images/core.pb-c.h"
 
 #ifndef setup_sas
