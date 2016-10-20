@@ -20,7 +20,7 @@
 #include "linux/userfaultfd.h"
 
 #include "compiler.h"
-#include "asm/string.h"
+#include "string.h"
 #include "uapi/std/syscall.h"
 #include "signal.h"
 #include "config.h"
