@@ -18,6 +18,7 @@
 
 #include "linux/userfaultfd.h"
 
+#include "int.h"
 #include "page.h"
 #include "log.h"
 #include "criu-plugin.h"

@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/time.h>
+#include "int.h"
 #include "atomic.h"
 #include "cr_options.h"
 #include "rst-malloc.h"
