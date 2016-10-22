@@ -77,8 +77,10 @@ int main(int argc, char ** argv)
 	test_waitsig();
 
 	for (i = 0; i < NR_ZOMBIES; i++) {
-		if (waitpid(zombie[i].pid, &status, 0) != zombie[i].pid) {
-			fail("Exit with wrong pid\n");
+		pid_t obtained = waitpid(zombie[i].pid, &status, 0);
+		if (obtained != zombie[i].pid) {
+			fail("Exit with wrong pid (expected %d but got %d)\n",
+			     zombie[i].pid, obtained);
 			exit(1);
 		}
 
