@@ -43,9 +43,13 @@
 #include "tun.h"
 #include "namespaces.h"
 #include "pstree.h"
+#include "lsm.h"
+#include "apparmor.h"
 #include "cr_options.h"
 #include "libnetlink.h"
 #include "net.h"
+
+#include "images/inventory.pb-c.h"
 
 static char *feature_name(int (*func)());
 
@@ -990,6 +994,14 @@ out:
 	return ret;
 }
 
+static int check_apparmor_stacking(void)
+{
+	if (!check_aa_ns_dumping())
+		return -1;
+
+	return 0;
+}
+
 static int (*chk_feature)(void);
 
 /*
@@ -1089,6 +1101,7 @@ int cr_check(void)
 		ret |= check_cgroupns();
 		ret |= check_tcp_window();
 		ret |= check_nsid_manip();
+		ret |= check_apparmor_stacking();
 	}
 
 	/*
@@ -1169,6 +1182,7 @@ static struct feature_list feature_list[] = {
 	{ "cgroupns", check_cgroupns },
 	{ "autofs", check_autofs },
 	{ "nsid_manip", check_nsid_manip },
+	{ "apparmor_stacking", check_apparmor_stacking },
 	{ NULL, NULL },
 };
 
