@@ -19,7 +19,7 @@
 
 #include "linux/userfaultfd.h"
 
-#include "compiler.h"
+#include "common/compiler.h"
 #include "string.h"
 #include "uapi/std/syscall.h"
 #include "signal.h"

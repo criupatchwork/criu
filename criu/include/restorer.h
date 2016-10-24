@@ -6,7 +6,7 @@
 #include <sys/resource.h>
 
 #include "int.h"
-#include "compiler.h"
+#include "common/compiler.h"
 #include "asm/fpu.h"
 #include "lock.h"
 #include "util.h"

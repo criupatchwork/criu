@@ -14,7 +14,7 @@
 
 #include "asm-generic/int.h"
 
-#include "compiler.h"
+#include "common/compiler.h"
 #include "compel/include/uapi/compel.h"
 #include "bug.h"
 

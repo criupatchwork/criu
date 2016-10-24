@@ -3,7 +3,7 @@
 
 #include "compel/include/uapi/compel.h"
 
-#include "compiler.h"
+#include "common/compiler.h"
 #include "config.h"
 
 #ifdef CONFIG_PIEGEN
