@@ -5,7 +5,7 @@
 #include <signal.h>
 
 #include "asm/page.h"
-#include "asm/bitops.h"
+#include "bitops.h"
 #include "asm/int.h"
 
 #include "uapi/std/asm/syscall-types.h"

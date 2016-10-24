@@ -1,6 +1,6 @@
 #include <stdarg.h>
 
-#include "bitsperlong.h"
+#include "common/bitsperlong.h"
 #include "uapi/std/syscall.h"
 #include "log.h"
 
