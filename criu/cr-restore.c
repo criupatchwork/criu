@@ -2708,12 +2708,6 @@ rst_prep_creds_args(CredsEntry *ce, unsigned long *prev_pos)
 		char *rendered = NULL, *profile;
 
 		profile = ce->lsm_profile;
-		if (opts.lsm_supplied)
-			profile = opts.lsm_profile;
-
-		if (validate_lsm(profile) < 0)
-			return ERR_PTR(-EINVAL);
-
 		if (profile && render_lsm_profile(profile, &rendered)) {
 			return ERR_PTR(-EINVAL);
 		}
