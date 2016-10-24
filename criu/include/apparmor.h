@@ -4,6 +4,13 @@
 int collect_aa_namespace(char *profile);
 int dump_aa_namespaces(void);
 
+/* This is an operation similar to PTRACE_O_SUSPEND_SECCOMP but for apparmor,
+ * done entirely from userspace. All the namespaces to be dumped should be
+ * collected via collect_aa_namespaces() before calling this.
+ */
+int suspend_aa(void);
+int unsuspend_aa(void);
+
 extern bool ns_dumping_enabled;
 bool check_aa_ns_dumping(void);
 
