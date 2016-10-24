@@ -10,7 +10,8 @@
 
 #include "uapi/std/asm/syscall-types.h"
 
-#include "bug.h"
+#include "log.h"
+#include "common/bug.h"
 #include "images/core.pb-c.h"
 
 #define SIGMAX			64
