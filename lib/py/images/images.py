@@ -454,6 +454,7 @@ handlers = {
 	'USERNS'		: entry_handler(userns_entry),
 	'SECCOMP'		: entry_handler(seccomp_entry),
 	'AUTOFS'		: entry_handler(autofs_entry),
+	'APPARMOR'		: entry_handler(apparmor_entry),
 	}
 
 def __rhandler(f):
