@@ -6,6 +6,7 @@
 
 #include "page.h"
 #include "bitops.h"
+#include "task-size.h"
 #include "asm/int.h"
 
 #include "uapi/std/asm/syscall-types.h"
@@ -139,18 +140,6 @@ typedef struct {
 #endif
 
 typedef struct xsave_struct user_fpregs_struct_t;
-
-#ifdef CONFIG_X86_64
-# define TASK_SIZE	((1UL << 47) - PAGE_SIZE)
-#else
-/*
- * Task size may be limited to 3G but we need a
- * higher limit, because it's backward compatible.
- */
-# define TASK_SIZE	(0xffffe000)
-#endif
-
-static inline unsigned long task_size(void) { return TASK_SIZE; }
 
 typedef u64 auxv_t;
 
