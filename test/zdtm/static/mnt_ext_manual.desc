@@ -1,1 +1,1 @@
-{'flavor': 'ns uns', 'feature': 'mnt_id', 'dopts': '--ext-mount-map /zdtm/static/mnt_ext_manual.test:ZDTM', 'ropts': '--ext-mount-map ZDTM:/tmp/zdtm_ext_auto.XXXXXX/mtest'}
+{'flavor': 'ns uns', 'feature': 'mnt_id', 'dopts': '--external mnt[/zdtm/static/mnt_ext_manual.test]:ZDTM', 'ropts': '--external mnt[ZDTM]:/tmp/zdtm_ext_auto.XXXXXX/mtest'}
