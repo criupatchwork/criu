@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/mman.h>
 #include <unistd.h>
 #include <ftw.h>
 
@@ -344,6 +345,248 @@ err:
 	return -1;
 }
 
+/* An AA profile that allows everything that the parasite needs to do */
+#define PARASITE_PROFILE (		\
+	"profile %s {\n"		\
+	"	/** rwmlkix,\n"		\
+	"	unix,\n"		\
+	"	capability,\n"		\
+	"	signal,\n"		\
+	"}\n")
+
+char policydir[PATH_MAX] = ".criu.temp-aa-policy.XXXXXX";
+
+static void *get_suspend_policy(char *name, off_t *len)
+{
+	char policy[1024], file[PATH_MAX], cache[PATH_MAX];
+	void *ret = NULL;
+	int n, fd, policy_len;
+	struct stat sb;
+	char *cmd[] = {
+		"apparmor_parser",
+		"-QWL",
+		cache,
+		file,
+		NULL,
+	};
+
+	*len = 0;
+
+	policy_len = snprintf(policy, sizeof(policy), PARASITE_PROFILE, name);
+	if (policy_len < 0 || policy_len >= sizeof(policy)) {
+		pr_err("policy name %s too long\n", name);
+		return NULL;
+	}
+
+	n = snprintf(file, sizeof(file), "%s/%s", policydir, name);
+	if (n < 0 || n >= sizeof(policy)) {
+		pr_err("policy name %s too long\n", name);
+		return NULL;
+	}
+
+	n = snprintf(cache, sizeof(cache), "%s/cache", policydir);
+	if (n < 0 || n >= sizeof(policy)) {
+		pr_err("policy name %s too long\n", name);
+		return NULL;
+	}
+
+	fd = open(file, O_CREAT | O_WRONLY, 0600);
+	if (fd < 0) {
+		pr_perror("couldn't create %s", file);
+		return NULL;
+	}
+
+	n = write(fd, policy, policy_len);
+	close(fd);
+	if (n < 0 || n != policy_len) {
+		pr_perror("couldn't write policy for %s\n", file);
+		return NULL;
+	}
+
+	n = cr_system(-1, -1, -1, cmd[0], cmd, 0);
+	if (n < 0 || !WIFEXITED(n) || WEXITSTATUS(n)) {
+		pr_err("apparmor parsing failed %d\n", n);
+		return NULL;
+	}
+
+	n = snprintf(file, sizeof(file), "%s/cache/%s", policydir, name);
+	if (n < 0 || n >= sizeof(policy)) {
+		pr_err("policy name %s too long\n", name);
+		return NULL;
+	}
+
+	fd = open(file, O_RDONLY);
+	if (fd < 0) {
+		pr_perror("couldn't open %s", file);
+		return NULL;
+	}
+
+	if (fstat(fd, &sb) < 0) {
+		pr_perror("couldn't stat fd");
+		goto out;
+	}
+
+	ret = mmap(NULL, sb.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+	if (ret == MAP_FAILED) {
+		pr_perror("mmap of %s failed", file);
+		goto out;
+	}
+
+	*len = sb.st_size;
+out:
+	close(fd);
+	return ret;
+}
+
+#define NEXT_AA_TOKEN(pos)					\
+	while (*pos) {						\
+		if (*pos == '/' &&				\
+				*(pos+1) && *(pos+1) == '/' &&	\
+				*(pos+2) && *(pos+2) == '&') {	\
+			pos += 3;				\
+			break;					\
+		}						\
+		if (*pos == ':' &&				\
+				*(pos+1) && *(pos+1) == '/' &&	\
+				*(pos+2) && *(pos+2) == '/') {	\
+			pos += 3;				\
+			break;					\
+		}						\
+		pos++;						\
+	}
+
+static int write_aa_policy(AaNamespace *ns, char *path, int offset, char *rewrite, bool suspend)
+{
+	int i, my_offset, ret;
+	char *rewrite_pos = rewrite, namespace[PATH_MAX];
+
+	BUG_ON(rewrite && suspend);
+
+	if (!rewrite) {
+		strncpy(namespace, ns->name, sizeof(namespace));
+	} else {
+		NEXT_AA_TOKEN(rewrite_pos);
+		switch(*rewrite_pos) {
+		case ':':
+			*(rewrite_pos-3) = 0;
+			strncpy(namespace, rewrite_pos+1, sizeof(namespace));
+			namespace[strlen(namespace)-1] = 0;
+			*(rewrite_pos-3) = ':';
+			break;
+		default:
+			strncpy(namespace, ns->name, sizeof(namespace));
+			*(rewrite_pos-3) = 0;
+			for (i = 0; i < ns->n_policies; i++) {
+				if (strcmp(ns->policies[i]->name, rewrite_pos))
+					pr_warn("binary rewriting of apparmor policies not supported right now, not renaming %s to %s\n", ns->policies[i]->name, rewrite_pos);
+			}
+			*(rewrite_pos-3) = '/';
+		}
+	}
+
+	my_offset = snprintf(path+offset, PATH_MAX-offset, "/namespaces/%s", ns->name);
+	if (my_offset < 0 || my_offset >= PATH_MAX-offset) {
+		pr_err("snprintf'd too many characters\n");
+		return -1;
+	}
+
+	if (!suspend && mkdir(path, 0755) < 0 && errno != EEXIST) {
+		pr_perror("failed to create namespace %s", path);
+		goto fail;
+	}
+
+	for (i = 0; i < ns->n_namespaces; i++) {
+		if (write_aa_policy(ns, path, offset + my_offset, rewrite_pos, suspend) < 0)
+			goto fail;
+	}
+
+	ret = snprintf(path+offset+my_offset, sizeof(path)-offset-my_offset, "/.replace");
+	if (ret < 0 || ret >= sizeof(path)-offset-my_offset) {
+		pr_err("snprintf failed\n");
+		goto fail;
+	}
+
+	for (i = 0; i < ns->n_policies; i++) {
+		AaPolicy *p = ns->policies[i];
+		void *data = p->blob.data;
+		int fd, n;
+		off_t len = p->blob.len;
+
+		fd = open(path, O_WRONLY);
+		if (fd < 0) {
+			pr_perror("couldn't open apparmor load file %s", path);
+			goto fail;
+		}
+
+		if (suspend) {
+			pr_info("suspending policy %s\n", p->name);
+			data = get_suspend_policy(p->name, &len);
+			if (!data) {
+				close(fd);
+				goto fail;
+			}
+		}
+
+		n = write(fd, data, len);
+		close(fd);
+		if (suspend && munmap(data, len) < 0) {
+			pr_perror("failed to munmap");
+			goto fail;
+		}
+
+		if (n != len) {
+			pr_perror("write AA policy %s in %s failed", p->name, namespace);
+			goto fail;
+		}
+	}
+
+	return 0;
+
+fail:
+	if (!suspend) {
+		path[offset + my_offset] = 0;
+		rmdir(path);
+	}
+
+	pr_err("failed to write policy in AA namespace %s\n", namespace);
+	return -1;
+}
+
+static int do_suspend(bool suspend)
+{
+	int i;
+
+	for (i = 0; i < n_namespaces; i++) {
+		AaNamespace *ns = namespaces[i];
+		char path[PATH_MAX] = AA_SECURITYFS_PATH "/policy";
+
+		if (write_aa_policy(ns, path, strlen(path), NULL, suspend) < 0)
+			return -1;
+	}
+
+	return 0;
+}
+
+int suspend_aa(void)
+{
+	int ret;
+	if (!mkdtemp(policydir)) {
+		pr_perror("failed to make AA policy dir");
+		return -1;
+	}
+
+	ret = do_suspend(true);
+	if (rm_rf(policydir) < 0)
+		pr_err("failed removing policy dir %s\n", policydir);
+
+	return ret;
+}
+
+int unsuspend_aa(void)
+{
+	return do_suspend(false);
+}
+
 int dump_aa_namespaces(void)
 {
 	ApparmorEntry *ae = NULL;
@@ -405,136 +648,6 @@ bool check_aa_ns_dumping(void)
 	return major >= 1 && minor >= 2;
 }
 
-#define NEXT_AA_TOKEN(pos)					\
-	while (*pos) {						\
-		if (*pos == '/' &&				\
-				*(pos+1) && *(pos+1) == '/' &&	\
-				*(pos+2) && *(pos+2) == '&') {	\
-			pos += 3;				\
-			break;					\
-		}						\
-		if (*pos == ':' &&				\
-				*(pos+1) && *(pos+1) == '/' &&	\
-				*(pos+2) && *(pos+2) == '/') {	\
-			pos += 3;				\
-			break;					\
-		}						\
-		pos++;						\
-	}
-
-static int restore_aa_namespace(AaNamespace *ns, char *path, int offset, char *rewrite)
-{
-	pid_t pid;
-	int status;
-
-	pid = fork();
-	if (pid < 0) {
-		pr_perror("fork failed");
-		return -1;
-	}
-
-	if (!pid) {
-		int i, my_offset, ret, fd;
-		char buf[PATH_MAX], *rewrite_pos = rewrite, namespace[PATH_MAX];
-
-		if (!rewrite) {
-			strncpy(namespace, ns->name, sizeof(namespace));
-		} else {
-			NEXT_AA_TOKEN(rewrite_pos);
-			switch(*rewrite_pos) {
-			case ':':
-				*(rewrite_pos-3) = 0;
-				strncpy(namespace, rewrite_pos+1, sizeof(namespace));
-				namespace[strlen(namespace)-1] = 0;
-				*(rewrite_pos-3) = ':';
-				break;
-			default:
-				strncpy(namespace, ns->name, sizeof(namespace));
-				*(rewrite_pos-3) = 0;
-				for (i = 0; i < ns->n_policies; i++) {
-					if (strcmp(ns->policies[i]->name, rewrite_pos))
-						pr_warn("binary rewriting of apparmor policies not supported right now, not renaming %s to %s\n", ns->policies[i]->name, rewrite_pos);
-				}
-				*(rewrite_pos-3) = '/';
-			}
-		}
-
-		ret = snprintf(buf, sizeof(buf), "changeprofile :%s:", namespace);
-		if (ret < 0 || ret >= sizeof(buf)) {
-			pr_err("profile %s too big\n", ns->name);
-			exit(1);
-		}
-
-		my_offset = snprintf(path+offset, PATH_MAX-offset, "/namespaces/%s", ns->name);
-		if (my_offset < 0 || my_offset >= PATH_MAX-offset) {
-			pr_err("snprintf'd too many characters\n");
-			exit(1);
-		}
-
-		if (mkdir(path, 0755) < 0) {
-			if (errno == EEXIST) {
-				pr_warn("apparmor namespace %s already exists, restoring into it\n", path);
-			} else {
-				pr_perror("failed to create namespace %s", path);
-				exit(1);
-			}
-		}
-
-		fd = open_proc_rw(PROC_SELF, "attr/current");
-		if (fd < 0) {
-			pr_perror("couldn't open attr/current");
-			goto fail;
-		}
-
-		errno = 0;
-		ret = write(fd, buf, strlen(buf));
-		close(fd);
-		if (ret != strlen(buf)) {
-			pr_perror("failed to change aa namespace %s", buf);
-			goto fail;
-		}
-
-		for (i = 0; i < ns->n_namespaces; i++) {
-			if (restore_aa_namespace(ns, path, offset + my_offset, rewrite_pos) < 0)
-				goto fail;
-		}
-
-		for (i = 0; i < ns->n_policies; i++) {
-			int fd, n;
-			AaPolicy *p = ns->policies[i];
-
-			fd = open(AA_SECURITYFS_PATH "/.replace", O_WRONLY);
-			if (fd < 0) {
-				pr_perror("couldn't open apparmor load file");
-				goto fail;
-			}
-
-			n = write(fd, p->blob.data, p->blob.len);
-			close(fd);
-			if (n != p->blob.len) {
-				pr_perror("write AA policy failed");
-				goto fail;
-			}
-		}
-
-		exit(0);
-fail:
-		rmdir(path);
-		exit(1);
-	}
-
-	if (waitpid(pid, &status, 0) < 0) {
-		pr_perror("waitpid failed");
-		return -1;
-	}
-
-	if (WIFEXITED(status) && WEXITSTATUS(status) == 0)
-		return 0;
-
-	pr_err("failed to restore aa namespace, worker exited: %d\n", status);
-	return -1;
-}
-
 int prepare_apparmor_namespaces(void)
 {
 	struct cr_img *img;
@@ -558,7 +671,7 @@ int prepare_apparmor_namespaces(void)
 	for (i = 0; i < ae->n_namespaces; i++) {
 		char path[PATH_MAX] = AA_SECURITYFS_PATH "/policy";
 
-		if (restore_aa_namespace(ae->namespaces[i], path, strlen(path), opts.lsm_profile) < 0) {
+		if (write_aa_policy(ae->namespaces[i], path, strlen(path), opts.lsm_profile, false) < 0) {
 			ret = -1;
 			goto out;
 		}
