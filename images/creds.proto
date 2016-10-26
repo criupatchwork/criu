@@ -19,5 +19,6 @@ message creds_entry {
 
 	repeated uint32	groups	= 14;
 
-	optional string lsm_profile = 15;
+	optional string lsm_profile 	= 15;
+	optional bytes	apparmor_data	= 16;
 }
