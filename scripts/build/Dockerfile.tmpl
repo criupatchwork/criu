@@ -1,3 +1,5 @@
+ARG CC=gcc
+
 RUN apt-get clean
 
 RUN apt-get update
@@ -16,14 +18,15 @@ RUN apt-get install -y \
                 libnl-3-dev \
                 libselinux-dev \
                 pkg-config \
-                git-core
+                git-core \
+                $CC
 
 COPY . /criu
 WORKDIR /criu
 
 RUN make mrproper
-RUN make -j $(nproc) criu/parasite-syscall.o
-RUN make -j $(nproc)
+RUN make -j $(nproc) CC=$CC criu/parasite-syscall.o
+RUN make -j $(nproc) CC=$CC
 RUN make mrproper
 RUN bash -c 'CLEAN="$(git clean -ndx --exclude=scripts/build)"; echo "${CLEAN}"; test -z "${CLEAN}"; exit $?'
 #RUN make test/compel/handle_binary && ./test/compel/handle_binary
