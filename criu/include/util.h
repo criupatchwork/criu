@@ -278,6 +278,9 @@ int setup_tcp_server(char *type);
 int run_tcp_server(bool daemon_mode, int *ask, int cfd, int sk);
 int setup_tcp_client(char *addr);
 
+/* *dir should be writable and at least PATH_MAX long */
+int rm_rf(char *dir);
+
 #define LAST_PID_PATH		"sys/kernel/ns_last_pid"
 #define PID_MAX_PATH		"sys/kernel/pid_max"
 
