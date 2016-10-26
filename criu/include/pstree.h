@@ -45,6 +45,12 @@ struct dmp_info {
 	struct proc_status_creds *pi_creds;
 	struct page_pipe *mem_pp;
 	struct parasite_ctl *parasite_ctl;
+
+	/* Although we don't support dumping different struct creds in general,
+	 * we do for threads. Let's keep track of their profiles here; a NULL
+	 * entry means there was no LSM profile for this thread.
+	 */
+	char **thread_lsms;
 };
 
 static inline struct dmp_info *dmpi(const struct pstree_item *i)
