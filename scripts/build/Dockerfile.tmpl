@@ -21,7 +21,7 @@ RUN apt-get install -y \
 COPY . /criu
 WORKDIR /criu
 
-RUN make clean
+RUN make mrproper
 RUN make -j $(nproc) criu/parasite-syscall.o
 RUN make -j $(nproc)
 RUN make mrproper
