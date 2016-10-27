@@ -4,7 +4,7 @@
 #include "asm/restorer.h"
 #include "asm/string.h"
 
-#include "uapi/std/syscall.h"
+#include <compel/plugins/std/syscall.h>
 #include "log.h"
 #include "asm/fpu.h"
 #include "cpu.h"

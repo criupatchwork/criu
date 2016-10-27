@@ -11,7 +11,7 @@
 
 #include "page.h"
 
-#include "uapi/std/syscall.h"
+#include <compel/plugins/std/syscall.h>
 #include "image.h"
 #include "parasite-vdso.h"
 #include "vma.h"
