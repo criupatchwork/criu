@@ -667,9 +667,7 @@ int dump_thread_core(int pid, CoreEntry *core, bool native, const void *dump_thr
 	int ret;
 	ThreadCoreEntry *tc = core->thread_core;
 
-	ret = collect_lsm_profile(pid, tc->creds);
-	if (!ret)
-		ret = get_task_futex_robust_list(pid, tc);
+	ret = get_task_futex_robust_list(pid, tc);
 	if (!ret)
 		ret = dump_sched_info(pid, tc);
 	if (!ret) {
@@ -739,6 +737,8 @@ static int dump_task_core_all(struct parasite_ctl *ctl,
 	core->tc->flags = stat->flags;
 	core->tc->task_state = item->pid.state;
 	core->tc->exit_code = 0;
+
+	core->thread_core->creds->lsm_profile = dmpi(item)->thread_lsms[0];
 
 	ret = parasite_dump_thread_leader_seized(ctl, pid, core);
 	if (ret)
@@ -844,6 +844,8 @@ static int dump_task_thread(struct parasite_ctl *parasite_ctl,
 		goto err;
 	}
 	pstree_insert_pid(tid->virt, tid);
+
+	core->thread_core->creds->lsm_profile = dmpi(item)->thread_lsms[id];
 
 	img = open_image(CR_FD_CORE, O_DUMP, tid->virt);
 	if (!img)
@@ -1658,6 +1660,7 @@ static int cr_dump_finish(int ret)
 	 *    start rollback procedure and cleanup everyhting.
 	 */
 	if (ret || post_dump_ret || opts.final_state == TASK_ALIVE) {
+		unsuspend_lsm();
 		network_unlock();
 		delete_link_remaps();
 		clean_cr_time_mounts();
@@ -1775,6 +1778,9 @@ int cr_dump_tasks(pid_t pid)
 		goto err;
 
 	if (collect_seccomp_filters() < 0)
+		goto err;
+
+	if (collect_and_suspend_lsm() < 0)
 		goto err;
 
 	for_each_pstree_item(item) {

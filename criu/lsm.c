@@ -148,19 +148,51 @@ Lsmtype host_lsm_type(void)
 	return lsmtype;
 }
 
-int collect_lsm_profile(pid_t pid, CredsEntry *ce)
+static int collect_lsm_profile(pid_t pid, char **profile)
 {
-	ce->lsm_profile = NULL;
+	*profile = NULL;
 
 	if (lsmtype == LSMTYPE__NO_LSM)
 		return 0;
 
-	if (get_label(pid, &ce->lsm_profile) < 0)
+	if (get_label(pid, profile) < 0)
 		return -1;
 
-	if (ce->lsm_profile)
-		pr_info("%d has lsm profile %s\n", pid, ce->lsm_profile);
+	if (*profile)
+		pr_info("%d has lsm profile %s\n", pid, *profile);
 
+	return 0;
+}
+
+int collect_and_suspend_lsm(void)
+{
+	struct pstree_item *item;
+
+	for_each_pstree_item(item) {
+		int i;
+
+		dmpi(item)->thread_lsms = xmalloc(item->nr_threads * sizeof(dmpi(item)->thread_lsms[0]));
+		if (!dmpi(item)->thread_lsms)
+			return -1;
+
+		for (i = 0; i < item->nr_threads; i++) {
+			if (collect_lsm_profile(item->threads[i].real, &dmpi(item)->thread_lsms[i]) < 0)
+				return -1;
+		}
+	}
+
+	/* now, suspend the LSM; this is where code that implements something
+	 * like PTRACE_O_SUSPEND_LSM should live. */
+	switch(lsmtype) {
+	default:
+		pr_warn("don't know how to suspend LSM %d\n", lsmtype);
+	}
+
+	return 0;
+}
+
+int unsuspend_lsm(void)
+{
 	return 0;
 }
 
