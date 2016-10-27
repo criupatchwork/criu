@@ -20,14 +20,9 @@ int collect_and_suspend_lsm(void);
 int unsuspend_lsm(void);
 
 /*
- * Validate that the LSM profiles can be correctly applied (must happen after
- * pstree is set up).
- */
-int validate_lsm(char *profile);
-
-/*
  * Render the profile name in the way that the LSM wants it written to
- * /proc/<pid>/attr/current.
+ * /proc/<pid>/attr/current, according to whatever is in the images and
+ * specified by --lsm-profile.
  */
 int render_lsm_profile(char *profile, char **val);
 
