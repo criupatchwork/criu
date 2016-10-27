@@ -81,7 +81,9 @@
 #include "seccomp.h"
 #include "seize.h"
 #include "fault-injection.h"
-#include "dump.h"
+#include "apparmor.h"
+
+#include "asm/dump.h"
 
 static char loc_buf[PAGE_SIZE];
 
@@ -1816,6 +1818,9 @@ int cr_dump_tasks(pid_t pid)
 	if (root_ns_mask)
 		if (dump_namespaces(root_item, root_ns_mask) < 0)
 			goto err;
+
+	if (dump_aa_namespaces() < 0)
+		goto err;
 
 	ret = dump_cgroups();
 	if (ret)
