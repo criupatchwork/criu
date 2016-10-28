@@ -708,30 +708,6 @@ int restore_gpregs(struct rt_sigframe *f, UserX86RegsEntry *r)
 }
 #endif
 
-int sigreturn_prep_fpu_frame(struct rt_sigframe *sigframe,
-		struct rt_sigframe *rsigframe)
-{
-	/*
-	 * Use local sigframe to check native/compat type,
-	 * but set address for rsigframe.
-	 */
-	fpu_state_t *fpu_state = (sigframe->is_native) ?
-		&rsigframe->native.fpu_state :
-		&rsigframe->compat.fpu_state;
-	unsigned long addr = (unsigned long)(void *)&fpu_state->xsave;
-
-	if (sigframe->is_native && (addr % 64ul) == 0ul) {
-		sigframe->native.uc.uc_mcontext.fpstate = &fpu_state->xsave;
-	} else if (!sigframe->is_native && (addr % 32ul) == 0ul) {
-		sigframe->compat.uc.uc_mcontext.fpstate = (u32)addr;
-	} else {
-		pr_err("Unaligned address passed: %lx\n", addr);
-		return -1;
-	}
-
-	return 0;
-}
-
 /* Copied from the gdb header gdb/nat/x86-dregs.h */
 
 /* Debug registers' indices.  */
