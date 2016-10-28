@@ -1686,6 +1686,27 @@ static char *mnt_fsname(struct mount_info *mi)
 	return mi->fstype->name;
 }
 
+static int apply_sb_flags(void *args, int fd, pid_t pid)
+{
+	int rst = -1, err = -1;
+	long flags = *(int *) args;
+	char path[PSFDS];
+
+	snprintf(path, sizeof(path), "/proc/self/fd/%d", fd);
+
+	if (pid != getpid() && switch_ns(pid, &mnt_ns_desc, &rst))
+		return -1;
+
+	err = mount(NULL, path, NULL, MS_REMOUNT | flags, NULL);
+	if (err)
+		pr_perror("Unable to remount %s", path);
+
+	if (rst >= 0 &&	restore_ns(rst, &mnt_ns_desc))
+		return -1;
+
+	return err;
+}
+
 static int do_new_mount(struct mount_info *mi)
 {
 	unsigned long sflags = mi->sb_flags;
@@ -1725,10 +1746,24 @@ static int do_new_mount(struct mount_info *mi)
 		goto out;
 	}
 
-	if (!mi->is_ns_root && !mi->external && remount_ro &&
-	    mount(NULL, mi->mountpoint, tp->name, MS_REMOUNT | MS_RDONLY, NULL)) {
-		pr_perror("Unable to apply mount options");
-		return -1;
+	if (!mi->is_ns_root && !mi->external && remount_ro) {
+		int fd;
+
+		fd = open(mi->mountpoint, O_PATH);
+		if (fd < 0) {
+			pr_perror("Unable to open %s\n", mi->mountpoint);
+			return -1;
+		}
+
+		sflags |= MS_RDONLY;
+		if (userns_call(apply_sb_flags, 0,
+				&sflags, sizeof(int), fd)) {
+			pr_perror("Unable to apply mount falgs %d for %s",
+						mi->sb_flags, mi->mountpoint);
+			close(fd);
+			return -1;
+		}
+		close(fd);
 	}
 
 	if (mflags && mount(NULL, mi->mountpoint, NULL,
