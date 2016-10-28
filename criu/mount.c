@@ -1725,8 +1725,8 @@ static int do_new_mount(struct mount_info *mi)
 		goto out;
 	}
 
-	if (remount_ro && mount(NULL, mi->mountpoint, tp->name,
-				     MS_REMOUNT | MS_RDONLY, NULL)) {
+	if (!mi->is_ns_root && !mi->external && remount_ro &&
+	    mount(NULL, mi->mountpoint, tp->name, MS_REMOUNT | MS_RDONLY, NULL)) {
 		pr_perror("Unable to apply mount options");
 		return -1;
 	}
