@@ -128,10 +128,12 @@ static bool ldt_task_selectors(pid_t pid)
 	return cs != USER_CS && cs != USER32_CS;
 }
 
-bool arch_can_dump_task(pid_t pid)
+bool arch_can_dump_task(struct parasite_ctl *ctl)
 {
-	int ret = arch_task_compatible(pid);
-
+	pid_t pid = ctl->rpid;
+	int ret;
+	
+	ret = arch_task_compatible(pid);
 	if (ret < 0)
 		return false;
 
