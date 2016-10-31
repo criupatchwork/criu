@@ -36,7 +36,7 @@
 #include "proc_parse.h"
 #include "mount.h"
 #include "tty.h"
-#include "ptrace.h"
+#include <compel/ptrace.h>
 #include "ptrace-compat.h"
 #include "kerndat.h"
 #include "timerfd.h"

@@ -9,4 +9,3 @@ ccflags-y		+= -I compel/plugins/include/uapi
 obj-y			+= cpu.o
 obj-y			+= crtools.o
 obj-y			+= sigframe.o
-obj-y			+= infect.o
