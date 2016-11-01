@@ -16,6 +16,7 @@
 #include "xmalloc.h"
 #include "images/inventory.pb-c.h"
 #include "images/pagemap.pb-c.h"
+#include "page.h"
 
 bool ns_per_id = false;
 bool img_common_magic = true;
@@ -84,6 +85,13 @@ int check_img_inventory(void)
 	if (opts.check_only)
 		pr_msg("Checking mode enabled\n");
 
+	if (he->has_page_size && he->page_size != page_size()) {
+		pr_err("Dump page size %u != restore %ld\n",
+		       he->page_size, page_size());
+		return -1;
+	}
+
+
 	ret = 0;
 
 out_err:
@@ -105,6 +113,8 @@ int write_img_inventory(InventoryEntry *he)
 
 	if (pb_write_one(img, he, PB_INVENTORY) < 0)
 		return -1;
+
+	he->page_size = page_size();
 
 	xfree(he->root_ids);
 	close_image(img);
