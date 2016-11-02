@@ -1259,22 +1259,22 @@ exit:
 	return ret;
 }
 
-static int run_ip_tool(char *arg1, char *arg2, char *arg3, int fdin, int fdout, unsigned flags)
+static int run_ip_tool(char *arg1, char *arg2, char *arg3, char *arg4, int fdin, int fdout, unsigned flags)
 {
 	char *ip_tool_cmd;
 	int ret;
 
-	pr_debug("\tRunning ip %s %s\n", arg1, arg2);
+	pr_debug("\tRunning ip %s %s %s %s\n", arg1, arg2, arg3 ? : "\0", arg4 ? : "\0");
 
 	ip_tool_cmd = getenv("CR_IP_TOOL");
 	if (!ip_tool_cmd)
 		ip_tool_cmd = "ip";
 
 	ret = cr_system(fdin, fdout, -1, ip_tool_cmd,
-				(char *[]) { "ip", arg1, arg2, arg3, NULL }, flags);
+				(char *[]) { "ip", arg1, arg2, arg3, arg4, NULL }, flags);
 	if (ret) {
 		if (!(flags & CRS_CAN_FAIL))
-			pr_err("IP tool failed on %s %s\n", arg1, arg2);
+			pr_err("IP tool failed on %s %s %s %s\n", arg1, arg2, arg3 ? : "\0", arg4 ? : "\0");
 		return -1;
 	}
 
@@ -1300,7 +1300,7 @@ static int run_iptables_tool(char *def_cmd, int fdin, int fdout)
 static inline int dump_ifaddr(struct cr_imgset *fds)
 {
 	struct cr_img *img = img_from_set(fds, CR_FD_IFADDR);
-	return run_ip_tool("addr", "save", NULL, -1, img_raw_fd(img), 0);
+	return run_ip_tool("addr", "save", NULL, NULL, -1, img_raw_fd(img), 0);
 }
 
 static inline int dump_route(struct cr_imgset *fds)
@@ -1308,7 +1308,7 @@ static inline int dump_route(struct cr_imgset *fds)
 	struct cr_img *img;
 
 	img = img_from_set(fds, CR_FD_ROUTE);
-	if (run_ip_tool("route", "save", NULL, -1, img_raw_fd(img), 0))
+	if (run_ip_tool("route", "save", NULL, NULL, -1, img_raw_fd(img), 0))
 		return -1;
 
 	/* If ipv6 is disabled, "ip -6 route dump" dumps all routes */
@@ -1316,7 +1316,7 @@ static inline int dump_route(struct cr_imgset *fds)
 		return 0;
 
 	img = img_from_set(fds, CR_FD_ROUTE6);
-	if (run_ip_tool("-6", "route", "save", -1, img_raw_fd(img), 0))
+	if (run_ip_tool("-6", "route", "save", NULL, -1, img_raw_fd(img), 0))
 		return -1;
 
 	return 0;
@@ -1333,7 +1333,7 @@ static inline int dump_rule(struct cr_imgset *fds)
 	if (!path)
 		return -1;
 
-	if (run_ip_tool("rule", "save", NULL, -1, img_raw_fd(img), CRS_CAN_FAIL)) {
+	if (run_ip_tool("rule", "save", NULL, NULL, -1, img_raw_fd(img), CRS_CAN_FAIL)) {
 		pr_warn("Check if \"ip rule save\" is supported!\n");
 		unlinkat(get_service_fd(IMG_FD_OFF), path, 0);
 	}
@@ -1465,7 +1465,7 @@ static int restore_ip_dump(int type, int pid, char *cmd)
 		return 0;
 	}
 	if (img) {
-		ret = run_ip_tool(cmd, "restore", NULL, img_raw_fd(img), -1, 0);
+		ret = run_ip_tool(cmd, "restore", NULL, NULL, img_raw_fd(img), -1, 0);
 		close_image(img);
 	}
 
@@ -1491,7 +1491,9 @@ static inline int restore_route(int pid)
 static inline int restore_rule(int pid)
 {
 	struct cr_img *img;
+	const char *batch;
 	int ret = 0;
+	int fd[2];
 
 	img = open_image(CR_FD_RULE, O_RSTR, pid);
 	if (!img) {
@@ -1502,16 +1504,31 @@ static inline int restore_rule(int pid)
 	if (empty_image(img))
 		goto close;
 
-	/*
-	 * Delete 3 default rules to prevent duplicates. See kernel's
-	 * function fib_default_rules_init() for the details.
-	 */
-	run_ip_tool("rule", "delete", NULL, -1, -1, 0);
-	run_ip_tool("rule", "delete", NULL, -1, -1, 0);
-	run_ip_tool("rule", "delete", NULL, -1, -1, 0);
-
-	if (restore_ip_dump(CR_FD_RULE, pid, "rule"))
+	if (pipe(fd) < 0) {
 		ret = -1;
+		pr_perror("Can't open pipe\n");
+		goto close;
+	}
+
+	batch = "rule flush\nrule delete table local\n";
+	if (write(fd[1], batch, sizeof(batch)) < 0) {
+		ret = -1;
+		pr_perror("Can't write to pipe");
+	}
+	close(fd[1]);
+
+	if (ret >= 0) {
+		/*
+		 * Delete 3 default rules to prevent duplicates. See kernel's
+		 * function fib_default_rules_init() for the details.
+		 */
+		run_ip_tool("-batch", "-", NULL, NULL, fd[0], -1, 0);
+
+		if (restore_ip_dump(CR_FD_RULE, pid, "rule"))
+			ret = -1;
+	}
+	close(fd[0]);
+
 close:
 	close_image(img);
 out:
