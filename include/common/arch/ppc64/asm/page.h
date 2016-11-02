@@ -7,12 +7,8 @@
  * Default config for Pseries is to use 64K pages.
  * See kernel file arch/powerpc/configs/pseries_*defconfig
  */
-#ifndef PAGE_SHIFT
-# define PAGE_SHIFT	16
-#endif
-
 #ifndef PAGE_SIZE
-# define PAGE_SIZE	(1UL << PAGE_SHIFT)
+# define PAGE_SIZE	65536UL
 #endif
 
 #ifndef PAGE_MASK
