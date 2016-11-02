@@ -24,4 +24,12 @@ static inline int fds_recv_one(void)
 	return fd;
 }
 
+extern int send_fds(int sock, struct sockaddr_un *saddr, int len,
+		    int *fds, int nr_fds, bool with_flags);
+
+static inline int send_fd(int sock, struct sockaddr_un *saddr, int saddr_len, int fd)
+{
+	return send_fds(sock, saddr, saddr_len, &fd, 1, false);
+}
+
 #endif /* __COMPEL_PLUGIN_FDS_H__ */
