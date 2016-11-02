@@ -178,6 +178,9 @@ include/common/asm: include/common/arch/$(ARCH)/asm
 	$(Q) ln -s ./arch/$(ARCH)/asm $@
 $(VERSION_HEADER): include/common/asm
 
+# Default to build host's page size (override with `make PAGE_SIZE=...`)
+PAGE_SIZE := $(shell getconf PAGESIZE)
+
 #
 # piegen tool might be disabled by hands. Don't use it until
 # you know what you're doing.

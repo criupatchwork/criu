@@ -2,10 +2,7 @@
 #define __CR_ASM_PAGE_H__
 
 #include <unistd.h>
-
-#ifndef PAGE_SIZE
-# define PAGE_SIZE	4096UL
-#endif
+#include "config.h"
 
 #ifndef PAGE_MASK
 # define PAGE_MASK	(~(PAGE_SIZE - 1))
