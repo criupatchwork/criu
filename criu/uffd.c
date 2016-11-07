@@ -67,11 +67,9 @@ static struct lazy_pages_info *lpi_init(void)
 {
 	struct lazy_pages_info *lpi = NULL;
 
-	lpi = malloc(sizeof(*lpi));
-	if (!lpi) {
-		pr_err("allocation failed\n");
+	lpi = xmalloc(sizeof(*lpi));
+	if (!lpi)
 		return NULL;
-	}
 
 	memset(lpi, 0, sizeof(*lpi));
 	INIT_LIST_HEAD(&lpi->pages);
@@ -751,7 +749,9 @@ static int handle_requests(int epollfd, struct epoll_event *events)
 
 	/* All operations will be done on page size */
 	ps = page_size();
-	dest = malloc(ps);
+	dest = xmalloc(ps);
+	if (!dest)
+		return ret;
 
 	while (1) {
 		/*
@@ -820,11 +820,9 @@ static int prepare_epoll(int nr_fds, struct epoll_event **events)
 {
 	int epollfd;
 
-	*events = malloc(sizeof(struct epoll_event) * nr_fds);
-	if (!*events) {
-		pr_err("memory allocation failed\n");
+	*events = xmalloc(sizeof(struct epoll_event) * nr_fds);
+	if (!*events)
 		return -1;
-	}
 
 	epollfd = epoll_create(nr_fds);
 	if (epollfd == -1) {
