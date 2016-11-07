@@ -5,7 +5,6 @@
 #include <sys/ptrace.h>
 
 #include "config.h"
-#include "proc_parse.h"
 
 /* some constants for ptrace */
 #ifndef PTRACE_SEIZE
@@ -72,6 +71,16 @@ struct ptrace_peeksiginfo_args {
 #define PTRACE_O_TRACEEXIT	0x00000040
 
 #define SI_EVENT(_si_code)	(((_si_code) & 0xFFFF) >> 8)
+
+struct seize_task_status {
+	char			state;
+	int			ppid;
+	unsigned long long	sigpnd;
+	unsigned long long	shdpnd;
+	int			seccomp_mode;
+};
+
+struct proc_status_creds;
 
 extern int seize_catch_task(pid_t pid);
 extern int seize_wait_task(pid_t pid, pid_t ppid, struct proc_status_creds *creds);
