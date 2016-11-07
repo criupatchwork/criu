@@ -5,7 +5,6 @@
 #include <sys/ptrace.h>
 
 #include "types.h"
-#include "config.h"
 
 /* some constants for ptrace */
 #ifndef PTRACE_SEIZE
@@ -29,14 +28,6 @@
 
 /* Read signals from a shared (process wide) queue */
 #define PTRACE_PEEKSIGINFO_SHARED       (1 << 0)
-#endif
-
-#ifndef CONFIG_HAS_PTRACE_PEEKSIGINFO
-struct ptrace_peeksiginfo_args {
-        __u64 off;	/* from which siginfo to start */
-        __u32 flags;
-        __u32 nr;	/* how may siginfos to take */
-};
 #endif
 
 #ifndef PTRACE_GETREGSET
