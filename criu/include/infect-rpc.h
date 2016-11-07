@@ -3,6 +3,7 @@
 
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <stdint.h>
 
 struct parasite_ctl;
 extern int compel_rpc_sync(unsigned int cmd, struct parasite_ctl *ctl);
@@ -11,9 +12,9 @@ extern int compel_rpc_call_sync(unsigned int cmd, struct parasite_ctl *ctl);
 extern int compel_rpc_sock(struct parasite_ctl *ctl);
 
 struct ctl_msg {
-	u32	cmd;			/* command itself */
-	u32	ack;			/* ack on command */
-	s32	err;			/* error code on reply */
+	uint32_t	cmd;			/* command itself */
+	uint32_t	ack;			/* ack on command */
+	int32_t		err;			/* error code on reply */
 };
 
 #define ctl_msg_cmd(_cmd)		\
@@ -43,17 +44,17 @@ enum {
 };
 
 struct parasite_init_args {
-	s32				h_addr_len;
+	int32_t				h_addr_len;
 	struct sockaddr_un		h_addr;
-	s32				log_level;
-	u64				sigreturn_addr;
-	u64				sigframe; /* pointer to sigframe */
+	int32_t				log_level;
+	uint64_t			sigreturn_addr;
+	uint64_t			sigframe; /* pointer to sigframe */
 	futex_t				daemon_connected;
 };
 
 struct parasite_unmap_args {
-	u64		parasite_start;
-	u64		parasite_len;
+	uint64_t	parasite_start;
+	uint64_t	parasite_len;
 };
 
 #endif
