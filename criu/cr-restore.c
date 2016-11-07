@@ -1646,7 +1646,7 @@ static void finalize_restore(void)
 			continue;
 
 		/* Unmap the restorer blob */
-		ctl = parasite_prep_ctl(pid, 0);
+		ctl = parasite_prep_ctl(pid);
 		if (ctl == NULL)
 			continue;
 
