@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include <signal.h>
 #include "common/page.h"
-#include "uapi/std/asm/syscall-types.h"
+#include <compel/plugins/std/asm/syscall-types.h>
 
 #define SIGMAX			64
 #define SIGMAX_OLD		31

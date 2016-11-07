@@ -21,7 +21,7 @@
 #include "lsm.h"
 #include "proc_parse.h"
 #include "config.h"
-#include "uapi/std/syscall-codes.h"
+#include <compel/plugins/std/syscall-codes.h>
 
 struct kerndat_s kdat = {
 };

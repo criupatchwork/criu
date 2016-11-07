@@ -8,7 +8,7 @@
 #include <sys/ioctl.h>
 
 #include "types.h"
-#include "uapi/std/syscall.h"
+#include <compel/plugins/std/syscall.h>
 #include "parasite.h"
 #include "config.h"
 #include "fcntl.h"
