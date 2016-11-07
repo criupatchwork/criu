@@ -6,7 +6,7 @@
 #include "images/core.pb-c.h"
 #include <compel/plugins/std/syscall-codes.h>
 
-#include "sigframe.h"
+#include <compel/asm/sigframe.h>
 
 #ifdef CONFIG_COMPAT
 static inline void __always_unused __check_compat_sigset_t(void)
