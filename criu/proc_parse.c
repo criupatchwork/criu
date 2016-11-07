@@ -423,10 +423,8 @@ int parse_self_maps_lite(struct vm_area_list *vms)
 	vm_area_list_init(vms);
 
 	maps = fopen_proc(PROC_SELF, "maps");
-	if (maps == NULL) {
-		pr_perror("Can't open self maps");
+	if (maps == NULL)
 		return -1;
-	}
 
 	while (fgets(buf, BUF_SIZE, maps) != NULL) {
 		struct vma_area *vma;
@@ -989,10 +987,8 @@ int parse_pid_status(pid_t pid, struct seize_task_status *ss)
 	bool parsed_seccomp = false;
 
 	f.fd = open_proc(pid, "status");
-	if (f.fd < 0) {
-		pr_perror("Can't open proc status");
+	if (f.fd < 0)
 		return -1;
-	}
 
 	cr->s.sigpnd = 0;
 	cr->s.shdpnd = 0;
@@ -1415,10 +1411,8 @@ struct mount_info *parse_mountinfo(pid_t pid, struct ns_id *nsid, bool for_dump)
 	FILE *f;
 
 	f = fopen_proc(pid, "mountinfo");
-	if (!f) {
-		pr_perror("Can't open %d mountinfo", pid);
+	if (!f)
 		return NULL;
-	}
 
 	while (fgets(buf, BUF_SIZE, f)) {
 		struct mount_info *new;
@@ -1627,10 +1621,8 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type,
 	int ret, exit_code = -1;;
 
 	f.fd = open_proc(pid, "fdinfo/%d", fd);
-	if (f.fd < 0) {
-		pr_perror("Can't open fdinfo/%d to parse", fd);
+	if (f.fd < 0)
 		return -1;
-	}
 
 	if (bfdopenr(&f))
 		return -1;
@@ -2030,10 +2022,8 @@ int parse_file_locks(void)
 		return 0;
 
 	fl_locks = fopen_proc(PROC_GEN, "locks");
-	if (!fl_locks) {
-		pr_perror("Can't open file locks file!");
+	if (!fl_locks)
 		return -1;
-	}
 
 	while (fgets(buf, BUF_SIZE, fl_locks)) {
 		is_blocked = strstr(buf, "->") != NULL;
@@ -2118,10 +2108,8 @@ int parse_posix_timers(pid_t pid, struct proc_posix_timers_stat *args)
 	args->timer_n = 0;
 
 	f.fd = open_proc(pid, "timers");
-	if (f.fd < 0) {
-		pr_perror("Can't open posix timers file!");
+	if (f.fd < 0)
 		return -1;
-	}
 
 	if (bfdopenr(&f))
 		return -1;
@@ -2324,10 +2312,8 @@ int parse_task_cgroup(int pid, struct parasite_dump_cgroup_args *args, struct li
 	struct cg_ctl *intern, *ext;
 
 	f = fopen_proc(pid, "cgroup");
-	if (!f) {
-		pr_perror("couldn't open task cgroup file");
+	if (!f)
 		return -1;
-	}
 
 	ret = parse_cgroup_file(f, retl, n);
 	fclose(f);
