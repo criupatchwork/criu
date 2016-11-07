@@ -12,7 +12,7 @@
 
 #include "image.h"
 #include "util-pie.h"
-#include "lock.h"
+#include "common/lock.h"
 #include "infect-rpc.h"
 
 #include "images/vma.pb-c.h"
