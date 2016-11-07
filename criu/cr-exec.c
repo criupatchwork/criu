@@ -11,6 +11,7 @@
 #include "util.h"
 #include "kerndat.h"
 #include "infect.h"
+#include "infect-priv.h"
 
 struct syscall_exec_desc {
 	char *name;
