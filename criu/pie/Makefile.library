@@ -32,8 +32,7 @@ ifeq ($(VDSO),y)
 endif
 
 ifeq ($(SRCARCH),ppc64)
-        OBJS		+= ./$(ARCH_DIR)/memcpy_power7.o		\
-			   ./$(ARCH_DIR)/memcmp_64.o ./$(ARCH_DIR)/misc.o
+        OBJS		+= ./$(ARCH_DIR)/misc.o
 endif
 
 define gen-native-objs
