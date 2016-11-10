@@ -1,4 +1,4 @@
-#include "asm/linkage.h"
+#include "common/asm/linkage.h"
 #include "asm/prologue.h"
 
 #include "uapi/std/syscall-codes.h"
