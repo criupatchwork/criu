@@ -5,6 +5,9 @@
 #ifndef __COMPEL_PLUGIN_FDS_H__
 #define __COMPEL_PLUGIN_FDS_H__
 
+#include <sys/socket.h>
+#include <sys/un.h>
+
 extern int fds_send(int *fds, int nr_fds);
 extern int fds_recv(int *fds, int nr_fds);
 
