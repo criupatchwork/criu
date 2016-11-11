@@ -49,6 +49,8 @@ shmem-obj-y		+= shmem/shmem.o
 target			+= std
 std-obj-y		+= std/std.o
 std-obj-y		+= std/string.o
+std-obj-y		+= std/infect.o
+std-obj-y		+= ./$(PLUGIN_ARCH_DIR)/std/parasite-head.o
 
 include ./$(PLUGIN_ARCH_DIR)/std/syscalls/Makefile.syscalls
 

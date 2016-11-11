@@ -8,6 +8,8 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
+extern int recv_fds(int sock, int *fds, int nr_fds, struct fd_opts *opts);
+
 extern int fds_send(int *fds, int nr_fds);
 extern int fds_recv(int *fds, int nr_fds);
 
