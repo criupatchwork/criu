@@ -4,12 +4,29 @@
 #include <sys/ioctl.h>
 #include <errno.h>
 #include <linux/sockios.h>
+#include <libnet.h>
+#include <assert.h>
+
 #include "soccr.h"
 
 #ifndef SIOCOUTQNSD
 /* MAO - Define SIOCOUTQNSD ioctl if we don't have it */
 #define SIOCOUTQNSD     0x894B
 #endif
+
+enum {
+        TCPF_ESTABLISHED = (1 << 1),
+        TCPF_SYN_SENT    = (1 << 2),
+        TCPF_SYN_RECV    = (1 << 3),
+        TCPF_FIN_WAIT1   = (1 << 4),
+        TCPF_FIN_WAIT2   = (1 << 5),
+        TCPF_TIME_WAIT   = (1 << 6),
+        TCPF_CLOSE       = (1 << 7),
+        TCPF_CLOSE_WAIT  = (1 << 8),
+        TCPF_LAST_ACK    = (1 << 9),
+        TCPF_LISTEN      = (1 << 10),
+        TCPF_CLOSING     = (1 << 11),
+};
 
 static void (*log)(unsigned int loglevel, const char *format, ...)
 	__attribute__ ((__format__ (__printf__, 2, 3)));
@@ -89,6 +106,11 @@ static int refresh_sk(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, str
 
 	switch (ti->tcpi_state) {
 	case TCP_ESTABLISHED:
+	case TCP_FIN_WAIT1:
+	case TCP_FIN_WAIT2:
+	case TCP_LAST_ACK:
+	case TCP_CLOSE_WAIT:
+	case TCP_CLOSING:
 	case TCP_CLOSE:
 		break;
 	default:
@@ -96,7 +118,7 @@ static int refresh_sk(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, str
 		return -1;
 	}
 
-	data->state = TCP_ESTABLISHED;
+	data->state = ti->tcpi_state;
 
 	if (ioctl(sk->fd, SIOCOUTQ, &size) == -1) {
 		loge("Unable to get size of snd queue");
@@ -111,6 +133,14 @@ static int refresh_sk(struct libsoccr_sk *sk, struct libsoccr_sk_data *data, str
 	}
 
 	data->unsq_len = size;
+
+	/* Don't account the fin packet. It doesn't countain real data. */
+	if ((1 << data->state) & (TCPF_FIN_WAIT1 | TCPF_LAST_ACK | TCPF_CLOSING)) {
+		assert(data->outq_len > 0);
+		data->outq_len--;
+		data->unsq_len = data->unsq_len ? data->unsq_len - 1 : 0;
+	}
+
 
 	if (ioctl(sk->fd, SIOCINQ, &size) == -1) {
 		loge("Unable to get size of recv queue");
@@ -325,11 +355,21 @@ static int set_queue_seq(struct libsoccr_sk *sk, int queue, __u32 seq)
 int libsoccr_set_sk_data_unbound(struct libsoccr_sk *sk,
 		struct libsoccr_sk_data *data, unsigned data_size)
 {
+	int mstate = 1 << data->state;
+
 	if (!data || data_size < SOCR_DATA_MIN_SIZE)
 		return -1;
 
-	if (data->state != TCP_ESTABLISHED)
+	if (data->state == TCP_LISTEN)
 		return -1;
+
+	if (mstate & (TCPF_CLOSE_WAIT | TCPF_LAST_ACK | TCPF_CLOSE))
+		data->inq_seq--;
+
+	/* outq_seq is adjusted due to not accointing the fin packet */
+	if (mstate & (TCPF_FIN_WAIT1 | TCPF_FIN_WAIT2 |
+			TCPF_LAST_ACK | TCPF_CLOSING | TCPF_CLOSE))
+		data->outq_seq--;
 
 	if (set_queue_seq(sk, TCP_RECV_QUEUE,
 				data->inq_seq - data->inq_len))
@@ -400,6 +440,98 @@ int libsoccr_set_sk_data_noq(struct libsoccr_sk *sk,
 	return 0;
 }
 
+static int send_fin(int sk, struct libsoccr_sk_data *data, unsigned data_size)
+{
+	int ret, exit_code = -1;
+	char errbuf[LIBNET_ERRBUF_SIZE];
+	int mark = SOCCR_MARK;;
+	int libnet_type;
+	libnet_t *l;
+
+	libnet_type = data->family == AF_INET6 ? LIBNET_RAW6 : LIBNET_RAW4;
+
+	l = libnet_init(
+		libnet_type,                            /* injection type */
+		NULL,                                   /* network interface */
+		errbuf);                                /* errbuf */
+	if (l == NULL)
+		return -1;
+
+	if (setsockopt(l->fd, SOL_SOCKET, SO_MARK, &mark, sizeof(mark)))
+		goto err;
+
+	ret = libnet_build_tcp(
+		data->dst_port,		/* source port */
+		data->src_port,		/* destination port */
+		data->inq_seq,			/* sequence number */
+		data->outq_seq - data->outq_len,	/* acknowledgement num */
+		TH_FIN | TH_ACK,		/* control flags */
+		data->rcv_wnd,			/* window size */
+		0,				/* checksum */
+		10,				/* urgent pointer */
+		LIBNET_TCP_H + 20,		/* TCP packet size */
+		NULL,				/* payload */
+		0,				/* payload size */
+		l,				/* libnet handle */
+		0);				/* libnet id */
+	if (ret == -1) {
+		loge("Can't build TCP header: %s\n", libnet_geterror(l));
+		goto err;
+	}
+
+	if (data->family == AF_INET6) {
+		struct libnet_in6_addr src, dst;
+
+		memcpy(&dst, data->dst_addr, sizeof(dst));
+		memcpy(&src, data->src_addr, sizeof(src));
+
+		ret = libnet_build_ipv6(
+			0, 0,
+			LIBNET_TCP_H,	/* length */
+			IPPROTO_TCP,	/* protocol */
+			64,		/* hop limit */
+			dst,		/* source IP */
+			src,		/* destination IP */
+			NULL,		/* payload */
+			0,		/* payload size */
+			l,		/* libnet handle */
+			0);		/* libnet id */
+	} else if (data->family == AF_INET)
+		ret = libnet_build_ipv4(
+			LIBNET_IPV4_H + LIBNET_TCP_H + 20,	/* length */
+			0,			/* TOS */
+			242,			/* IP ID */
+			0,			/* IP Frag */
+			64,			/* TTL */
+			IPPROTO_TCP,		/* protocol */
+			0,			/* checksum */
+			data->dst_addr[0],	/* source IP */
+			data->src_addr[0],	/* destination IP */
+			NULL,			/* payload */
+			0,			/* payload size */
+			l,			/* libnet handle */
+			0);			/* libnet id */
+	else {
+		loge("Unknown socket family");
+		goto err;
+	}
+	if (ret == -1) {
+		loge("Can't build IP header: %s\n", libnet_geterror(l));
+		goto err;
+	}
+
+	ret = libnet_write(l);
+	if (ret == -1) {
+		loge("Unable to send a fin packet: %s", libnet_geterror(l));
+		goto err;
+	}
+
+	exit_code = 0;
+err:
+	libnet_destroy(l);
+	return exit_code;
+}
+
 int libsoccr_set_sk_data(struct libsoccr_sk *sk,
 		struct libsoccr_sk_data *data, unsigned data_size)
 {
@@ -411,11 +543,38 @@ int libsoccr_set_sk_data(struct libsoccr_sk *sk,
 			.rcv_wnd = data->rcv_wnd,
 			.rcv_wup = data->rcv_wup,
 		};
-	
+
+		if ((1 << data->state) & ((1 << TCP_CLOSE_WAIT) |
+				    (1 << TCP_LAST_ACK) |
+				    (1 << TCP_CLOSE))) {
+			wopt.rcv_wup--;
+			wopt.rcv_wnd++;
+		}
+
 		if (setsockopt(sk->fd, SOL_TCP, TCP_REPAIR_WINDOW, &wopt, sizeof(wopt))) {
 			loge("Unable to set window parameters");
 			return -1;
 		}
+	}
+
+	if (data->flags & SOCCR_FLAGS_ADDR) {
+		int mstate = 1 << data->state;
+
+		if (data->state == TCP_CLOSING) {
+			shutdown(sk->fd, SHUT_WR);
+		}
+		if (mstate & (TCPF_CLOSE_WAIT | TCPF_LAST_ACK | TCPF_CLOSE)) {
+			if (send_fin(sk->fd, data, data_size) < 0)
+				return -1;
+		}
+
+		if (mstate & (TCPF_LAST_ACK | TCPF_FIN_WAIT1 |
+				TCPF_FIN_WAIT2 | TCPF_CLOSE)) {
+			shutdown(sk->fd, SHUT_WR);
+		}
+	} else if (data->state != TCP_ESTABLISHED) {
+		loge("Unable to restore a socket state: %d", data->state);
+		return -1;
 	}
 
 	return 0;
