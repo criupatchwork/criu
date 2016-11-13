@@ -530,7 +530,6 @@ out:
 static int get_page(struct lazy_pages_info *lpi, unsigned long addr, void *dest)
 {
 	int ret;
-	unsigned char buf[PAGE_SIZE];
 
 	lpi->pr.reset(&lpi->pr);
 
@@ -542,12 +541,10 @@ static int get_page(struct lazy_pages_info *lpi, unsigned long addr, void *dest)
 	if (pagemap_zero(lpi->pr.pe))
 		return 0;
 
-	ret = lpi->pr.read_pages(&lpi->pr, addr, 1, buf);
+	ret = lpi->pr.read_pages(&lpi->pr, addr, 1, dest);
 	pr_debug("read_pages ret %d\n", ret);
 	if (ret <= 0)
 		return ret;
-
-	memcpy(dest, buf, PAGE_SIZE);
 
 	return 1;
 }
