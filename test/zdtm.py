@@ -679,8 +679,6 @@ class criu_cli:
 			print "Forcing %s fault" % fault
 			env = dict(os.environ, CRIU_FAULT = fault)
 		cr = subprocess.Popen(strace + [criu_bin, action] + args, env = env, preexec_fn = preexec)
-		if action == "lazy-pages":
-			return cr
 		return cr.wait()
 
 
@@ -839,8 +837,6 @@ class criu:
 		__ddir = self.__ddir()
 
 		ret = self.__criu.run(action, s_args, self.__fault, strace, preexec)
-		if action == "lazy-pages":
-			return ret
 
 		grep_errors(os.path.join(__ddir, log))
 		if ret != 0:
@@ -927,11 +923,9 @@ class criu:
 			r_opts.append('--external')
 			r_opts.append('mnt[zdtm]:%s' % criu_dir)
 
-		lazy_pages_p = None
 		if self.__lazy_pages:
-			lazy_pages_p = self.__criu_act("lazy-pages", opts = [])
+			self.__criu_act("lazy-pages", opts = ["--daemon", "--pidfile", "lp.pid"])
 			r_opts += ["--lazy-pages"]
-			time.sleep(1)  # FIXME wait user fault fd socket
 
 		if self.__leave_stopped:
 			r_opts += ['--leave-stopped']
@@ -942,8 +936,8 @@ class criu:
 			pstree_check_stopped(self.__test.getpid())
 			pstree_signal(self.__test.getpid(), signal.SIGCONT)
 
-		if lazy_pages_p and lazy_pages_p.wait():
-			raise test_fail_exc("CRIU lazy-pages")
+		if self.__lazy_pages:
+			wait_pid_die(int(rpidfile(self.__ddir() + "/lp.pid")), "lazy pages daemon")
 
 	@staticmethod
 	def check(feature):
