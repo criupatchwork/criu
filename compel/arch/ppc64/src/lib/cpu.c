@@ -3,7 +3,7 @@
 #include <errno.h>
 #include <stdbool.h>
 
-#include "uapi/compel/cpu.h"
+#include "cpu.h"
 
 #include "common/bitops.h"
 
