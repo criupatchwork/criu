@@ -9,9 +9,11 @@
 #ifdef SCM_FDSET_HAS_OPTS
 #define OPTS_LEN(_flags, _nr)	(_flags ? sizeof(struct fd_opts) * (_nr) : 1)
 #define OPTS_BUF(_fdset)	((_fdset)->opts)
+#define FD_OPTS_PTR		struct fd_opts *
 #else
 #define OPTS_LEN(_flags, _nr)	(1)
 #define OPTS_BUF(_fdset)	(&(_fdset)->dummy)
+#define FD_OPTS_PTR		char *
 #endif
 
 static void scm_fdset_init_chunk(struct scm_fdset *fdset, int nr_fds, bool with_flags)
@@ -118,7 +120,7 @@ int send_fds(int sock, struct sockaddr_un *saddr, int len,
 	return 0;
 }
 
-int recv_fds(int sock, int *fds, int nr_fds, struct fd_opts *opts)
+int recv_fds(int sock, int *fds, int nr_fds, FD_OPTS_PTR opts)
 {
 	struct scm_fdset fdset;
 	struct cmsghdr *cmsg;
