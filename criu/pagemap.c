@@ -661,6 +661,7 @@ int open_page_read_at(int dfd, int pid, struct page_read *pr, int pr_flags)
 
 	pr->get_pagemap = get_pagemap;
 	pr->read_pages = read_pagemap_page;
+	pr->advance = advance;
 	pr->close = close_page_read;
 	pr->skip_pages = skip_pagemap_pages;
 	pr->seek_page = seek_pagemap_page;
