@@ -571,7 +571,11 @@ static int uffd_handle_page(struct lazy_pages_info *lpi, __u64 address,
 		return ret;
 	}
 
-	if (pagemap_zero(lpi->pr.pe))
+	/*
+	 * FIXME: rework zeroes handling so we won't need to rely on
+	 * seek_page return value here
+	 */
+	if (ret == 0 || pagemap_zero(lpi->pr.pe))
 		return uffd_zero_page(lpi, address);
 
 	if (opts.use_page_server)
