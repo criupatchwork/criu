@@ -379,9 +379,10 @@ static int enqueue_async_page(struct page_read *pr, unsigned long vaddr,
 }
 
 static int maybe_read_page_local(struct page_read *pr, unsigned long vaddr,
-				 unsigned long len, void *buf, unsigned flags)
+		int nr, void *buf, unsigned flags)
 {
 	int ret;
+	unsigned long len = nr * PAGE_SIZE;
 
 	if (flags & PR_ASYNC)
 		ret = enqueue_async_page(pr, vaddr, len, buf);
@@ -394,7 +395,7 @@ static int maybe_read_page_local(struct page_read *pr, unsigned long vaddr,
 }
 
 static int maybe_read_page_remote(struct page_read *pr, unsigned long vaddr,
-				  unsigned long len, void *buf, unsigned flags)
+		int nr, void *buf, unsigned flags)
 {
 	int ret;
 
@@ -403,9 +404,9 @@ static int maybe_read_page_remote(struct page_read *pr, unsigned long vaddr,
 		 * Note, that for async remote page_read, the actual
 		 * transfer happens in the lazy-pages daemon
 		 */
-		ret = request_remote_pages(pr->pid, vaddr, len / PAGE_SIZE);
+		ret = request_remote_pages(pr->pid, vaddr, nr);
 	else
-		ret = get_remote_pages(pr->pid, vaddr, len / PAGE_SIZE, buf);
+		ret = get_remote_pages(pr->pid, vaddr, nr, buf);
 
 	return ret;
 }
@@ -413,8 +414,6 @@ static int maybe_read_page_remote(struct page_read *pr, unsigned long vaddr,
 static int read_pagemap_page(struct page_read *pr, unsigned long vaddr, int nr,
 			     void *buf, unsigned flags)
 {
-	unsigned long len = nr * PAGE_SIZE;
-
 	pr_info("pr%u Read %lx %u pages\n", pr->id, vaddr, nr);
 	pagemap_bound_check(pr->pe, vaddr, nr);
 
@@ -425,11 +424,11 @@ static int read_pagemap_page(struct page_read *pr, unsigned long vaddr, int nr,
 		/* zero mappings should be skipped by get_pagemap */
 		BUG();
 	} else {
-		if (pr->maybe_read_page(pr, vaddr, len, buf, flags) < 0)
+		if (pr->maybe_read_page(pr, vaddr, nr, buf, flags) < 0)
 			return -1;
 	}
 
-	pr->cvaddr += len;
+	pr->cvaddr += nr * PAGE_SIZE;
 
 	return 1;
 }

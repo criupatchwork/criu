@@ -59,7 +59,7 @@ struct page_read {
 	int (*sync)(struct page_read *pr);
 
 	int (*maybe_read_page)(struct page_read *pr, unsigned long vaddr,
-			       unsigned long len, void *buf, unsigned flags);
+			int nr, void *buf, unsigned flags);
 
 	/* Private data of reader */
 	struct cr_img *pmi;
