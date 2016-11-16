@@ -1,13 +1,12 @@
 #include <stdarg.h>
 
-#include "int.h"
-#include "types.h"
 #include "common/bitsperlong.h"
 #include <compel/plugins/std/syscall.h>
-#include "log.h"
+#include <compel/plugins/std/log.h>
+#include <compel/loglevels.h>
 
 struct simple_buf {
-	char buf[LOG_SIMPLE_CHUNK];
+	char buf[STD_LOG_SIMPLE_CHUNK];
 	char *bp;
 	int prefix_len;
 	void (*flush)(struct simple_buf *b);
@@ -28,7 +27,7 @@ static void sbuf_log_init(struct simple_buf *b)
 	 *
 	 * pie: pid: string-itself
 	 */
-	b->prefix_len = vprint_num(pid_buf, sizeof(pid_buf), sys_gettid(), &s);
+	b->prefix_len = std_vprint_num(pid_buf, sizeof(pid_buf), sys_gettid(), &s);
 	b->buf[0] = 'p';
 	b->buf[1] = 'i';
 	b->buf[2] = 'e';
@@ -57,12 +56,12 @@ static void sbuf_log_flush(struct simple_buf *b)
 static void sbuf_putc(struct simple_buf *b, char c)
 {
 	/* TODO: maybe some warning or error here? */
-	if (b->bp - b->buf >= LOG_SIMPLE_CHUNK)
+	if (b->bp - b->buf >= STD_LOG_SIMPLE_CHUNK)
 		return;
 
 	*b->bp = c;
 	b->bp++;
-	if (b->bp - b->buf >= LOG_SIMPLE_CHUNK - 2) {
+	if (b->bp - b->buf >= STD_LOG_SIMPLE_CHUNK - 2) {
 		b->bp[0] = '>';
 		b->bp[1] = '\n';
 		b->bp += 2;
@@ -71,13 +70,13 @@ static void sbuf_putc(struct simple_buf *b, char c)
 	}
 }
 
-void log_set_fd(int fd)
+void std_log_set_fd(int fd)
 {
 	sys_close(logfd);
 	logfd = fd;
 }
 
-void log_set_loglevel(unsigned int level)
+void std_log_set_loglevel(unsigned int level)
 {
 	cur_loglevel = level;
 }
@@ -90,7 +89,7 @@ static void print_string(const char *msg, struct simple_buf *b)
 	}
 }
 
-int vprint_num(char *buf, int blen, int num, char **ps)
+int std_vprint_num(char *buf, int blen, int num, char **ps)
 {
 	int neg = 0;
 	char *s;
@@ -127,7 +126,7 @@ static void print_num(int num, struct simple_buf *b)
 	char buf[12], *s;
 
 	buf[11] = '\0';
-	vprint_num(buf, sizeof(buf) - 1, num, &s);
+	std_vprint_num(buf, sizeof(buf) - 1, num, &s);
 	print_string(s, b);
 }
 
@@ -293,7 +292,7 @@ void print_on_level(unsigned int loglevel, const char *format, ...)
 	sbuf_log_flush(&b);
 }
 
-void simple_sprintf(char output[LOG_SIMPLE_CHUNK], const char *format, ...)
+void std_sprintf(char output[STD_LOG_SIMPLE_CHUNK], const char *format, ...)
 {
 	va_list args;
 	struct simple_buf b;
