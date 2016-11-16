@@ -675,12 +675,14 @@ join_ns_file = '/run/netns/zdtm_netns'
 
 class criu_cli:
 	@staticmethod
-	def run(action, args, fault = None, strace = [], preexec = None):
+	def run(action, args, fault = None, strace = [], preexec = None, nowait = False):
 		env = None
 		if fault:
 			print "Forcing %s fault" % fault
 			env = dict(os.environ, CRIU_FAULT = fault)
 		cr = subprocess.Popen(strace + [criu_bin, action] + args, env = env, preexec_fn = preexec)
+		if nowait:
+			return cr
 		return cr.wait()
 
 
@@ -778,6 +780,7 @@ class criu:
 		self.__user = (opts['user'] and True or False)
 		self.__leave_stopped = (opts['stop'] and True or False)
 		self.__criu = (opts['rpc'] and criu_rpc or criu_cli)
+		self.lazy_fd = None
 
 	def logs(self):
 		return self.__dump_path
@@ -809,7 +812,7 @@ class criu:
 		os.setresgid(58467, 58467, 58467)
 		os.setresuid(18943, 18943, 18943)
 
-	def __criu_act(self, action, opts, log = None):
+	def __criu_act(self, action, opts = [], log = None, nowait = False):
 		if not log:
 			log = action + ".log"
 
@@ -838,7 +841,20 @@ class criu:
 
 		__ddir = self.__ddir()
 
-		ret = self.__criu.run(action, s_args, self.__fault, strace, preexec)
+		status_fds = None
+		if nowait:
+			status_fds = os.pipe()
+			s_args += ["--status-fd", str(status_fds[1])]
+
+		ret = self.__criu.run(action, s_args, self.__fault, strace, preexec, nowait)
+
+		if nowait:
+			os.close(status_fds[1])
+			if os.read(status_fds[0], 1) != '\0':
+				ret = ret.wait()
+				raise test_fail_exc("criu %s exited with %s" % (action, ret))
+			os.close(status_fds[0])
+			return ret
 
 		grep_errors(os.path.join(__ddir, log))
 		if ret != 0:
@@ -926,7 +942,7 @@ class criu:
 			r_opts.append('mnt[zdtm]:%s' % criu_dir)
 
 		if self.__lazy_pages:
-			self.__criu_act("lazy-pages", opts = ["--daemon", "--pidfile", "lp.pid"])
+			self.lazy_fd = self.__criu_act("lazy-pages", nowait = True)
 			r_opts += ["--lazy-pages"]
 
 		if self.__leave_stopped:
@@ -938,9 +954,6 @@ class criu:
 			pstree_check_stopped(self.__test.getpid())
 			pstree_signal(self.__test.getpid(), signal.SIGCONT)
 
-		if self.__lazy_pages:
-			wait_pid_die(int(rpidfile(self.__ddir() + "/lp.pid")), "lazy pages daemon")
-
 	@staticmethod
 	def check(feature):
 		return criu_cli.run("check", ["-v0", "--feature", feature]) == 0
@@ -950,6 +963,18 @@ class criu:
 		if not os.access(criu_bin, os.X_OK):
 			print "CRIU binary not built"
 			sys.exit(1)
+
+	def kill(self):
+		if self.lazy_fd:
+			self.lazy_fd.terminate()
+			print "criu lazy-pages exited with %s" & self.wait()
+
+	def fini(self):
+		if self.lazy_fd:
+			ret = self.lazy_fd.wait()
+			self.lazy_fd = None
+			if ret:
+				raise test_fail_exc("criu lazy-pages exited with %s" % ret)
 
 
 def try_run_hook(test, args):
@@ -1281,11 +1306,13 @@ def do_run_test(tname, tdesc, flavs, opts):
 				if opts['join_ns']:
 					check_joinns_state(t)
 				t.stop()
+				cr_api.fini()
 				try_run_hook(t, ["--clean"])
 		except test_fail_exc as e:
 			print_sep("Test %s FAIL at %s" % (tname, e.step), '#')
 			t.print_output()
 			t.kill()
+			cr_api.kill()
 			try_run_hook(t, ["--clean"])
 			if cr_api.logs():
 				add_to_report(cr_api.logs(), tname.replace('/', '_') + "_" + f + "/images")
