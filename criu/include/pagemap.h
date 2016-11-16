@@ -58,6 +58,7 @@ struct page_read {
 	void (*reset)(struct page_read *pr);
 	int (*sync)(struct page_read *pr);
 
+	int (*io_complete)(struct page_read *, unsigned long vaddr, int nr);
 	int (*maybe_read_page)(struct page_read *pr, unsigned long vaddr,
 			int nr, void *buf, unsigned flags);
 

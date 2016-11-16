@@ -392,8 +392,11 @@ static int maybe_read_page_local(struct page_read *pr, unsigned long vaddr,
 	 */
 	if ((flags & (PR_ASYNC|PR_ASAP)) == PR_ASYNC)
 		ret = enqueue_async_page(pr, vaddr, len, buf);
-	else
+	else {
 		ret = read_local_page(pr, vaddr, len, buf);
+		if (ret == 0 && pr->io_complete)
+			ret = pr->io_complete(pr, vaddr, nr);
+	}
 
 	pr->pi_off += len;
 
@@ -417,6 +420,9 @@ static int maybe_read_page_remote(struct page_read *pr, unsigned long vaddr,
 	ret = receive_remote_pages_info(&nr, &vaddr, &pid);
 	if (ret == 0)
 		ret = receive_remote_pages(nr * PAGE_SIZE, buf);
+
+	if (ret == 0 && pr->io_complete)
+		ret = pr->io_complete(pr, vaddr, nr);
 
 	return ret;
 }
@@ -470,6 +476,8 @@ static int process_async_reads(struct page_read *pr)
 
 		if (opts.auto_dedup && punch_hole(pr, piov->from, ret, false))
 			return -1;
+
+		BUG_ON(pr->io_complete); /* FIXME -- implement once needed */
 
 		list_del(&piov->l);
 		xfree(piov->to);
@@ -700,6 +708,7 @@ int open_page_read_at(int dfd, int pid, struct page_read *pr, int pr_flags)
 	pr->seek_page = seek_pagemap_page;
 	pr->reset = reset_pagemap;
 	pr->sync = process_async_reads;
+	pr->io_complete = NULL; /* set up by the client if needed */
 	pr->id = ids++;
 	pr->pid = pid;
 
