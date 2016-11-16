@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <signal.h>
-#include "common/page.h"
+#include <compel/common/asm/page.h>
 #include <compel/plugins/std/asm/syscall-types.h>
 
 #define SIGMAX			64

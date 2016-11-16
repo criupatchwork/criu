@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 #include <sys/mman.h>
-#include "common/page.h"
+#include <compel/common/asm/page.h>
 
 #define SIGMAX			64
 #define SIGMAX_OLD		31
