@@ -55,7 +55,9 @@
 
 #include "../soccr/soccr.h"
 
-struct cr_options opts;
+struct cr_options opts = {
+	.status_fd = -1,
+};
 
 void init_opts(void)
 {
@@ -285,6 +287,7 @@ int main(int argc, char *argv[], char *envp[])
 		{ "deprecated",			no_argument,		0, 1084 },
 		{ "check-only",			no_argument,		0, 1085 },
 		{ "display-stats",		no_argument,		0, 1086 },
+		{ "status-fd",			required_argument,	0, 1087 },
 		{ },
 	};
 
@@ -607,6 +610,12 @@ int main(int argc, char *argv[], char *envp[])
 			break;
 		case 1086:
 			opts.display_stats = true;
+			break;
+		case 1087:
+			if (sscanf(optarg, "%d", &opts.status_fd) != 1) {
+				pr_err("Unable to parse a value of --status-fd\n");
+				return 1;
+			}
 			break;
 		case 'V':
 			pr_msg("Version: %s\n", CRIU_VERSION);
@@ -945,6 +954,8 @@ usage:
 "  --address ADDR        address of server or service\n"
 "  --port PORT           port of page server\n"
 "  -d|--daemon           run in the background after creating socket\n"
+"  --status-fd FD        write '\\0' and close FD after passing a preparation\n"
+"                        stage\n"
 "\n"
 "Other options:\n"
 "  -h|--help             show this text\n"

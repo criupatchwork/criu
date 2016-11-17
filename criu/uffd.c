@@ -1031,6 +1031,9 @@ int cr_lazy_pages(bool daemon)
 		}
 	}
 
+	if (close_status_fd())
+		return -1;
+
 	nr_fds = epoll_nr_fds(task_entries->nr_tasks);
 	epollfd = prepare_epoll(nr_fds, &events);
 	if (epollfd < 0)
