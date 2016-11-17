@@ -6,8 +6,14 @@
 #include "uapi/std/string.h"
 #include "uapi/plugin-fds.h"
 
+#include "uapi/std/log.h"
 #include "std-priv.h"
-#include "log.h"
+
+/*
+ * FIXME pr_X helpers should go into some
+ * common/pr-base.h header.
+ */
+#define pr_err(fmt, ...)
 
 #include "common/compiler.h"
 #include "common/bug.h"
