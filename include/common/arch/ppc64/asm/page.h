@@ -22,4 +22,14 @@
 #define PAGE_PFN(addr)	((addr) / PAGE_SIZE)
 #define page_size()	sysconf(_SC_PAGESIZE)
 
+/*
+ * Copied for the Linux kernel arch/powerpc/include/asm/processor.h
+ *
+ * NOTE: 32bit tasks are not supported.
+ */
+#define TASK_SIZE_USER64	(0x0000400000000000UL)
+#define TASK_SIZE		TASK_SIZE_USER64
+
+static inline unsigned long task_size(void) { return TASK_SIZE; }
+
 #endif /* __CR_ASM_PAGE_H__ */

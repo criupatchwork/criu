@@ -4,7 +4,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <signal.h>
-#include "common/page.h"
 #include <compel/plugins/std/asm/syscall-types.h>
 
 #define SIGMAX			64
@@ -108,18 +107,6 @@ typedef struct {
 #endif /* CONFIG_X86_64 */
 
 typedef struct xsave_struct user_fpregs_struct_t;
-
-#ifdef CONFIG_X86_64
-# define TASK_SIZE	((1UL << 47) - PAGE_SIZE)
-#else
-/*
- * Task size may be limited to 3G but we need a
- * higher limit, because it's backward compatible.
- */
-# define TASK_SIZE	(0xffffe000)
-#endif
-
-static inline unsigned long task_size(void) { return TASK_SIZE; }
 
 #define REG_RES(regs)		get_user_reg(&regs, ax)
 #define REG_IP(regs)		get_user_reg(&regs, ip)
