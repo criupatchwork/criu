@@ -174,7 +174,6 @@ static void skip_pagemap_pages(struct page_read *pr, unsigned long len)
 	if (!len)
 		return;
 
-	pr_debug("\tpr%u Skip %lu bytes from page-dump\n", pr->id, len);
 	if (pagemap_present(pr->pe))
 		pr->pi_off += len;
 	pr->cvaddr += len;
