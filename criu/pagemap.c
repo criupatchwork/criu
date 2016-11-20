@@ -97,7 +97,7 @@ int dedup_one_iovec(struct page_read *pr, struct iovec *iov)
 		struct iovec tiov;
 		struct page_read * prp;
 
-		ret = pr->seek_page(pr, off, false);
+		ret = pr->seek_page(pr, off);
 		if (ret == 0) {
 			pr_err("Missing %lx in parent pagemap\n", off);
 			if (off < pr->cvaddr && pr->cvaddr < iov_end)
@@ -177,8 +177,7 @@ static void skip_pagemap_pages(struct page_read *pr, unsigned long len)
 	pr->cvaddr += len;
 }
 
-static int seek_pagemap_page(struct page_read *pr, unsigned long vaddr,
-			     bool warn)
+static int seek_pagemap_page(struct page_read *pr, unsigned long vaddr)
 {
 	if (!pr->pe)
 		advance(pr);
@@ -203,8 +202,6 @@ static int seek_pagemap_page(struct page_read *pr, unsigned long vaddr,
 			skip_pagemap_pages(pr, end - pr->cvaddr);
 	} while (advance(pr));
 
-	if (warn)
-		pr_err("Missing %lx in parent pagemap\n", vaddr);
 	return 0;
 }
 
@@ -235,9 +232,11 @@ static int read_parent_page(struct page_read *pr, unsigned long vaddr,
 		int p_nr;
 
 		pr_debug("\tpr%u Read from parent\n", pr->id);
-		ret = seek_pagemap_page(ppr, vaddr, true);
-		if (ret <= 0)
+		ret = seek_pagemap_page(ppr, vaddr);
+		if (ret <= 0) {
+			pr_err("Missing %lx in parent pagemap\n", vaddr);
 			return -1;
+		}
 
 		/*
 		 * This is how many pages we have in the parent
