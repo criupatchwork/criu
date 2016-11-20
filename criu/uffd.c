@@ -618,16 +618,11 @@ static int uffd_seek_or_zero_pages(struct lazy_pages_info *lpi, __u64 address,
 
 	lpi->pr.reset(&lpi->pr);
 
-	ret = lpi->pr.seek_page(&lpi->pr, address, false);
-	if (ret < 0) {
-		pr_err("%d: no pagemap containing %llx\n", lpi->pid, address);
-		return ret;
-	}
-
 	/*
 	 * FIXME: rework zeroes handling so we won't need to rely on
 	 * seek_page return value here
 	 */
+	ret = lpi->pr.seek_page(&lpi->pr, address, false);
 	if (ret == 0 || pagemap_zero(lpi->pr.pe))
 		return uffd_zero(lpi, address, nr);
 
