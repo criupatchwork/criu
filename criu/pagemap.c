@@ -83,6 +83,8 @@ static int punch_hole(struct page_read *pr, unsigned long off,
 	return 0;
 }
 
+static int seek_pagemap_page(struct page_read *pr, unsigned long vaddr);
+
 int dedup_one_iovec(struct page_read *pr, struct iovec *iov)
 {
 	unsigned long off;
@@ -97,7 +99,7 @@ int dedup_one_iovec(struct page_read *pr, struct iovec *iov)
 		struct iovec tiov;
 		struct page_read * prp;
 
-		ret = pr->seek_page(pr, off);
+		ret = seek_pagemap_page(pr, off);
 		if (ret == 0) {
 			pr_err("Missing %lx in parent pagemap\n", off);
 			if (off < pr->cvaddr && pr->cvaddr < iov_end)
@@ -177,7 +179,8 @@ static void skip_pagemap_pages(struct page_read *pr, unsigned long len)
 	pr->cvaddr += len;
 }
 
-static int seek_pagemap_page(struct page_read *pr, unsigned long vaddr)
+static int seek_pagemap(struct page_read *pr, unsigned long vaddr,
+			bool skip_zero)
 {
 	if (!pr->pe)
 		advance(pr);
@@ -187,20 +190,30 @@ static int seek_pagemap_page(struct page_read *pr, unsigned long vaddr)
 		unsigned long len = pr->pe->nr_pages * PAGE_SIZE;
 		unsigned long end = start + len;
 
-		if (pagemap_zero(pr->pe))
+		if (skip_zero && pagemap_zero(pr->pe))
 			continue;
 
 		if (vaddr < pr->cvaddr)
 			break;
 
 		if (vaddr >= start && vaddr < end) {
-			skip_pagemap_pages(pr, vaddr - pr->cvaddr);
+			skip_pagemap_pages(pr, start - pr->cvaddr);
 			return 1;
 		}
 
 		if (end <= vaddr)
 			skip_pagemap_pages(pr, end - pr->cvaddr);
 	} while (advance(pr));
+
+	return 0;
+}
+
+static int seek_pagemap_page(struct page_read *pr, unsigned long vaddr)
+{
+	if (seek_pagemap(pr, vaddr, true)) {
+		skip_pagemap_pages(pr, vaddr - pr->cvaddr);
+		return 1;
+	}
 
 	return 0;
 }
@@ -720,7 +733,7 @@ int open_page_read_at(int dfd, int pid, struct page_read *pr, int pr_flags)
 	pr->advance = advance;
 	pr->close = close_page_read;
 	pr->skip_pages = skip_pagemap_pages;
-	pr->seek_page = seek_pagemap_page;
+	pr->seek_pagemap = seek_pagemap;
 	pr->reset = reset_pagemap;
 	pr->sync = process_async_reads;
 	pr->io_complete = NULL; /* set up by the client if needed */

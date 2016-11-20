@@ -54,7 +54,8 @@ struct page_read {
 	int (*advance)(struct page_read *pr);
 	void (*close)(struct page_read *);
 	void (*skip_pages)(struct page_read *, unsigned long len);
-	int (*seek_page)(struct page_read *pr, unsigned long vaddr);
+	int (*seek_pagemap)(struct page_read *pr, unsigned long vaddr,
+			    bool skip_zero);
 	void (*reset)(struct page_read *pr);
 	int (*sync)(struct page_read *pr);
 
