@@ -961,6 +961,21 @@ out:
 	return ret;
 }
 
+static int simple_open_proc(int pid, int mode, const char *fmt, ...)
+{
+	int l;
+	char path[128];
+	va_list args;
+
+	l = sprintf(path, "/proc/%d/", pid);
+
+	va_start(args, fmt);
+	vsnprintf(path + l, sizeof(path) - l, fmt, args);
+	va_end(args);
+
+	return open(path, mode);
+}
+
 struct parasite_ctl *compel_prepare(int pid)
 {
 	struct parasite_ctl *ctl;
@@ -972,6 +987,7 @@ struct parasite_ctl *compel_prepare(int pid)
 
 	ictx = &ctl->ictx;
 	ictx->task_size = task_size();
+	ictx->open_proc = simple_open_proc;
 	ictx->syscall_ip = find_executable_area(pid);
 	if (ictx->syscall_ip == (unsigned long)MAP_FAILED)
 		goto err;
