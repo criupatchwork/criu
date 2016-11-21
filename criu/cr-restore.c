@@ -1647,7 +1647,7 @@ static void finalize_restore(void)
 			continue;
 
 		/* Unmap the restorer blob */
-		ctl = compel_prepare(pid);
+		ctl = compel_prepare_noctx(pid);
 		if (ctl == NULL)
 			continue;
 
