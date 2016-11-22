@@ -75,15 +75,6 @@ struct rt_sigcontext_32 {
 
 typedef uint32_t			compat_uptr_t;
 typedef uint32_t			compat_size_t;
-typedef uint32_t			compat_sigset_word;
-
-#define _COMPAT_NSIG			64
-#define _COMPAT_NSIG_BPW		32
-#define _COMPAT_NSIG_WORDS		(_COMPAT_NSIG / _COMPAT_NSIG_BPW)
-
-typedef struct {
-	compat_sigset_word		sig[_COMPAT_NSIG_WORDS];
-} compat_sigset_t;
 
 typedef struct compat_siginfo {
 	int				si_signo;

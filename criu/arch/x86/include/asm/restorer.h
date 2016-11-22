@@ -9,11 +9,6 @@
 #include <compel/asm/sigframe.h>
 
 #ifdef CONFIG_COMPAT
-static inline void __always_unused __check_compat_sigset_t(void)
-{
-	BUILD_BUG_ON(sizeof(compat_sigset_t) != sizeof(k_rtsigset_t));
-}
-
 extern void *alloc_compat_syscall_stack(void);
 extern void free_compat_syscall_stack(void *mem);
 extern unsigned long call32_from_64(void *stack, void *func);
