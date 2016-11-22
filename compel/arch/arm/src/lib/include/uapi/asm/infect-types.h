@@ -79,11 +79,6 @@ static inline unsigned long task_size(void)
 	return task_size;
 }
 
-#define AT_VECTOR_SIZE		40
-
-typedef uint32_t auxv_t;
-typedef uint32_t tls_t;
-
 #define ARCH_SI_TRAP		TRAP_BRKPT
 
 #define __NR(syscall, compat)	__NR_##syscall
