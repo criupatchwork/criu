@@ -1,7 +1,6 @@
 #include <compel/plugins/std/syscall.h>
 #include <compel/plugins/std/infect.h>
 
-#define SCM_FDSET_HAS_OPTS
 #include "common/scm.h"
 #include "uapi/compel/plugins/plugin-fds.h"
 #include "uapi/compel/plugins/std/string.h"

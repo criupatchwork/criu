@@ -471,7 +471,7 @@ int parasite_drain_fds_seized(struct parasite_ctl *ctl,
 	}
 
 	sk = compel_rpc_sock(ctl);
-	ret = recv_fds(sk, lfds, nr_fds, opts);
+	ret = recv_fds(sk, lfds, nr_fds, opts, sizeof(struct fd_opts));
 	if (ret)
 		pr_err("Can't retrieve FDs from socket\n");
 
