@@ -257,6 +257,7 @@ clean: subclean
 	$(Q) $(MAKE) $(build)=criu $@
 	$(Q) $(MAKE) $(build)=compel $@
 	$(Q) $(MAKE) $(build)=compel/plugins $@
+	$(Q) $(MAKE) $(build)=compel/test clean-examples
 	$(Q) $(MAKE) $(build)=soccr $@
 .PHONY: clean
 
