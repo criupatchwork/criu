@@ -1019,31 +1019,46 @@ out:
  */
 static int make_sock_for(int pid)
 {
-	int ret = -1;
-	int mfd, fd;
+	int ret, mfd, fd, sk = -1;
 	char p[32];
+
+	pr_debug("Preparing seqsk for %d\n", pid);
 
 	sprintf(p, "/proc/%d/ns/net", pid);
 	fd = open(p, O_RDONLY);
-	if (fd < 0)
+	if (fd < 0) {
+		pr_perror("Can't open %p", p);
 		goto out;
+	}
 
 	mfd = open("/proc/self/ns/net", O_RDONLY);
-	if (mfd < 0)
+	if (mfd < 0) {
+		pr_perror("Can't open self netns");
 		goto out_c;
+	}
 
-	if (setns(fd, CLONE_NEWNET))
+	if (setns(fd, CLONE_NEWNET)) {
+		pr_perror("Can't setup target netns");
 		goto out_cm;
+	}
 
-	ret = socket(PF_UNIX, SOCK_SEQPACKET | SOCK_NONBLOCK, 0);
+	sk = socket(PF_UNIX, SOCK_SEQPACKET | SOCK_NONBLOCK, 0);
+	if (sk < 0)
+		pr_perror("Can't create seqsk");
 
-	setns(mfd, CLONE_NEWNET);
+	ret = setns(mfd, CLONE_NEWNET);
+	if (ret) {
+		pr_perror("Can't restore former netns");
+		if (sk >= 0)
+			close(sk);
+		sk = -1;
+	}
 out_cm:
 	close(mfd);
 out_c:
 	close(fd);
 out:
-	return ret;
+	return sk;
 }
 
 static int simple_open_proc(int pid, int mode, const char *fmt, ...)
@@ -1063,10 +1078,25 @@ static int simple_open_proc(int pid, int mode, const char *fmt, ...)
 
 static void handle_sigchld(int signal, siginfo_t *siginfo, void *data)
 {
-	int status;
+	int pid, status;
 
-	waitpid(-1, &status, WNOHANG);
-	/* FIXME -- what to do here? */
+	pid = waitpid(-1, &status, WNOHANG);
+	if (pid <= 0)
+		return;
+
+	pr_err("si_code=%d si_pid=%d si_status=%d\n",
+		siginfo->si_code, siginfo->si_pid, siginfo->si_status);
+
+	if (WIFEXITED(status))
+		pr_err("%d exited with %d unexpectedly\n", pid, WEXITSTATUS(status));
+	else if (WIFSIGNALED(status))
+		pr_err("%d was killed by %d unexpectedly: %s\n",
+			pid, WTERMSIG(status), strsignal(WTERMSIG(status)));
+	else if (WIFSTOPPED(status))
+		pr_err("%d was stopped by %d unexpectedly\n", pid, WSTOPSIG(status));
+
+	/* FIXME Should we exit? */
+	/* exit(1); */
 }
 
 struct plain_regs_struct {
@@ -1135,6 +1165,10 @@ struct parasite_ctl *compel_prepare(int pid)
 	ictx->open_proc = simple_open_proc;
 	ictx->syscall_ip = find_executable_area(pid);
 	ictx->child_handler = handle_sigchld;
+	ictx->orig_handler.sa_handler = SIG_DFL;
+	ictx->orig_handler.sa_flags = SA_SIGINFO | SA_RESTART;
+	sigemptyset(&ictx->orig_handler.sa_mask);
+	sigaddset(&ictx->orig_handler.sa_mask, SIGCHLD);
 	sigaction(SIGCHLD, NULL, &ictx->orig_handler);
 
 	ictx->save_regs = save_regs_plain;
@@ -1145,6 +1179,7 @@ struct parasite_ctl *compel_prepare(int pid)
 
 	if (ictx->syscall_ip == (unsigned long)MAP_FAILED)
 		goto err;
+	pr_debug("Parasite syscall_ip at %#lx\n", ictx->syscall_ip);
 	ictx->sock = make_sock_for(pid);
 	if (ictx->sock < 0)
 		goto err;
@@ -1153,8 +1188,9 @@ out:
 	return ctl;
 
 err:
-	free(ictx->regs_arg);
-	free(ctl);
+	xfree(ictx->regs_arg);
+	xfree(ctl);
+	ctl = NULL;
 	goto out;
 }
 
