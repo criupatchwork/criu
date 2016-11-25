@@ -45,8 +45,13 @@ do_stop()
 	echo "PASS" > $outfile
 }
 
+if [ -z $VZENV ]; then
+    parseargs=../lib/parseargs.sh
+else
+    parseargs=parseargs.sh
+fi
 
-tmpargs="$(parseargs.sh --name=$0 \
+tmpargs="$($parseargs --name=$0 \
 		--flags-req=statefile,outfile \
 		--flags-opt="start,stop" -- "$@")" ||
 	die "can't parse command line"
