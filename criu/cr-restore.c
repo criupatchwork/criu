@@ -2035,6 +2035,19 @@ int prepare_task_entries(void)
 	return 0;
 }
 
+int prepare_dummy_task_state(struct pstree_item *pi)
+{
+	CoreEntry *core;
+
+	if (open_core(pi->pid.virt, &core))
+		return -1;
+
+	pi->pid.state = core->tc->task_state;
+	core_entry__free_unpacked(core, NULL);
+
+	return 0;
+}
+
 int cr_restore_tasks(void)
 {
 	int ret = -1;
