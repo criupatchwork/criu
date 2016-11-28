@@ -6,6 +6,9 @@
 
 #include "config.h"
 
+/* All packets with this mark have not to be blocked. */
+#define SOCCR_MARK 0xC114
+
 #ifndef CONFIG_HAS_TCP_REPAIR_WINDOW
 struct tcp_repair_window {
 	uint32_t   snd_wl1;
@@ -82,7 +85,8 @@ struct libsoccr_sk_data {
 	__u32	timestamp;
 
 	__u32	flags; /* SOCCR_FLAGS_... below */
-	__u32	snd_wl1;
+
+	__u32	snd_wl1;	/* SOCCR_FLAGS_WINDOW */
 	__u32	snd_wnd;
 	__u32	max_window;
 	__u32	rcv_wnd;
@@ -107,6 +111,11 @@ struct libsoccr_sk_data {
  * and rcv_wup fields.
  */
 #define SOCCR_FLAGS_WINDOW	0x1
+
+/*
+ * The outgoing fin was acked.
+ */
+#define SOCCR_FLAGS_ACKED_FIN	0x2
 
 /*
  * These two calls pause and resume the socket for and after C/R
