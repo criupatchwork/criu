@@ -104,8 +104,8 @@ int main(int argc, char **argv)
 
 	test_init(argc, argv);
 
-	snprintf(NAME[0], PATH_MAX, "%s_magic", filename);
-	snprintf(NAME[1], PATH_MAX, "%s_extention", filename);
+	snprintf(NAME[0], PATH_MAX, "criu_zdtm_%s_magic", filename);
+	snprintf(NAME[1], PATH_MAX, "criu_zdtm_%s_extention", filename);
 
 	if (mkdir(dirname, 0777)) {
 		fail("mkdir");

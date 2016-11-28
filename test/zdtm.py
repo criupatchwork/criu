@@ -970,7 +970,7 @@ def try_run_hook(test, args):
 	hname = test.getname() + '.hook'
 	if os.access(hname, os.X_OK):
 		print "Running %s(%s)" % (hname, ', '.join(args))
-		hook = subprocess.Popen([hname] + args)
+		hook = subprocess.Popen([hname] + args + ["--name", os.path.basename(test.getname())])
 		if hook.wait() != 0:
 			raise test_fail_exc("hook " + " ".join(args))
 

@@ -1,0 +1,27 @@
+#!/bin/bash
+
+[ "$1" == "--clean" ] || exit 0
+
+if [ "$#" -ne 3 -o "$2" != "--name" ]; then
+	echo "Wrong arguments were passed"
+	exit -1
+fi
+
+name=$3
+
+tname=$(mktemp -d binfmt_misc.XXXXXX)
+mount -t binfmt_misc none $tname
+
+echo "Cleaning $tname: $@"
+set +e
+if [ -e $tname/criu_zdtm_${name}.test_magic ]; then
+	echo -1 > $tname/criu_zdtm_${name}.test_magic
+fi
+
+if [ -e $tname/criu_zdtm_${name}.test_extention ]; then
+	echo -1 > $tname/criu_zdtm_${name}.test_extention
+fi
+set -e
+
+umount "$tname"
+rmdir "$tname"
