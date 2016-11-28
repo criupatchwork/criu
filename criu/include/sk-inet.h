@@ -1,6 +1,7 @@
 #ifndef __CR_SK_INET_H__
 #define __CR_SK_INET_H__
 
+#include <netinet/in.h>
 #include <netinet/tcp.h>
 
 #include "sockets.h"
@@ -84,5 +85,14 @@ struct rst_tcp_sock {
 	int	sk;
 	bool	reuseaddr;
 };
+
+union sockaddr_inet {
+	struct sockaddr addr;
+	struct sockaddr_in v4;
+	struct sockaddr_in6 v6;
+};
+
+int restore_sockaddr(union sockaddr_inet *sa,
+		int family, u32 pb_port, u32 *pb_addr, u32 ifindex);
 
 #endif /* __CR_SK_INET_H__ */

@@ -655,12 +655,7 @@ err:
 	return -1;
 }
 
-union sockaddr_inet {
-	struct sockaddr_in v4;
-	struct sockaddr_in6 v6;
-};
-
-static int restore_sockaddr(union sockaddr_inet *sa,
+int restore_sockaddr(union sockaddr_inet *sa,
 		int family, u32 pb_port, u32 *pb_addr, u32 ifindex)
 {
 	BUILD_BUG_ON(sizeof(sa->v4.sin_addr.s_addr) > PB_ALEN_INET * sizeof(u32));
