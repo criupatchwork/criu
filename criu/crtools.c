@@ -285,6 +285,7 @@ int main(int argc, char *argv[], char *envp[])
 		{ "deprecated",			no_argument,		0, 1084 },
 		{ "check-only",			no_argument,		0, 1085 },
 		{ "display-stats",		no_argument,		0, 1086 },
+		{ "weak-sysctls",		no_argument,		0, 1087 },
 		{ },
 	};
 
@@ -608,6 +609,10 @@ int main(int argc, char *argv[], char *envp[])
 		case 1086:
 			opts.display_stats = true;
 			break;
+		case 1087:
+			pr_msg("Will skip non-existant sysctls on restore\n");
+			opts.weak_sysctls = true;
+			break;
 		case 'V':
 			pr_msg("Version: %s\n", CRIU_VERSION);
 			if (strcmp(CRIU_GITID, "0"))
@@ -841,6 +846,9 @@ usage:
 "  --check-only          check if checkpointing/restoring will actually work\n"
 "                        the process will keep on running and memory pages\n"
 "                        will not be dumped\n"
+"  --weak-sysctls        silently skip restoring sysctl if it is not available,\n"
+"                        these helps to overcome problems with restore on older\n"
+"                        kernel or with some kernel configuration disabled\n"
 "\n"
 "* External resources support:\n"
 "  --external RES        dump objects from this list as external resources:\n"
