@@ -152,19 +152,6 @@ static int advance(struct page_read *pr, bool skip_zero)
 	return 1;
 }
 
-static int get_pagemap(struct page_read *pr)
-{
-	if (!advance(pr, true))
-		return 0;
-
-	if (pagemap_in_parent(pr->pe) && !pr->parent) {
-		pr_err("No parent for snapshot pagemap\n");
-		return -1;
-	}
-
-	return 1;
-}
-
 static void skip_pagemap_pages(struct page_read *pr, unsigned long len)
 {
 	if (!len)
@@ -225,6 +212,11 @@ static int read_parent_page(struct page_read *pr, unsigned long vaddr,
 {
 	struct page_read *ppr = pr->parent;
 	int ret;
+
+	if (!ppr) {
+		pr_err("No parent for snapshot pagemap\n");
+		return -1;
+	}
 
 	/*
 	 * Parent pagemap at this point entry may be shorter
@@ -721,7 +713,6 @@ int open_page_read_at(int dfd, int pid, struct page_read *pr, int pr_flags)
 		return -1;
 	}
 
-	pr->get_pagemap = get_pagemap;
 	pr->read_pages = read_pagemap_page;
 	pr->advance = advance;
 	pr->close = close_page_read;

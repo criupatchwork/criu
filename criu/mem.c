@@ -737,7 +737,7 @@ static int restore_priv_vma_content(struct pstree_item *t)
 	while (1) {
 		unsigned long off, i, nr_pages;
 
-		ret = pr.get_pagemap(&pr);
+		ret = pr.advance(&pr, true);
 		if (ret <= 0)
 			break;
 
