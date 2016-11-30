@@ -736,22 +736,21 @@ static int restore_priv_vma_content(struct pstree_item *t)
 	 */
 	while (1) {
 		unsigned long off, i, nr_pages;
-		struct iovec iov;
 
-		ret = pr.get_pagemap(&pr, &iov);
+		ret = pr.get_pagemap(&pr);
 		if (ret <= 0)
 			break;
 
-		va = (unsigned long)iov.iov_base;
-		nr_pages = iov.iov_len / PAGE_SIZE;
+		va = (unsigned long)decode_pointer(pr.pe->vaddr);
+		nr_pages = pr.pe->nr_pages;
 
 		/*
 		 * This means that userfaultfd is used to load the pages
 		 * on demand.
 		 */
 		if (opts.lazy_pages && pagemap_lazy(pr.pe)) {
-			pr_debug("Lazy restore skips %ld pages at %p\n", nr_pages, iov.iov_base);
-			pr.skip_pages(&pr, iov.iov_len);
+			pr_debug("Lazy restore skips %ld pages at %lx\n", nr_pages, va);
+			pr.skip_pages(&pr, nr_pages * PAGE_SIZE);
 			nr_lazy += nr_pages;
 			continue;
 		}
