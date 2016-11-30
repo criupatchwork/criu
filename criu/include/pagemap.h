@@ -50,8 +50,8 @@ struct page_read {
 	/* reads page from current pagemap */
 	int (*read_pages)(struct page_read *, unsigned long vaddr, int nr,
 			  void *, unsigned flags);
-	/* Advance page_read to the next entry (including zero pagemaps) */
-	int (*advance)(struct page_read *pr);
+	/* Advance page_read to the next entry */
+	int (*advance)(struct page_read *pr, bool skip_zero);
 	void (*close)(struct page_read *);
 	void (*skip_pages)(struct page_read *, unsigned long len);
 	int (*seek_pagemap)(struct page_read *pr, unsigned long vaddr,

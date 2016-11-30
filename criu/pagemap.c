@@ -138,26 +138,24 @@ int dedup_one_iovec(struct page_read *pr, struct iovec *iov)
 	return 0;
 }
 
-static int advance(struct page_read *pr)
+static int advance(struct page_read *pr, bool skip_zero)
 {
-	pr->curr_pme++;
-	if (pr->curr_pme >= pr->nr_pmes)
-		return 0;
+	do {
+		pr->curr_pme++;
+		if (pr->curr_pme >= pr->nr_pmes)
+			return 0;
 
-	pr->pe = pr->pmes[pr->curr_pme];
-	pr->cvaddr = pr->pe->vaddr;
+		pr->pe = pr->pmes[pr->curr_pme];
+		pr->cvaddr = pr->pe->vaddr;
+	} while (skip_zero && pagemap_zero(pr->pe));
 
 	return 1;
 }
 
 static int get_pagemap(struct page_read *pr, struct iovec *iov)
 {
-	for (;;) {
-		if (!advance(pr))
-			return 0;
-		if (!pagemap_zero(pr->pe))
-			break;
-	}
+	if (!advance(pr, true))
+		return 0;
 
 	if (pagemap_in_parent(pr->pe) && !pr->parent) {
 		pr_err("No parent for snapshot pagemap\n");
@@ -183,15 +181,12 @@ static int seek_pagemap(struct page_read *pr, unsigned long vaddr,
 			bool skip_zero)
 {
 	if (!pr->pe)
-		advance(pr);
+		advance(pr, skip_zero);
 
 	do {
 		unsigned long start = pr->pe->vaddr;
 		unsigned long len = pr->pe->nr_pages * PAGE_SIZE;
 		unsigned long end = start + len;
-
-		if (skip_zero && pagemap_zero(pr->pe))
-			continue;
 
 		if (vaddr < pr->cvaddr)
 			break;
@@ -203,7 +198,7 @@ static int seek_pagemap(struct page_read *pr, unsigned long vaddr,
 
 		if (end <= vaddr)
 			skip_pagemap_pages(pr, end - pr->cvaddr);
-	} while (advance(pr));
+	} while (advance(pr, skip_zero));
 
 	return 0;
 }

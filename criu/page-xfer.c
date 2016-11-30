@@ -823,7 +823,7 @@ static int fill_page_pipe(struct page_read *pr, struct page_pipe *pp)
 
 	pr->reset(pr);
 
-	while (pr->advance(pr)) {
+	while (pr->advance(pr, false)) {
 		unsigned long vaddr = pr->pe->vaddr;
 
 		for (i = 0; i < pr->pe->nr_pages; i++, vaddr += PAGE_SIZE) {
@@ -867,7 +867,7 @@ static int page_pipe_from_pagemap(struct page_pipe **pp, int pid)
 		return -1;
 	}
 
-	while (pr.advance(&pr))
+	while (pr.advance(&pr, false))
 		if (pagemap_present(pr.pe))
 			nr_pages += pr.pe->nr_pages;
 

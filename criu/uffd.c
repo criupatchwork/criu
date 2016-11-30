@@ -397,7 +397,7 @@ static int collect_lazy_iovecs(struct lazy_pages_info *lpi)
 	if (!mm)
 		return -1;
 
-	while (pr->advance(pr)) {
+	while (pr->advance(pr, false)) {
 		if (!pagemap_lazy(pr->pe))
 			continue;
 
