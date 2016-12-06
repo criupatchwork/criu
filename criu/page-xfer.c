@@ -206,7 +206,6 @@ static int check_pagehole_in_parent(struct page_read *p, struct iovec *iov)
 	off = (unsigned long)iov->iov_base;
 	end = off + iov->iov_len;
 	while (1) {
-		struct iovec piov;
 		unsigned long pend;
 
 		ret = p->seek_pagemap(p, off, true);
@@ -215,8 +214,7 @@ static int check_pagehole_in_parent(struct page_read *p, struct iovec *iov)
 			return -1;
 		}
 
-		pagemap2iovec(p->pe, &piov);
-		pr_debug("\tFound %p/%zu\n", piov.iov_base, piov.iov_len);
+		pr_debug("\tFound %"PRIx64"/%lu\n", p->pe->vaddr, pagemap_len(p->pe));
 
 		/*
 		 * The pagemap entry in parent may happen to be
@@ -224,7 +222,7 @@ static int check_pagehole_in_parent(struct page_read *p, struct iovec *iov)
 		 * we should go ahead and check the remainder.
 		 */
 
-		pend = (unsigned long)piov.iov_base + piov.iov_len;
+		pend = p->pe->vaddr + pagemap_len(p->pe);
 		if (end <= pend)
 			return 0;
 
@@ -238,7 +236,8 @@ static int write_pagemap_loc(struct page_xfer *xfer, struct iovec *iov, u32 flag
 	int ret;
 	PagemapEntry pe = PAGEMAP_ENTRY__INIT;
 
-	iovec2pagemap(iov, &pe);
+	pe.vaddr = encode_pointer(iov->iov_base);
+	pe.nr_pages = iov->iov_len / PAGE_SIZE;
 	pe.has_flags = true;
 	pe.flags = flags;
 
