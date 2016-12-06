@@ -1378,8 +1378,11 @@ skip_vdso:
 		 * new ones from image file.
 		 */
 		ret |= restore_self_exe_late(args);
-	} else
+	} else {
+		if (ret)
+			pr_err("sys_prctl(PR_SET_MM, PR_SET_MM_MAP) failed with %d\n", (int)ret);
 		sys_close(args->fd_exe_link);
+	}
 
 	if (ret)
 		goto core_restore_end;
