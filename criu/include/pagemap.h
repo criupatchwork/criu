@@ -3,6 +3,7 @@
 
 #include "common/list.h"
 #include "images/pagemap.pb-c.h"
+#include "page.h"
 
 /*
  * page_read -- engine, that reads pages from image file(s)
@@ -105,7 +106,13 @@ extern int open_page_read_at(int dfd, int pid, struct page_read *pr,
 extern void pagemap2iovec(PagemapEntry *pe, struct iovec *iov);
 extern void iovec2pagemap(struct iovec *iov, PagemapEntry *pe);
 
-extern int dedup_one_iovec(struct page_read *pr, struct iovec *iov);
+extern int dedup_one_iovec(struct page_read *pr, unsigned long base,
+			   unsigned long len);
+
+static inline unsigned long pagemap_len(PagemapEntry *pe)
+{
+	return pe->nr_pages * PAGE_SIZE;
+}
 
 /* Pagemap flags */
 #define PE_PARENT	(1 << 0)	/* pages are in parent snapshot */
