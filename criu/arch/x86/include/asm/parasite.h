@@ -2,21 +2,15 @@
 #define __ASM_PARASITE_H__
 
 #include "asm-generic/string.h"
+#include <compel/plugins/std/syscall-codes.h>
 
 #ifdef CONFIG_X86_32
 # define __parasite_entry __attribute__((regparm(3)))
 #endif
 
-#ifdef CONFIG_X86_32
 static void arch_get_user_desc(user_desc_t *desc)
 {
-	if (sys_get_thread_area(desc))
-		pr_err("Failed to dump TLS descriptor #%d\n",
-				desc->entry_number);
-}
-#else /* !X86_32 */
-static void arch_get_user_desc(user_desc_t *desc)
-{
+	int ret;
 	/*
 	 * For 64-bit applications, TLS (fs_base for Glibc) is
 	 * in MSR, which are dumped with the help of arch_prctl().
@@ -35,14 +29,24 @@ static void arch_get_user_desc(user_desc_t *desc)
 	 * #endif
 	 *	...
 	 * };
-	 *
-	 * For this mixed code we may want to call get_thread_area
-	 * 32-bit syscall. But as additional three calls to kernel
-	 * will slow dumping, I omit it here.
 	 */
-	desc->seg_not_present = 1;
+	asm volatile (
+	"       mov %1,%%eax                    \n"
+	"       mov %2,%%ebx                    \n"
+	"	int $0x80			\n"
+	"	mov %%eax,%0			\n"
+	: "=r"(ret)
+	: "r"(__NR32_get_thread_area), "r"((uint32_t)(uintptr_t) desc)
+	: "eax", "ebx");
+
+	/*
+	 * Fixup for Travis: on missing GDT entry get_thread_area()
+	 * retruns -EINTR then descriptor with seg_not_preset = 1
+	 */
+	if (ret && ret != -EINTR)
+		pr_err("Failed to dump TLS descriptor #%d: %d\n",
+				desc->entry_number, ret);
 }
-#endif /* !X86_32 */
 
 static void arch_get_tls(tls_t *ptls)
 {
@@ -53,6 +57,7 @@ static void arch_get_tls(tls_t *ptls)
 		user_desc_t *d = &ptls->desc[i];
 
 		builtin_memset(d, 0, sizeof(user_desc_t));
+		d->seg_not_present = 1;
 		d->entry_number = GDT_ENTRY_TLS_MIN + i;
 		arch_get_user_desc(d);
 	}
