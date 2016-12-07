@@ -9,6 +9,7 @@
 #include <sys/syscall.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>  /* for sockaddr_in and inet_ntoa() */
+#include <sys/sysmacros.h>
 
 #include "int.h"
 #include "log.h"
