@@ -533,29 +533,41 @@ static int make_sigframe(void *arg, struct rt_sigframe *sf, struct rt_sigframe *
 }
 
 /* the parasite prefix is added by gen_offsets.sh */
-#define pblob_offset(ptype, symbol)					\
-	parasite_ ## ptype ## _blob_offset__ ## symbol
+#define pblob_offset(symbol) parasite_blob_offset__ ## symbol
 
 #ifdef CONFIG_PIEGEN
-#define init_blob_relocs(bdesc, blob_type)						\
-	do {										\
-		bdesc->hdr.relocs = parasite_##blob_type##_relocs;			\
-		bdesc->hdr.nr_relocs = ARRAY_SIZE(parasite_##blob_type##_relocs);	\
-	} while (0)
+static inline void init_blob_relocs(struct parasite_blob_desc *bdesc)
+{
+	bdesc->hdr.relocs = parasite_relocs;
+	bdesc->hdr.nr_relocs = ARRAY_SIZE(parasite_relocs);
+}
 #else
-#define init_blob_relocs(bdesc, blob_type)
+#define init_blob_relocs(bdesc)
 #endif
 
-#define init_blob_desc(bdesc, blob_type) do {						\
-	bdesc->hdr.mem = parasite_##blob_type##_blob;					\
-	bdesc->hdr.bsize = sizeof(parasite_##blob_type##_blob);				\
-	bdesc->hdr.nr_gotpcrel = pie_nr_gotpcrel(parasite_##blob_type);			\
-	/* Setup the rest of a control block */						\
-	bdesc->hdr.parasite_ip_off = pblob_offset(blob_type, __export_parasite_head_start);\
-	bdesc->hdr.addr_cmd_off    = pblob_offset(blob_type, __export_parasite_cmd);	\
-	bdesc->hdr.addr_arg_off    = pblob_offset(blob_type, __export_parasite_args);	\
-	init_blob_relocs(bdesc, blob_type);						\
-	} while (0)
+static void init_blob_desc(struct parasite_blob_desc *bdesc, bool native_entry)
+{
+	unsigned long parasite_entry_ip;
+
+	if (native_entry) {
+		parasite_entry_ip = pblob_offset(__export_parasite_head_start);
+	} else {
+#ifdef CONFIG_COMPAT
+		parasite_entry_ip = pblob_offset(__export_parasite_head_start_compat);
+#else
+		BUG();
+		parasite_entry_ip = 0; /* gcc uninitialize warning silencer */
+#endif
+	}
+
+	bdesc->hdr.mem = parasite_blob;
+	bdesc->hdr.bsize = sizeof(parasite_blob);
+	/* Setup the rest of a control block */
+	bdesc->hdr.parasite_ip_off = parasite_entry_ip;
+	bdesc->hdr.addr_cmd_off    = pblob_offset(__export_parasite_cmd);
+	bdesc->hdr.addr_arg_off    = pblob_offset(__export_parasite_args);
+	init_blob_relocs(bdesc);
+}
 
 struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 		struct vm_area_list *vma_area_list)
@@ -607,12 +619,7 @@ struct parasite_ctl *parasite_infect_seized(pid_t pid, struct pstree_item *item,
 	pbd = compel_parasite_blob_desc(ctl);
 	pbd->parasite_type = COMPEL_BLOB_CHEADER;
 
-	if (compel_mode_native(ctl))
-		init_blob_desc(pbd, native);
-#ifdef CONFIG_COMPAT
-	else
-		init_blob_desc(pbd, compat);
-#endif
+	init_blob_desc(pbd, compel_mode_native(ctl));
 
 	parasite_ensure_args_size(dump_pages_args_size(vma_area_list));
 	parasite_ensure_args_size(aio_rings_args_size(vma_area_list));
