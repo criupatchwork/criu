@@ -51,12 +51,10 @@ static int mprotect_vmas(struct parasite_dump_pages_args *args)
 	vmas = pargs_vmas(args);
 	for (i = 0; i < args->nr_vmas; i++) {
 		vma = vmas + i;
-		ret = sys_mprotect((void *)(uintptr_t)vma->start, vma->len,
-				vma->prot | args->add_prot);
+		ret = sys_mprotect((void *)vma->start, vma->len, vma->prot | args->add_prot);
 		if (ret) {
 			pr_err("mprotect(%08lx, %lu) failed with code %d\n",
-					(unsigned long)vma->start,
-					(unsigned long)vma->len, ret);
+						vma->start, vma->len, ret);
 			break;
 		}
 	}
@@ -451,7 +449,7 @@ static inline int tty_ioctl(int fd, int cmd, int *arg)
 
 static int sane_ring(struct parasite_aio *aio)
 {
-	struct aio_ring *ring = (struct aio_ring *)(uintptr_t)aio->ctx;
+	struct aio_ring *ring = (struct aio_ring *)aio->ctx;
 	unsigned nr;
 
 	nr = (aio->size - sizeof(struct aio_ring)) / sizeof(struct io_event);
@@ -470,7 +468,7 @@ static int parasite_check_aios(struct parasite_check_aios_args *args)
 	for (i = 0; i < args->nr_rings; i++) {
 		struct aio_ring *ring;
 
-		ring = (struct aio_ring *)(uintptr_t)args->ring[i].ctx;
+		ring = (struct aio_ring *)args->ring[i].ctx;
 		if (!sane_ring(&args->ring[i])) {
 			pr_err("Not valid ring #%d\n", i);
 			pr_info(" `- magic %x\n", ring->magic);
@@ -549,7 +547,7 @@ err_io:
 #ifdef CONFIG_VDSO
 static int parasite_check_vdso_mark(struct parasite_vdso_vma_entry *args)
 {
-	struct vdso_mark *m = (void *)(uintptr_t)args->start;
+	struct vdso_mark *m = (void *)args->start;
 
 	if (is_vdso_mark(m)) {
 		/*
