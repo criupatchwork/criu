@@ -152,7 +152,7 @@ static void show_one_unix(char *act, const struct unix_sk_desc *sk)
 
 static void show_one_unix_img(const char *act, const UnixSkEntry *e)
 {
-	pr_info("\t%s: id %#x ino %#x peer %#x type %d state %d name %d bytes\n",
+	pr_info("\t%s: id %#x ino %#x peer %#x type %d state %2d name %d bytes\n",
 		act, e->id, e->ino, e->peer, e->type, e->state, (int)e->name.len);
 }
 
