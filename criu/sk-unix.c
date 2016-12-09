@@ -1431,9 +1431,7 @@ static int resolve_unix_peers(void *unused)
 	struct unix_sk_info *ui, *peer;
 
 	list_for_each_entry(ui, &unix_sockets, list) {
-		if (ui->peer)
-			continue;
-		if (!ui->ue->peer_ino)
+		if (ui->peer || !ui->ue->peer_ino)
 			continue;
 
 		peer = find_unix_sk_by_ino(ui->ue->peer_ino);
