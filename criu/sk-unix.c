@@ -48,11 +48,6 @@
  * as "external" and require the --ext-unix-sk option.
  */
 
-#define USK_EXTERN	(1 << 0)
-#define USK_SERVICE	(1 << 1)
-#define USK_CALLBACK	(1 << 2)
-#define USK_INHERIT	(1 << 3)
-
 typedef struct {
 	char			*dir;
 	unsigned int		udiag_vfs_dev;
@@ -346,7 +341,7 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 	if (unlikely(ue->peer == service_sk_ino)) {
 		ue->state = TCP_CLOSE;
 		ue->peer = 0;
-		ue->uflags |= USK_SERVICE;
+		ue->uflags |= UNIX_UFLAGS__SERVICE;
 	}
 
 	if (sk->namelen && *sk->name) {
@@ -748,7 +743,7 @@ static int dump_external_sockets(struct unix_sk_desc *peer)
 		} else if (ret < 0)
 			return -1;
 		else
-			sk->ue->uflags |= USK_CALLBACK;
+			sk->ue->uflags |= UNIX_UFLAGS__CALLBACK;
 
 		if (write_unix_entry(sk))
 			return -1;
@@ -782,7 +777,7 @@ int fix_external_unix_sockets(void)
 		e.state		= TCP_LISTEN;
 		e.name.data	= (void *)sk->name;
 		e.name.len	= (size_t)sk->namelen;
-		e.uflags	= USK_EXTERN;
+		e.uflags	= UNIX_UFLAGS__EXTERN;
 		e.peer		= 0;
 		e.fown		= &fown;
 		e.opts		= &skopts;
@@ -907,14 +902,14 @@ static int post_open_unix_sk(struct file_desc *d, int fd)
 	if (peer == NULL)
 		return 0;
 
-	if (ui->ue->uflags & USK_CALLBACK)
+	if (ui->ue->uflags & UNIX_UFLAGS__CALLBACK)
 		return 0;
 
 	/* Skip external sockets */
 	if (!list_empty(&peer->d.fd_info_head))
 		futex_wait_while(&peer->prepared, 0);
 
-	if (ui->ue->uflags & USK_INHERIT)
+	if (ui->ue->uflags & UNIX_UFLAGS__INHERIT)
 		return 0;
 
 	memset(&addr, 0, sizeof(addr));
@@ -1158,7 +1153,7 @@ static int open_unixsk_standalone(struct unix_sk_info *ui)
 	 * If so, put response, that dumping and restoring
 	 * was successful.
 	 */
-	if (ui->ue->uflags & USK_SERVICE) {
+	if (ui->ue->uflags & UNIX_UFLAGS__SERVICE) {
 		int sks[2];
 
 		if (socketpair(PF_UNIX, ui->ue->type, 0, sks)) {
@@ -1238,7 +1233,7 @@ static int open_unixsk_standalone(struct unix_sk_info *ui)
 		}
 		close(sks[1]);
 	} else {
-		if (ui->ue->uflags & USK_CALLBACK) {
+		if (ui->ue->uflags & UNIX_UFLAGS__CALLBACK) {
 			sk = run_plugins(RESTORE_UNIX_SK, ui->ue->ino);
 			if (sk >= 0)
 				goto out;
@@ -1248,7 +1243,7 @@ static int open_unixsk_standalone(struct unix_sk_info *ui)
 		 * Connect to external sockets requires
 		 * special option to be passed.
 		 */
-		if (ui->peer && (ui->peer->ue->uflags & USK_EXTERN) &&
+		if (ui->peer && (ui->peer->ue->uflags & UNIX_UFLAGS__EXTERN) &&
 				!(opts.ext_unix_sk)) {
 			pr_err("External socket found in image. "
 					"Consider using the --" USK_EXT_PARAM
@@ -1294,7 +1289,7 @@ static int open_unix_sk(struct file_desc *d)
 	int unixsk_fd = -1;
 
 	if (inherited_fd(d, &unixsk_fd)) {
-		ui->ue->uflags |= USK_INHERIT;
+		ui->ue->uflags |= UNIX_UFLAGS__INHERIT;
 		return unixsk_fd;
 	} else if (ui->flags & USK_PAIR_MASTER)
 		return open_unixsk_pair_master(ui);
@@ -1335,7 +1330,7 @@ static void unlink_stale(struct unix_sk_info *ui)
 {
 	int ret, cwd_fd;
 
-	if (ui->name[0] == '\0' || (ui->ue->uflags & USK_EXTERN))
+	if (ui->name[0] == '\0' || (ui->ue->uflags & UNIX_UFLAGS__EXTERN))
 		return;
 
 	if (prep_unix_sk_cwd(ui, &cwd_fd))

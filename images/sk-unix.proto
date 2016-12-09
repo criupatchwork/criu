@@ -4,6 +4,16 @@ import "opts.proto";
 import "fown.proto";
 import "sk-opts.proto";
 
+/*
+ * For unix_sk_entry::uflags
+ */
+enum unix_uflags {
+	EXTERN		= 1;
+	SERVICE		= 2;
+	CALLBACK	= 4;
+	INHERIT		= 8;
+};
+
 message file_perms_entry {
 	required uint32			mode		= 1;
 	required uint32			uid		= 2;
