@@ -864,6 +864,33 @@ static int prep_unix_sk_cwd(struct unix_sk_info *ui, int *prev_cwd_fd)
 	return 0;
 }
 
+static bool __maybe_unused unix_addr_match(struct unix_sk_info *s, struct unix_sk_info *d)
+{
+	if (!s->ue->name.len || !d->ue->name.len ||
+	    s->ue->name.len != d->ue->name.len)
+		return false;
+
+	if (memcmp(s->ue->name.data,
+		   d->ue->name.data,
+		   d->ue->name.len))
+		return false;
+
+	/*
+	 * Relative names may match iif the directory
+	 * they are laying in are the same.
+	 */
+	if (s->ue->name_dir || d->ue->name_dir) {
+		if (!((unsigned long)s->ue->name_dir &
+		      (unsigned long)d->ue->name_dir))
+			return false;
+		return strcmp(s->ue->name_dir,
+			      d->ue->name_dir) ?
+			false : true;
+	}
+
+	return true;
+}
+
 static int post_open_unix_sk(struct file_desc *d, int fd)
 {
 	struct unix_sk_info *ui;
