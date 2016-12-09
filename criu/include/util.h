@@ -250,6 +250,8 @@ static inline bool issubpath(const char *path, const char *sub_path)
  */
 int mkdirpat(int fd, const char *path, int mode);
 
+int rmdirp(const char *path, size_t keep);
+
 /*
  * Tests whether a path is a prefix of another path. This is different than
  * strstartswith because "/foo" is _not_ a path prefix of "/foobar", since they
