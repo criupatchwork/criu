@@ -63,24 +63,6 @@ typedef struct {
 	u32	ss_size;
 } stack_t_compat;
 
-struct parasite_dump_thread_compat {
-	u32				tid_addr;
-	s32				tid;
-	tls_t				tls;
-	stack_t_compat			sas;
-	s32				pdeath_sig;
-	struct parasite_dump_creds	creds[0];
-};
-
-static inline void copy_sas_compat(ThreadSasEntry *dst,
-		const stack_t_compat *src)
-{
-	dst->ss_sp = encode_pointer((void*)(uintptr_t)src->ss_sp);
-	dst->ss_size = (u64)src->ss_size;
-	dst->ss_flags = src->ss_flags;
-}
-
-
 #endif /* !__ASSEMBLY__ */
 
 #endif /* __CR_PARASITE_COMPAT_H__ */
