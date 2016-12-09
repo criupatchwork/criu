@@ -95,6 +95,33 @@ struct unix_sk_listen_icon {
 	struct unix_sk_listen_icon	*next;
 };
 
+#define USK_PAIR_MASTER		0x1
+#define USK_PAIR_SLAVE		0x2
+
+struct unix_sk_info {
+	UnixSkEntry			*ue;
+	struct list_head		list;
+	char				*name;
+	char				*name_dir;
+	unsigned int			flags;
+	struct unix_sk_info		*peer;
+	struct file_desc		d;
+
+	/*
+	 * Futex to signal when the socket is prepared. In particular, we
+	 * signal after bind()ing the socket if it is not in TCP_LISTEN, or
+	 * after listen() if the socket is in TCP_LISTEN.
+	 */
+	futex_t				prepared;
+
+	/*
+	 * For DGRAM sockets with queues, we should only restore the queue
+	 * once although it may be open by more than one tid. This is the peer
+	 * that should do the queueing.
+	 */
+	u32				queuer;
+};
+
 #define SK_HASH_SIZE		32
 
 static struct unix_sk_listen_icon *unix_listen_icons[SK_HASH_SIZE];
@@ -773,33 +800,6 @@ int fix_external_unix_sockets(void)
 err:
 	return -1;
 }
-
-struct unix_sk_info {
-	UnixSkEntry *ue;
-	struct list_head list;
-	char *name;
-	char *name_dir;
-	unsigned flags;
-	struct unix_sk_info *peer;
-	struct file_desc d;
-
-	/*
-	 * Futex to signal when the socket is prepared. In particular, we
-	 * signal after bind()ing the socket if it is not in TCP_LISTEN, or
-	 * after listen() if the socket is in TCP_LISTEN.
-	 */
-	futex_t prepared;
-
-	/*
-	 * For DGRAM sockets with queues, we should only restore the queue
-	 * once although it may be open by more than one tid. This is the peer
-	 * that should do the queueing.
-	 */
-	u32 queuer;
-};
-
-#define USK_PAIR_MASTER		0x1
-#define USK_PAIR_SLAVE		0x2
 
 static struct unix_sk_info *find_unix_sk_by_ino(int ino)
 {
