@@ -39,7 +39,7 @@ message unix_sk_entry {
 	required uint32			flags		=  5 [(criu).hex = true];
 	required uint32			uflags		=  6 [(criu).hex = true];
 	required uint32			backlog		=  7;
-	required uint32			peer		=  8;
+	required uint32			peer_ino	=  8;
 	required fown_entry		fown		=  9;
 	required sk_opts_entry		opts		= 10;
 

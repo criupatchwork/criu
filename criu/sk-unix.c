@@ -148,7 +148,7 @@ static void show_one_unix(char *act, const struct unix_sk_desc *sk)
 static void show_one_unix_img(const char *act, const UnixSkEntry *e)
 {
 	pr_info("\t%s: id %#x ino %#x peer %#x type %d state %2d name %d bytes\n",
-		act, e->id, e->ino, e->peer, e->type, e->state, (int)e->name.len);
+		act, e->id, e->ino, e->peer_ino, e->type, e->state, (int)e->name.len);
 }
 
 static int can_dump_unix_sk(const struct unix_sk_desc *sk)
@@ -323,7 +323,7 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 	ue->state	= sk->state;
 	ue->flags	= p->flags;
 	ue->backlog	= sk->wqlen;
-	ue->peer	= sk->peer_ino;
+	ue->peer_ino	= sk->peer_ino;
 	ue->fown	= fown;
 	ue->opts	= skopts;
 	ue->uflags	= 0;
@@ -338,9 +338,9 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 	 * Check if this socket is connected to criu service.
 	 * Dump it like closed one and mark it for restore.
 	 */
-	if (unlikely(ue->peer == service_sk_ino)) {
+	if (unlikely(ue->peer_ino == service_sk_ino)) {
 		ue->state = TCP_CLOSE;
-		ue->peer = 0;
+		ue->peer_ino = 0;
 		ue->uflags |= UNIX_UFLAGS__SERVICE;
 	}
 
@@ -359,11 +359,11 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 
 	sk_encode_shutdown(ue, sk->shutdown);
 
-	if (ue->peer) {
-		peer = (struct unix_sk_desc *)lookup_socket(ue->peer, PF_UNIX, 0);
+	if (ue->peer_ino) {
+		peer = (struct unix_sk_desc *)lookup_socket(ue->peer_ino, PF_UNIX, 0);
 		if (IS_ERR_OR_NULL(peer)) {
 			pr_err("Unix socket %#x without peer %#x\n",
-					ue->ino, ue->peer);
+					ue->ino, ue->peer_ino);
 			goto err;
 		}
 
@@ -374,7 +374,7 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 		if (peer->peer_ino != ue->ino) {
 			if (!peer->name) {
 				pr_err("Unix socket %#x with unreachable peer %#x (%#x/%s)\n",
-				       ue->ino, ue->peer, peer->peer_ino, peer->name);
+				       ue->ino, ue->peer_ino, peer->peer_ino, peer->name);
 				goto err;
 			}
 		}
@@ -447,10 +447,10 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 			goto err;
 		}
 
-		ue->peer = e->sk_desc->sd.ino;
+		ue->peer_ino = e->sk_desc->sd.ino;
 
 		pr_debug("\t\tFixed inflight socket %#x peer %#x)\n",
-				ue->ino, ue->peer);
+				ue->ino, ue->peer_ino);
 	}
 dump:
 	if (dump_socket_opts(lfd, skopts))
@@ -778,7 +778,7 @@ int fix_external_unix_sockets(void)
 		e.name.data	= (void *)sk->name;
 		e.name.len	= (size_t)sk->namelen;
 		e.uflags	= UNIX_UFLAGS__EXTERN;
-		e.peer		= 0;
+		e.peer_ino	= 0;
 		e.fown		= &fown;
 		e.opts		= &skopts;
 
@@ -1072,7 +1072,7 @@ static int open_unixsk_pair_master(struct unix_sk_info *ui)
 	struct fdinfo_list_entry *fle;
 
 	pr_info("Opening pair master (id %#x ino %#x peer %#x)\n",
-			ui->ue->id, ui->ue->ino, ui->ue->peer);
+			ui->ue->id, ui->ue->ino, ui->ue->peer_ino);
 
 	if (socketpair(PF_UNIX, ui->ue->type, 0, sk) < 0) {
 		pr_perror("Can't make socketpair");
@@ -1117,7 +1117,7 @@ static int open_unixsk_pair_slave(struct unix_sk_info *ui)
 	fle = file_master(&ui->d);
 
 	pr_info("Opening pair slave (id %#x ino %#x peer %#x) on %d\n",
-			ui->ue->id, ui->ue->ino, ui->ue->peer, fle->fe->fd);
+			ui->ue->id, ui->ue->ino, ui->ue->peer_ino, fle->fe->fd);
 
 	sk = recv_fd(fle->fe->fd);
 	if (sk < 0) {
@@ -1146,7 +1146,7 @@ static int open_unixsk_standalone(struct unix_sk_info *ui)
 	int sk;
 
 	pr_info("Opening standalone socket (id %#x ino %#x peer %#x)\n",
-			ui->ue->id, ui->ue->ino, ui->ue->peer);
+			ui->ue->id, ui->ue->ino, ui->ue->peer_ino);
 
 	/*
 	 * Check if this socket was connected to criu service.
@@ -1166,7 +1166,7 @@ static int open_unixsk_standalone(struct unix_sk_info *ui)
 
 		close(sks[1]);
 		sk = sks[0];
-	} else if ((ui->ue->state == TCP_ESTABLISHED) && !ui->ue->peer) {
+	} else if ((ui->ue->state == TCP_ESTABLISHED) && !ui->ue->peer_ino) {
 		int ret, sks[2];
 
 		if (ui->ue->type != SOCK_STREAM) {
@@ -1339,7 +1339,7 @@ static void unlink_stale(struct unix_sk_info *ui)
 	ret = unlinkat(AT_FDCWD, ui->name, 0) ? -1 : 0;
 	if (ret < 0 && errno != ENOENT) {
 		pr_warn("Can't unlink stale socket %#x peer %#x (name %s dir %s): %m\n",
-			ui->ue->ino, ui->ue->peer,
+			ui->ue->ino, ui->ue->peer_ino,
 			ui->name ? (ui->name[0] ? ui->name : &ui->name[1]) : "-",
 			ui->name_dir ? ui->name_dir : "-");
 	}
@@ -1355,7 +1355,7 @@ static int collect_one_unixsk(void *o, ProtobufCMessage *base, struct cr_img *i)
 	ui->ue = pb_msg(base, UnixSkEntry);
 	ui->name_dir = (void *)ui->ue->name_dir;
 
-	if (ui->ue->peer && add_post_prepare_cb_once(resolve_unix_peers, NULL))
+	if (ui->ue->peer_ino && add_post_prepare_cb_once(resolve_unix_peers, NULL))
 		return -1;
 
 	if (ui->ue->name.len) {
@@ -1375,7 +1375,7 @@ static int collect_one_unixsk(void *o, ProtobufCMessage *base, struct cr_img *i)
 	ui->peer = NULL;
 	ui->flags = 0;
 	pr_info(" `- Got %#x peer %#x (name %s dir %s)\n",
-		ui->ue->ino, ui->ue->peer,
+		ui->ue->ino, ui->ue->peer_ino,
 		ui->name ? (ui->name[0] ? ui->name : &ui->name[1]) : "-",
 		ui->name_dir ? ui->name_dir : "-");
 	list_add_tail(&ui->list, &unix_sockets);
@@ -1433,13 +1433,13 @@ static int resolve_unix_peers(void *unused)
 	list_for_each_entry(ui, &unix_sockets, list) {
 		if (ui->peer)
 			continue;
-		if (!ui->ue->peer)
+		if (!ui->ue->peer_ino)
 			continue;
 
-		peer = find_unix_sk_by_ino(ui->ue->peer);
+		peer = find_unix_sk_by_ino(ui->ue->peer_ino);
 		if (!peer) {
 			pr_err("FATAL: Peer %#x unresolved for %#x\n",
-					ui->ue->peer, ui->ue->ino);
+					ui->ue->peer_ino, ui->ue->ino);
 			return -1;
 		}
 
@@ -1449,7 +1449,7 @@ static int resolve_unix_peers(void *unused)
 		if (ui == peer)
 			/* socket connected to self %) */
 			continue;
-		if (peer->ue->peer != ui->ue->ino)
+		if (peer->ue->peer_ino != ui->ue->ino)
 			continue;
 
 		peer->peer = ui;
@@ -1463,7 +1463,7 @@ static int resolve_unix_peers(void *unused)
 	list_for_each_entry(ui, &unix_sockets, list) {
 		struct fdinfo_list_entry *fle;
 
-		pr_info("\t%#x -> %#x (%#x) flags %#x\n", ui->ue->ino, ui->ue->peer,
+		pr_info("\t%#x -> %#x (%#x) flags %#x\n", ui->ue->ino, ui->ue->peer_ino,
 				ui->peer ? ui->peer->ue->ino : 0, ui->flags);
 		list_for_each_entry(fle, &ui->d.fd_info_head, desc_list)
 			pr_info("\t\tfd %d in pid %d\n",
