@@ -13,7 +13,16 @@
 extern int check_img_inventory(void);
 extern int write_img_inventory(InventoryEntry *he);
 extern int prepare_inventory(InventoryEntry *he);
+
 extern int add_post_prepare_cb(int (*actor)(void *data), void *data);
+#define add_post_prepare_cb_once(__actor, __data)				\
+	({									\
+		static int __called = 0;					\
+		int __ret = 0;							\
+		if (!__called)							\
+			__ret = add_post_prepare_cb((__actor), (__data));	\
+		__ret;								\
+	})
 extern bool deprecated_ok(char *what);
 extern int cr_dump_tasks(pid_t pid);
 extern int cr_pre_dump_tasks(pid_t pid);
