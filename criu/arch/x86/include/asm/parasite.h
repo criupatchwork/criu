@@ -75,6 +75,7 @@ static void arch_get_tls(tls_t *ptls)
 		builtin_memset(d, 0, sizeof(user_desc_t));
 		d->seg_not_present = 1;
 		d->entry_number = GDT_ENTRY_TLS_MIN + i;
+		pr_debug("Dumping #%d GDT entry\n", d->entry_number);
 		arch_get_user_desc(d);
 		builtin_memcpy(&ptls->desc[i], d, sizeof(user_desc_t));
 	}
