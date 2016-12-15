@@ -173,7 +173,7 @@ int get_task_regs(pid_t pid, user_regs_struct_t regs, save_regs_t save, void *ar
 
 	pr_info("Dumping GP/FPU registers for %d\n", pid);
 
-	if (cpu_has_feature(X86_FEATURE_XSAVE)) {
+	if (cpu_has_feature(X86_FEATURE_OSXSAVE)) {
 		iov.iov_base = &xsave;
 		iov.iov_len = sizeof(xsave);
 
