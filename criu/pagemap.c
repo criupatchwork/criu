@@ -120,16 +120,14 @@ int dedup_one_iovec(struct page_read *pr, unsigned long off, unsigned long len)
 	return 0;
 }
 
-static int advance(struct page_read *pr, bool skip_zero)
+static int advance(struct page_read *pr)
 {
-	do {
-		pr->curr_pme++;
-		if (pr->curr_pme >= pr->nr_pmes)
-			return 0;
+	pr->curr_pme++;
+	if (pr->curr_pme >= pr->nr_pmes)
+		return 0;
 
-		pr->pe = pr->pmes[pr->curr_pme];
-		pr->cvaddr = pr->pe->vaddr;
-	} while (skip_zero && pagemap_zero(pr->pe));
+	pr->pe = pr->pmes[pr->curr_pme];
+	pr->cvaddr = pr->pe->vaddr;
 
 	return 1;
 }
@@ -166,7 +164,7 @@ static int seek_pagemap(struct page_read *pr, unsigned long vaddr)
 			skip_pagemap_pages(pr, end - pr->cvaddr);
 adv:
 		; /* otherwise "label at end of compound stmt" gcc error */
-	} while (advance(pr, true));
+	} while (advance(pr));
 
 	return 0;
 }
@@ -432,9 +430,6 @@ static int read_pagemap_page(struct page_read *pr, unsigned long vaddr, int nr,
 	if (pagemap_in_parent(pr->pe)) {
 		if (read_parent_page(pr, vaddr, nr, buf, flags) < 0)
 			return -1;
-	} else if (pagemap_zero(pr->pe)) {
-		/* zero mappings should be skipped by get_pagemap */
-		BUG();
 	} else {
 		if (pr->maybe_read_page(pr, vaddr, nr, buf, flags) < 0)
 			return -1;
