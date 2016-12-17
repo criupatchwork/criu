@@ -28,7 +28,7 @@ CFLAGS		+= -iquote $(SRC_DIR)/criu/include
 CFLAGS		+= -iquote $(SRC_DIR)/include
 CFLAGS		+= -iquote $(SRC_DIR)
 
-ccflags-y	+= -I compel/include/uapi
+ccflags-y	+= $(COMPEL_UAPI_INCLUDES)
 ccflags-y	+= -DCR_NOGLIBC
 ccflags-y	+= -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
 
