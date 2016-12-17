@@ -51,6 +51,8 @@ struct kerndat_s {
 	bool stack_guard_gap_hidden;
 	int lsm;
 	unsigned long uffd_features;
+	bool has_nsid;
+	bool has_link_nsid;
 };
 
 extern struct kerndat_s kdat;

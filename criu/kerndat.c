@@ -28,6 +28,7 @@
 #include "config.h"
 #include "sk-inet.h"
 #include "sockets.h"
+#include "net.h"
 #include <compel/plugins/std/syscall-codes.h>
 #include <compel/compel.h>
 #include "netfilter.h"
@@ -555,6 +556,27 @@ err:
 	return exit_code;
 }
 
+int kerndat_nsid(void)
+{
+	int nsid, sk;
+
+	sk = socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
+	if (sk < 0) {
+		pr_perror("Unable to create a netlink socket");
+		return -1;
+	}
+
+	if (net_get_nsid(sk, getpid(), &nsid) < 0) {
+		pr_err("NSID is not supported\n");
+		close(sk);
+		return -1;
+	}
+
+	kdat.has_nsid = true;
+	close(sk);
+	return 0;
+}
+
 static int kerndat_compat_restore(void)
 {
 	int ret = kdat_compatible_cr();
@@ -789,6 +811,10 @@ int kerndat_init(void)
 	if (!ret)
 		ret = kerndat_compat_restore();
 	if (!ret)
+		ret = kerndat_socket_netns();
+	if (!ret)
+		ret = kerndat_nsid();
+	if (!ret)
 		ret = kerndat_has_memfd_create();
 	if (!ret)
 		ret = kerndat_detect_stack_guard_gap();
@@ -796,6 +822,8 @@ int kerndat_init(void)
 		ret = kerndat_uffd(opts.lazy_pages);
 	if (!ret)
 		ret = kerndat_socket_netns();
+	if (!ret)
+		ret = kerndat_nsid();
 
 	kerndat_lsm();
 	kerndat_mmap_min_addr();
