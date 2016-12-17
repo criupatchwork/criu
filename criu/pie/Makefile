@@ -29,7 +29,6 @@ CFLAGS		+= -iquote $(SRC_DIR)/include
 CFLAGS		+= -iquote $(SRC_DIR)
 
 ccflags-y	+= -I compel/include/uapi
-ccflags-y	+= -I compel/plugins/include/uapi
 ccflags-y	+= -DCR_NOGLIBC
 ccflags-y	+= -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
 
