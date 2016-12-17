@@ -34,7 +34,7 @@ ccflags-y	+= -DCR_NOGLIBC
 ccflags-y	+= -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
 
 ifneq ($(filter-out clean mrproper,$(MAKECMDGOALS)),)
-        CFLAGS	+= $(shell $(SRC_DIR)/compel/compel-host --arch=$(ARCH) cflags)
+        CFLAGS	+= $(shell $(SRC_DIR)/compel/compel-host cflags)
 endif
 
 ifeq ($(SRCARCH),arm)
