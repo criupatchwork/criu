@@ -33,7 +33,7 @@ ccflags-y	+= -DCR_NOGLIBC
 ccflags-y	+= -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
 
 ifneq ($(filter-out clean mrproper,$(MAKECMDGOALS)),)
-        CFLAGS	+= $(shell $(SRC_DIR)/compel/compel-host cflags)
+        CFLAGS	+= $(shell $(COMPEL_BIN) cflags)
 endif
 
 ifeq ($(SRCARCH),arm)
@@ -60,9 +60,9 @@ $(obj)/%.built-in.bin.o: $(obj)/%.built-in.o $(obj)/pie.lib.a $(compel_lds)
 
 $(obj)/%-blob.h: $(obj)/%.built-in.bin.o $(SRC_DIR)/compel/compel-host-bin
 	$(call msg-gen, $@)
-	$(Q) $(SRC_DIR)/compel/compel-host hgen -f $<			\
-		-l 4							\
-		-p $(call target-name,$@)				\
+	$(Q) $(COMPEL_BIN) hgen -f $<		\
+		-l 4				\
+		-p $(call target-name,$@)	\
 		-o $@ $(piegen_stdout)
 
 all-y += $(BLOBS)
