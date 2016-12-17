@@ -177,6 +177,7 @@ TST_NOFILE	:=				\
 		userns00			\
 		userns01			\
 		userns02			\
+		netns_sub_veth			\
 #		jobctl00			\
 
 include ../Makefile.inc
