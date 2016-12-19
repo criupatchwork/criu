@@ -592,7 +592,7 @@ static int page_server_add(int sk, struct page_server_iov *pi, u32 flags)
 		if (chunk > cxfer.pipe_size)
 			chunk = cxfer.pipe_size;
 
-		chunk = splice(sk, NULL, cxfer.p[1], NULL, chunk, SPLICE_F_MOVE | SPLICE_F_NONBLOCK);
+		chunk = splice(sk, NULL, cxfer.p[1], NULL, chunk, SPLICE_F_MOVE);
 		if (chunk < 0) {
 			pr_perror("Can't read from socket");
 			return -1;
