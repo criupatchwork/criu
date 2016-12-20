@@ -1974,6 +1974,8 @@ static int parse_file_lock_buf(char *buf, struct file_lock *fl,
 		fl->fl_kind = FL_POSIX;
 	else if (!strcmp(fl_flag, "FLOCK"))
 		fl->fl_kind = FL_FLOCK;
+	else if (!strcmp(fl_flag, "OFDLCK"))
+		fl->fl_kind = FL_OFD;
 	else
 		fl->fl_kind = FL_UNKNOWN;
 
