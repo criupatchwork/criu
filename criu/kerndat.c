@@ -10,6 +10,8 @@
 #include <sys/sysmacros.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>  /* for sockaddr_in and inet_ntoa() */
+#include <sys/sysmacros.h>
+#include <stdint.h>
 
 #include "int.h"
 #include "log.h"
@@ -109,6 +111,39 @@ static int parse_self_maps(unsigned long vm_start, dev_t *device)
 
 	fclose(maps);
 	return -1;
+}
+
+static void kerndat_mmap_min_addr(void)
+{
+	/* From kernel's default CONFIG_LSM_MMAP_MIN_ADDR */
+	static const unsigned long default_mmap_min_addr = 65536;
+	uint64_t value;
+
+	struct sysctl_req req[] = {
+		{
+			.name	= "vm/mmap_min_addr",
+			.arg	= &value,
+			.type	= CTL_U64,
+		},
+	};
+
+	if (sysctl_op(req, ARRAY_SIZE(req), CTL_READ, 0)) {
+		pr_warn("Can't fetch %s value, use default %#lx\n",
+			req[0].name, (unsigned long)default_mmap_min_addr);
+		kdat.mmap_min_addr = default_mmap_min_addr;
+		return;
+	}
+
+	if (value < default_mmap_min_addr) {
+		pr_debug("Adjust mmap_min_addr %#lx -> %#lx\n",
+			 (unsigned long)value,
+			 (unsigned long)default_mmap_min_addr);
+		kdat.mmap_min_addr = default_mmap_min_addr;
+	} else
+		kdat.mmap_min_addr = value;
+
+	pr_debug("Found mmap_min_addr %#lx\n",
+		 (unsigned long)kdat.mmap_min_addr);
 }
 
 static int kerndat_get_shmemdev(void)
@@ -603,6 +638,7 @@ int kerndat_init(void)
 		ret = kerndat_tcp_repair();
 
 	kerndat_lsm();
+	kerndat_mmap_min_addr();
 
 	return ret;
 }
@@ -640,6 +676,7 @@ int kerndat_init_rst(void)
 		ret = kerndat_uffd(opts.lazy_pages);
 
 	kerndat_lsm();
+	kerndat_mmap_min_addr();
 
 	return ret;
 }

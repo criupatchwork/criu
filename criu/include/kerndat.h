@@ -40,6 +40,7 @@ struct kerndat_s {
 	unsigned int has_xtlocks;
 	bool has_tcp_half_closed;
 	unsigned long uffd_features;
+	unsigned long mmap_min_addr;
 };
 
 extern struct kerndat_s kdat;
