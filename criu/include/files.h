@@ -64,6 +64,13 @@ extern int fill_fdlink(int lfd, const struct fd_parms *p, struct fd_link *link);
 
 struct file_desc;
 
+enum {
+	FLE_INITIALIZED,
+	FLE_OPEN,
+	FLE_RESTORING,
+	FLE_RESTORED,
+};
+
 struct fdinfo_list_entry {
 	struct list_head	desc_list;	/* To chain on  @fd_info_head */
 	struct file_desc	*desc;		/* Associated file descriptor */
@@ -72,6 +79,7 @@ struct fdinfo_list_entry {
 	int			pid;
 	FdinfoEntry		*fe;
 	u8			received:1;
+	u8			stage:3;
 };
 
 static inline void fle_init(struct fdinfo_list_entry *fle, int pid, FdinfoEntry *fe)
@@ -79,6 +87,7 @@ static inline void fle_init(struct fdinfo_list_entry *fle, int pid, FdinfoEntry 
 	fle->pid = pid;
 	fle->fe = fe;
 	fle->received = 0;
+	fle->stage = FLE_INITIALIZED;
 }
 
 /* reports whether fd_a takes prio over fd_b */
