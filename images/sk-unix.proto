@@ -48,4 +48,9 @@ message unix_sk_entry {
 	 */
 	optional string			name_dir	= 14;
 	optional bool			deleted		= 15;
+
+	/*
+	 * Stub to put into service socket on restore
+	 */
+        optional string			stub		= 16;
 }

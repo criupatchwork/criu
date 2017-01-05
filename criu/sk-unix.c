@@ -263,6 +263,8 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 	SkOptsEntry *skopts;
 	FilePermsEntry *perms;
 	FownEntry *fown;
+	char buf[PATH_MAX];
+	char *ext = NULL;
 
 	ue = xmalloc(sizeof(UnixSkEntry) +
 			sizeof(SkOptsEntry) +
@@ -320,6 +322,16 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 		ue->state = TCP_CLOSE;
 		ue->peer = 0;
 		ue->uflags |= USK_SERVICE;
+	}
+
+	/* Same as with service_sk, but for custom sockets */
+	snprintf(buf, sizeof(buf), "unix[%u]", ue->peer);
+	ext = external_lookup_by_key(buf);
+	if (unlikely(!IS_ERR_OR_NULL(ext))) {
+		ue->state = TCP_CLOSE;
+		ue->peer = 0;
+		ue->uflags |= USK_SERVICE;
+		ue->stub = (void *)strtok(ext, ":");
 	}
 
 	if (sk->namelen && *sk->name) {
@@ -1139,8 +1151,15 @@ static int open_unixsk_standalone(struct unix_sk_info *ui)
 			return -1;
 		}
 
-		if (send_criu_dump_resp(sks[1], true, true) == -1)
-			return -1;
+		if (ui->ue->stub) {
+			unsigned int l;
+			l = strlen(ui->ue->stub);
+			if (write(sks[1], ui->ue->stub, l) != l)
+				return -1;
+		} else {
+			if (send_criu_dump_resp(sks[1], true, true) == -1)
+				return -1;
+		}
 
 		close(sks[1]);
 		sk = sks[0];
