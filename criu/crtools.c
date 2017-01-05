@@ -286,6 +286,7 @@ int main(int argc, char *argv[], char *envp[])
 		{ "check-only",			no_argument,		0, 1085 },
 		{ "display-stats",		no_argument,		0, 1086 },
 		{ "weak-sysctls",		no_argument,		0, 1087 },
+		{ "root-only",			no_argument,		0, 1088 },
 		{ },
 	};
 
@@ -613,6 +614,9 @@ int main(int argc, char *argv[], char *envp[])
 			pr_msg("Will skip non-existant sysctls on restore\n");
 			opts.weak_sysctls = true;
 			break;
+		case 1088:
+			opts.root_only = true;
+			break;
 		case 'V':
 			pr_msg("Version: %s\n", CRIU_VERSION);
 			if (strcmp(CRIU_GITID, "0"))
@@ -847,6 +851,7 @@ usage:
 "  --check-only          check if checkpointing/restoring will actually work\n"
 "                        the process will keep on running and memory pages\n"
 "                        will not be dumped\n"
+"  --root-only           dump only root task in a specified process tree\n"
 "\n"
 "* External resources support:\n"
 "  --external RES        dump objects from this list as external resources:\n"
