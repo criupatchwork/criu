@@ -108,6 +108,7 @@ mrproper: subproper
 
 UAPI_HEADERS := $(SRC_DIR)/criu/include/criu-plugin.h
 UAPI_HEADERS += $(SRC_DIR)/criu/include/criu-log.h
+UAPI_HEADERS += $(SRC_DIR)/criu/include/log.h
 
 install: $(obj)/criu
 	$(E) "  INSTALL " $(obj)/criu
