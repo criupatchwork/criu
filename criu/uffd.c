@@ -650,6 +650,26 @@ static int handle_remaining_pages(struct lazy_pages_info *lpi)
 	return 0;
 }
 
+static int handle_madv_dontneed(struct lazy_pages_info *lpi,
+				struct uffd_msg *msg)
+{
+	struct uffdio_range unreg;
+
+	unreg.start = msg->arg.madv_dn.start;
+	unreg.len = msg->arg.madv_dn.end - msg->arg.madv_dn.start;
+
+	if (ioctl(lpi->lpfd.fd, UFFDIO_UNREGISTER, &unreg)) {
+		pr_perror("Failed to unregister (%llx - %llx)", unreg.start,
+			  unreg.start + unreg.len);
+		return -1;
+	}
+
+	if (update_lazy_iovecs(lpi, unreg.start, unreg.len))
+		return -1;
+
+	return 0;
+}
+
 static int handle_page_fault(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 {
 	struct pf_info *pf;
@@ -720,6 +740,8 @@ static int handle_uffd_event(struct epoll_rfd *lpfd)
 	switch (msg.event) {
 	case UFFD_EVENT_PAGEFAULT:
 		return handle_page_fault(lpi, &msg);
+	case UFFD_EVENT_MADVDONTNEED:
+		return handle_madv_dontneed(lpi, &msg);
 	default:
 		pr_err("unexpected uffd event %u\n", msg.event);
 		return -1;
