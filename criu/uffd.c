@@ -53,7 +53,12 @@ struct lazy_iovec {
 	unsigned long len;
 };
 
-struct lazy_pages_info;
+struct lazy_remap {
+	struct list_head l;
+	unsigned long from;
+	unsigned long to;
+	unsigned long len;
+};
 
 struct pf_info {
 	unsigned long addr;
@@ -65,6 +70,7 @@ struct lazy_pages_info {
 
 	struct list_head iovs;
 	struct list_head pfs;
+	struct list_head remaps;
 
 	struct page_read pr;
 
@@ -92,6 +98,7 @@ static struct lazy_pages_info *lpi_init(void)
 	memset(lpi, 0, sizeof(*lpi));
 	INIT_LIST_HEAD(&lpi->iovs);
 	INIT_LIST_HEAD(&lpi->pfs);
+	INIT_LIST_HEAD(&lpi->remaps);
 	INIT_LIST_HEAD(&lpi->l);
 	lpi->lpfd.revent = handle_uffd_event;
 
@@ -101,12 +108,15 @@ static struct lazy_pages_info *lpi_init(void)
 static void lpi_fini(struct lazy_pages_info *lpi)
 {
 	struct lazy_iovec *p, *n;
+	struct lazy_remap *p1, *n1;
 
 	if (!lpi)
 		return;
 	free(lpi->buf);
 	list_for_each_entry_safe(p, n, &lpi->iovs, l)
 		xfree(p);
+	list_for_each_entry_safe(p1, n1, &lpi->remaps, l)
+		xfree(p1);
 	if (lpi->lpfd.fd > 0)
 		close(lpi->lpfd.fd);
 	if (lpi->pr.close)
@@ -515,8 +525,16 @@ out:
 static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, int nr_pages)
 {
 	struct uffdio_copy uffdio_copy;
+	struct lazy_remap *r;
 	unsigned long len = nr_pages * page_size();
 	int rc;
+
+	list_for_each_entry(r, &lpi->remaps, l) {
+		if (address >= r->from && address < r->from + r->len) {
+			address += (r->to - r->from);
+			break;
+		}
+	}
 
 	uffdio_copy.dst = address;
 	uffdio_copy.src = (unsigned long)lpi->buf;
@@ -670,9 +688,27 @@ static int handle_madv_dontneed(struct lazy_pages_info *lpi,
 	return 0;
 }
 
+static int handle_remap(struct lazy_pages_info *lpi, struct uffd_msg *msg)
+{
+	struct lazy_remap *remap;
+
+	remap = xmalloc(sizeof(*remap));
+	if (!remap)
+		return -1;
+
+	INIT_LIST_HEAD(&remap->l);
+	remap->from = msg->arg.remap.from;
+	remap->to = msg->arg.remap.to;
+	remap->len = msg->arg.remap.len;
+	list_add_tail(&remap->l, &lpi->remaps);
+
+	return 0;
+}
+
 static int handle_page_fault(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 {
 	struct pf_info *pf;
+	struct lazy_remap *r;
 	__u64 address;
 	int ret;
 
@@ -694,6 +730,13 @@ static int handle_page_fault(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 	pr_debug("msg.arg.pagefault.flags 0x%llx\n", flags);
 	}
 #endif
+
+	list_for_each_entry(r, &lpi->remaps, l) {
+		if (address >= r->to && address < r->to + r->len) {
+			address -= (r->to - r->from);
+			break;
+		}
+	}
 
 	list_for_each_entry(pf, &lpi->pfs, l)
 		if (pf->addr == address)
@@ -742,6 +785,8 @@ static int handle_uffd_event(struct epoll_rfd *lpfd)
 		return handle_page_fault(lpi, &msg);
 	case UFFD_EVENT_MADVDONTNEED:
 		return handle_madv_dontneed(lpi, &msg);
+	case UFFD_EVENT_REMAP:
+		return handle_remap(lpi, &msg);
 	default:
 		pr_err("unexpected uffd event %u\n", msg.event);
 		return -1;
