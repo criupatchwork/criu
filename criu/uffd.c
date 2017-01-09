@@ -542,14 +542,19 @@ static int uffd_copy(struct lazy_pages_info *lpi, __u64 address, int nr_pages)
 	uffdio_copy.mode = 0;
 	uffdio_copy.copy = 0;
 
-	pr_debug("%d: uffd_copy: 0x%llx/%ld\n", lpi->pid, uffdio_copy.dst, len);
+	pr_debug("%d-%d: uffd_copy: 0x%llx/%ld\n", lpi->pid, lpi->lpfd.fd,
+		 uffdio_copy.dst, len);
 	rc = ioctl(lpi->lpfd.fd, UFFDIO_COPY, &uffdio_copy);
 	if (rc) {
 		/* real retval in ufdio_copy.copy */
-		pr_err("%d: UFFDIO_COPY failed: rc:%d copy:%Ld\n", lpi->pid, rc,
-		       uffdio_copy.copy);
-		if (uffdio_copy.copy != -EEXIST)
+		if (uffdio_copy.copy != -EEXIST) {
+			pr_err("%d-%d: UFFDIO_COPY failed: rc:%d copy:%Ld\n",
+			       lpi->pid, lpi->lpfd.fd, rc, uffdio_copy.copy);
 			return -1;
+		} else {
+			pr_debug("%d-%d: pages already present at %llx\n",
+				 lpi->pid, lpi->lpfd.fd, address);
+		}
 	} else if (uffdio_copy.copy != len) {
 		pr_err("UFFDIO_COPY unexpected size %Ld\n", uffdio_copy.copy);
 		return -1;
@@ -596,7 +601,7 @@ static int uffd_zero(struct lazy_pages_info *lpi, __u64 address, int nr_pages)
 	uffdio_zeropage.range.len = len;
 	uffdio_zeropage.mode = 0;
 
-	pr_debug("%d: zero page at 0x%llx\n", lpi->pid, address);
+	pr_debug("%d-%d: zero page at 0x%llx\n", lpi->pid, lpi->lpfd.fd, address);
 	rc = ioctl(lpi->lpfd.fd, UFFDIO_ZEROPAGE, &uffdio_zeropage);
 	if (rc) {
 		pr_err("UFFDIO_ZEROPAGE error %d\n", rc);
@@ -641,7 +646,7 @@ static int uffd_handle_pages(struct lazy_pages_info *lpi, __u64 address, int nr,
 
 	ret = lpi->pr.read_pages(&lpi->pr, address, nr, lpi->buf, flags);
 	if (ret <= 0) {
-		pr_err("%d: failed reading pages at %llx\n", lpi->pid, address);
+		pr_err("%d-%d: failed reading pages at %llx\n", lpi->pid, lpi->lpfd.fd, address);
 		return ret;
 	}
 
@@ -714,7 +719,7 @@ static int handle_page_fault(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 
 	/* Align requested address to the next page boundary */
 	address = msg->arg.pagefault.address & ~(page_size() - 1);
-	pr_debug("%d: #PF at 0x%llx\n", lpi->pid, address);
+	pr_debug("%d-%d: #PF at 0x%llx\n", lpi->pid, lpi->lpfd.fd, address);
 
 #if 0
 	/*
@@ -797,8 +802,8 @@ static int handle_uffd_event(struct epoll_rfd *lpfd)
 
 static int lazy_pages_summary(struct lazy_pages_info *lpi)
 {
-	pr_debug("Process %d: with UFFD transferred pages: (%ld/%ld)\n",
-		 lpi->pid, lpi->copied_pages, lpi->total_pages);
+	pr_debug("%d-%d: with UFFD transferred pages: (%ld/%ld)\n",
+		 lpi->pid, lpi->lpfd.fd, lpi->copied_pages, lpi->total_pages);
 
 	if ((lpi->copied_pages != lpi->total_pages) && (lpi->total_pages > 0)) {
 		pr_warn("Only %ld of %ld pages transferred via UFFD\n", lpi->copied_pages,
