@@ -45,6 +45,10 @@
 
 #define LAZY_PAGES_SOCK_NAME	"lazy-pages.socket"
 
+#define NEED_UFFD_API_FEATURES (UFFD_FEATURE_EVENT_FORK |	    \
+				UFFD_FEATURE_EVENT_REMAP |	    \
+				UFFD_FEATURE_EVENT_MADVDONTNEED)
+
 static mutex_t *lazy_sock_mutex;
 
 struct lazy_iovec {
@@ -222,7 +226,7 @@ int setup_uffd(int pid, struct task_restore_args *task_args)
 	 * Check if the UFFD_API is the one which is expected
 	 */
 	uffdio_api.api = UFFD_API;
-	uffdio_api.features = 0;
+	uffdio_api.features = kdat.uffd_features & NEED_UFFD_API_FEATURES;
 	if (ioctl(task_args->uffd, UFFDIO_API, &uffdio_api)) {
 		pr_err("Checking for UFFDIO_API failed.\n");
 		goto err;
