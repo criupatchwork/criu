@@ -72,6 +72,8 @@ struct lazy_pages_info {
 	struct list_head pfs;
 	struct list_head remaps;
 
+	struct lazy_pages_info *parent;
+
 	struct page_read pr;
 
 	unsigned long total_pages;
@@ -85,6 +87,8 @@ struct lazy_pages_info {
 };
 
 static LIST_HEAD(lpis);
+static LIST_HEAD(pending_lpis);
+
 static int handle_uffd_event(struct epoll_rfd *lpfd);
 
 static struct lazy_pages_info *lpi_init(void)
@@ -317,6 +321,37 @@ static MmEntry *init_mm_entry(struct lazy_pages_info *lpi)
 	pr_debug("Found %zd VMAs in image\n", mm->n_vmas);
 
 	return mm;
+}
+
+static int copy_lazy_iovecs(struct lazy_pages_info *src,
+			    struct lazy_pages_info *dst)
+{
+	struct lazy_iovec *lazy_iov, *new_iov, *n;
+	int max_iov_len = 0;
+
+	list_for_each_entry(lazy_iov, &src->iovs, l) {
+		new_iov = xzalloc(sizeof(*new_iov));
+		if (!new_iov)
+			return -1;
+
+		new_iov->base = lazy_iov->base;
+		new_iov->len = lazy_iov->len;
+
+		list_add_tail(&new_iov->l, &dst->iovs);
+
+		if (new_iov->len > max_iov_len)
+			max_iov_len = new_iov->len;
+	}
+
+	if (posix_memalign(&dst->buf, PAGE_SIZE, max_iov_len))
+		goto free_iovs;
+
+	return 0;
+
+free_iovs:
+	list_for_each_entry_safe(lazy_iov, n, &dst->iovs, l)
+		xfree(lazy_iov);
+	return -1;
 }
 
 /*
@@ -710,6 +745,85 @@ static int handle_remap(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 	return 0;
 }
 
+static int copy_remaps(struct lazy_pages_info *src, struct lazy_pages_info *dst)
+{
+	struct lazy_remap *p, *n, *new;
+
+	list_for_each_entry(p, &src->remaps, l) {
+		new = xmalloc(sizeof(*new));
+		if (!new)
+			goto free_remaps;
+
+		new->from = p->from;
+		new->to = p->to;
+		new->len = p->len;
+
+		list_add_tail(&new->l, &dst->remaps);
+	}
+
+	return 0;
+
+free_remaps:
+	list_for_each_entry_safe(p, n, &dst->remaps, l)
+		xfree(p);
+	return -1;
+}
+
+static int handle_fork(struct lazy_pages_info *parent_lpi, struct uffd_msg *msg)
+{
+	struct lazy_pages_info *lpi;
+	int uffd = msg->arg.fork.ufd;
+
+	pr_debug("%d-%d: child with ufd=%d\n", parent_lpi->pid, parent_lpi->lpfd.fd, uffd);
+
+	lpi = lpi_init();
+	if (!lpi)
+		return -1;
+
+	if (copy_lazy_iovecs(parent_lpi, lpi))
+		goto out;
+
+	if (copy_remaps(parent_lpi, lpi))
+		goto out;
+
+	lpi->pid = parent_lpi->pid;
+	lpi->lpfd.fd = uffd;
+	lpi->parent = parent_lpi->parent ? parent_lpi->parent : parent_lpi;
+	lpi->copied_pages = lpi->parent->copied_pages;
+	lpi->total_pages = lpi->parent->total_pages;
+	list_add_tail(&lpi->l, &pending_lpis);
+
+	dup_page_read(&lpi->parent->pr, &lpi->pr);
+
+	return 1;
+
+out:
+	lpi_fini(lpi);
+	return -1;
+}
+
+static int complete_forks(int epollfd, struct epoll_event **events, int *nr_fds)
+{
+	struct lazy_pages_info *lpi, *n;
+
+	list_for_each_entry(lpi, &pending_lpis, l)
+		(*nr_fds)++;
+
+	*events = xrealloc(*events, sizeof(struct epoll_event) * (*nr_fds));
+	if (!*events)
+		return -1;
+
+	list_for_each_entry_safe(lpi, n, &pending_lpis, l) {
+		if (epoll_add_rfd(epollfd, &lpi->lpfd))
+			return -1;
+
+		list_del_init(&lpi->l);
+		list_add_tail(&lpi->l, &lpis);
+	}
+
+	return 0;
+}
+
 static int handle_page_fault(struct lazy_pages_info *lpi, struct uffd_msg *msg)
 {
 	struct pf_info *pf;
@@ -792,6 +906,8 @@ static int handle_uffd_event(struct epoll_rfd *lpfd)
 		return handle_madv_dontneed(lpi, &msg);
 	case UFFD_EVENT_REMAP:
 		return handle_remap(lpi, &msg);
+	case UFFD_EVENT_FORK:
+		return handle_fork(lpi, &msg);
 	default:
 		pr_err("unexpected uffd event %u\n", msg.event);
 		return -1;
@@ -829,6 +945,11 @@ static int handle_requests(int epollfd, struct epoll_event *events, int nr_fds)
 		ret = epoll_run_rfds(epollfd, events, nr_fds, poll_timeout);
 		if (ret < 0)
 			goto out;
+		if (ret > 0) {
+			if (complete_forks(epollfd, &events, &nr_fds))
+				return -1;
+			continue;
+		}
 
 		if (poll_timeout)
 			pr_debug("Start handling remaining pages\n");
