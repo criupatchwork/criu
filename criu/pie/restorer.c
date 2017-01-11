@@ -1163,6 +1163,7 @@ long __export_restore_task(struct task_restore_args *args)
 
 	std_log_set_fd(args->logfd);
 	std_log_set_loglevel(args->loglevel);
+	std_log_set_start(&args->logstart);
 
 	pr_info("Switched to the restorer %d\n", my_pid);
 
