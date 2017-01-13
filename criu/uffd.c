@@ -247,12 +247,16 @@ int prepare_lazy_pages_socket(void)
 		return -1;
 
 	len = offsetof(struct sockaddr_un, sun_path) + strlen(sun.sun_path);
+	/* change to image dir in case work dir has changed */
+	fchdir(criu_get_image_dir());
 	if (connect(new_fd, (struct sockaddr *) &sun, len) < 0) {
 		pr_perror("connect to %s failed", sun.sun_path);
 		close(new_fd);
+		chdir(opts.work_dir);
 		return -1;
 	}
 
+	chdir(opts.work_dir);
 	return 0;
 }
 
