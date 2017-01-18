@@ -1962,6 +1962,10 @@ static int restore_root_task(struct pstree_item *init)
 	if (ret == 0)
 		finalize_restore();
 
+	ret = run_scripts(ACT_PRE_RESUME);
+	if (ret)
+		pr_err("Pre-resume script ret code %d\n", ret);
+
 skip_for_check:
 	if (restore_freezer_state())
 		pr_err("Unable to restore freezer state\n");
