@@ -102,11 +102,16 @@ void task_waiter_wait4(task_waiter_t *t, unsigned int lockid)
 	if (recv(t->sk, &v, sizeof(v), 0) != sizeof(v))
 		goto err;
 
+	if (v != lockid) {
+		pr_err("Got %d instead of %d", v, lockid);
+		exit(1);
+	}
+
 	return;
 
 err:
 	pr_perror("task_waiter_wait4 failed");
-	exit(errno);
+	exit(1);
 }
 
 void task_waiter_complete(task_waiter_t *t, unsigned int lockid)
