@@ -81,8 +81,6 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	pthread_mutex_lock(&init_lock);
-
 	ret = kcmp(KCMP_FS, gettid(), tid, 0, 0);
 	if (ret)
 		exit(1);
