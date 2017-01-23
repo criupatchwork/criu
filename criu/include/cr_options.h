@@ -119,6 +119,7 @@ struct cr_options {
 	bool			display_stats;
 	bool			weak_sysctls;
 	bool			check_only;
+	int			status_fd;
 };
 
 extern struct cr_options opts;
