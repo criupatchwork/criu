@@ -218,6 +218,7 @@ struct pstree_item *__alloc_pstree_item(bool rst)
 	item->pid.real = -1;
 	item->born_sid = -1;
 	futex_init(&item->task_st);
+	item->pid.item = item;
 
 	return item;
 }
@@ -556,6 +557,7 @@ static int read_pstree_image(pid_t *pid_max)
 			pi->threads[i].real = -1;
 			pi->threads[i].virt = e->threads[i];
 			pi->threads[i].state = TASK_THREAD;
+			pi->threads[i].item = NULL;
 			if (i == 0)
 				continue; /* A thread leader is in a tree already */
 			node = lookup_create_pid(pi->threads[i].virt, &pi->threads[i]);
