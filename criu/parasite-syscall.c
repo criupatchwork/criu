@@ -208,7 +208,7 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, int id,
 
 	compel_release_thread(tctl);
 
-	tid->virt = args->tid;
+	tid->ns[0].virt = args->tid;
 	return dump_thread_core(pid, core, args);
 
 err_rth:

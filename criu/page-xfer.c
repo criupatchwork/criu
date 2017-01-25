@@ -889,8 +889,8 @@ static int page_server_init_send(void)
 		if (!task_alive(pi))
 			continue;
 
-		if (page_pipe_from_pagemap(&pp, pi->pid.virt)) {
-			pr_err("%d: failed to open page-read\n", pi->pid.virt);
+		if (page_pipe_from_pagemap(&pp, pi->pid->ns[0].virt)) {
+			pr_err("%d: failed to open page-read\n", pi->pid->ns[0].virt);
 			return -1;
 		}
 
