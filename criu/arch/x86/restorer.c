@@ -5,7 +5,6 @@
 #include "restorer.h"
 #include "asm/restorer.h"
 #include <compel/asm/fpu.h>
-#include "asm/string.h"
 
 #include <compel/plugins/std/syscall.h>
 #include <compel/plugins/std/string.h>

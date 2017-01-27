@@ -8,7 +8,6 @@
 #include "types.h"
 #include "common/compiler.h"
 #include "log.h"
-#include "string.h"
 
 #ifdef CR_NOGLIBC
 # include <compel/plugins/std/syscall.h>

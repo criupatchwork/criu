@@ -3,7 +3,6 @@
 
 #include <sys/types.h>
 #include <string.h>
-#include "asm/string.h"
 
 #ifdef CONFIG_HAS_LIBBSD
 # include <bsd/string.h>

@@ -13,7 +13,6 @@
 #include "common/compiler.h"
 #include "log.h"
 #include "rst-malloc.h"
-#include "string.h"
 #include "sockets.h"
 #include "cr_options.h"
 #include "bfd.h"

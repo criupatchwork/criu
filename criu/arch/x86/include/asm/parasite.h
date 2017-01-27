@@ -1,7 +1,6 @@
 #ifndef __ASM_PARASITE_H__
 #define __ASM_PARASITE_H__
 
-#include "asm-generic/string.h"
 #include <compel/plugins/std/syscall-codes.h>
 #include <compel/plugins/std/string.h>
 #include "asm/compat.h"

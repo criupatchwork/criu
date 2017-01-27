@@ -1,7 +1,6 @@
 #include "log.h"
 #include "asm/restorer.h"
 #include <compel/asm/fpu.h>
-#include "asm/string.h"
 #include "asm/compat.h"
 
 #include <compel/plugins/std/string.h>
