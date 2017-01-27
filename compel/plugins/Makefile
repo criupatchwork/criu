@@ -43,9 +43,16 @@ target			+= std
 std-obj-y		+= std/std.o
 std-obj-y		+= std/fds.o
 std-obj-y		+= std/log.o
-std-obj-y		+= std/string.o
+std-obj-y		+= std/print.o
 std-obj-y		+= std/infect.o
 std-obj-y		+= ./$(PLUGIN_ARCH_DIR)/std/parasite-head.o
+
+target			+= stdstr
+stdstr-obj-y		+= std/string.o
+stdstr-obj-y		+= ./$(PLUGIN_ARCH_DIR)/std/string.o
+
+$(obj)/std.built-in.o: $(obj)/stdstr.built-in.o
+std-obj-e		+= stdstr.built-in.o
 
 include ./$(PLUGIN_ARCH_DIR)/std/syscalls/Makefile.syscalls
 
