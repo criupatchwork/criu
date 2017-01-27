@@ -17,6 +17,8 @@
 #include "log.h"
 #include "common/bug.h"
 
+#include <compel/plugins/std/string.h>
+
 #ifdef LOG_PREFIX
 # undef LOG_PREFIX
 #endif
@@ -81,7 +83,7 @@ static int has_elf_identity(Ehdr_t *ehdr)
 
 	BUILD_BUG_ON(sizeof(elf_ident) != sizeof(ehdr->e_ident));
 
-	if (builtin_memcmp(ehdr->e_ident, elf_ident, sizeof(elf_ident)))
+	if (std_memcmp(ehdr->e_ident, elf_ident, sizeof(elf_ident)))
 		return false;
 	return true;
 }
@@ -239,10 +241,10 @@ static void parse_elf_symbols(uintptr_t mem, size_t size, Phdr_t *load,
 				continue;
 			name = (void *)addr;
 
-			if (builtin_strncmp(name, symbol, vdso_symbol_length))
+			if (std_strncmp(name, symbol, vdso_symbol_length))
 				continue;
 
-			builtin_memcpy(t->symbols[i].name, name, vdso_symbol_length);
+			std_memcpy(t->symbols[i].name, name, vdso_symbol_length);
 			t->symbols[i].offset = (unsigned long)sym->st_value - load->p_vaddr;
 			break;
 		}

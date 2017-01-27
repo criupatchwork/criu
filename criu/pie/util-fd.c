@@ -17,7 +17,8 @@
 # define __sys(foo)	foo
 #endif
 
-#define __memcpy builtin_memcpy
+# include <compel/plugins/std/string.h>
+#define __memcpy std_memcpy
 
 #include "util-pie.h"
 #include "fcntl.h"

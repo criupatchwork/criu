@@ -69,6 +69,7 @@ PROGRAM-BUILTINS	+= $(obj)/built-in.o
 PROGRAM-BUILTINS	+= $(ARCH-LIB)
 PROGRAM-BUILTINS	+= soccr/libsoccr.a
 PROGRAM-BUILTINS	+= $(COMPEL_LIBS)
+PROGRAM-BUILTINS	+= compel/plugins/stdstr.built-in.o
 
 $(obj)/built-in.o: pie
 	$(Q) $(MAKE) $(call build-as,Makefile.crtools,criu) all

@@ -24,6 +24,7 @@
 #include "common/compiler.h"
 #include "string.h"
 #include <compel/plugins/std/syscall.h>
+#include <compel/plugins/std/string.h>
 #include <compel/plugins/std/log.h>
 #include <compel/ksigset.h>
 #include "signal.h"
@@ -700,7 +701,7 @@ static int restore_aio_ring(struct rst_aio_ring *raio)
 
 populate:
 	i = offsetof(struct aio_ring, io_events);
-	builtin_memcpy((void *)ctx + i, (void *)ring + i, raio->len - i);
+	std_memcpy((void *)ctx + i, (void *)ring + i, raio->len - i);
 
 	/*
 	 * If we failed to get the proper nr_req right and
