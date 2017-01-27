@@ -39,7 +39,8 @@ parasite_service_ptr:
 	// FIXME: There should be a way to specify the global entry here.
 	.quad	parasite_service - 8
 
-__export_parasite_cmd:
-	.long 0
-
 END(__export_parasite_head_start)
+
+	.section .compel.data, "aw"
+GLOBAL(__export_parasite_cmd)
+	.long 0

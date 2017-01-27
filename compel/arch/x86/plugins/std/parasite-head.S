@@ -47,6 +47,7 @@ ENTRY(__export_parasite_head_start)
 	int	$0x03
 END(__export_parasite_head_start)
 
+	.section .compel.data, "aw"
 .align 8
 GLOBAL(__export_parasite_cmd)
 	.long 0

@@ -4,7 +4,7 @@
 ENTRY(__export_parasite_head_start)
 	sub	r2, pc, #8			@ get the address of this instruction
 
-	adr     r0, __export_parasite_cmd
+	ldr     r0, =__export_parasite_cmd
 	ldr	r0, [r0]
 
 	adr     r1, parasite_args_ptr
@@ -16,7 +16,8 @@ ENTRY(__export_parasite_head_start)
 
 parasite_args_ptr:
 	.long __export_parasite_args
-
-__export_parasite_cmd:
-	.long 0
 END(__export_parasite_head_start)
+
+	.section .compel.data, "aw"
+GLOBAL(__export_parasite_cmd)
+	.long 0

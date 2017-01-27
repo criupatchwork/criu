@@ -459,29 +459,41 @@ int __handle_elf(void *mem, size_t size)
 					goto err;
 				break;
 
-			case R_PPC64_REL16_HA:
+			case R_PPC64_REL16_HA: {
+				uint16_t inst = (*(uint32_t*)where) >> 16;
+
 				value64 += addend64 - place;
 				pr_debug("\t\t\tR_PPC64_REL16_HA at 0x%-4lx val 0x%lx\n",
 					 place, value64);
-				/* check that we are dealing with the addis 2,12 instruction */
-				if (((*(uint32_t*)where) & 0xffff0000) != 0x3c4c0000) {
-					pr_err("Unexpected instruction for R_PPC64_REL16_HA\n");
+				/*
+				 * Check that we are dealing with the addis 2,12 instruction
+				 * or `addis r3,r2`
+				 */
+				if (inst != 0x3c4c && inst != 0x3c62) {
+					pr_err("Unexpected instruction %#x for R_PPC64_REL16_HA\n", (unsigned)inst);
 					goto err;
 				}
 				*(uint16_t *)where = ((value64 + 0x8000) >> 16) & 0xffff;
 				break;
+			}
 
-			case R_PPC64_REL16_LO:
+			case R_PPC64_REL16_LO: {
+				uint16_t inst = (*(uint32_t*)where) >> 16;
+
 				value64 += addend64 - place;
 				pr_debug("\t\t\tR_PPC64_REL16_LO at 0x%-4lx val 0x%lx\n",
 					 place, value64);
-				/* check that we are dealing with the addi 2,2 instruction */
-				if (((*(uint32_t*)where) & 0xffff0000) != 0x38420000) {
-					pr_err("Unexpected instruction for R_PPC64_REL16_LO\n");
+				/*
+				 * Check that we are dealing with the addi 2,2 instruction
+				 * or `addi r3,r2`
+				 */
+				if (inst != 0x3842 && inst != 0x3862) {
+					pr_err("Unexpected instruction %#x for R_PPC64_REL16_LO\n", (unsigned)inst);
 					goto err;
 				}
 				*(uint16_t *)where = value64 & 0xffff;
 				break;
+			}
 
 #endif /* ELF_PPC64 */
 

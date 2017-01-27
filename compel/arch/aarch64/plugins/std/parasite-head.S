@@ -15,6 +15,8 @@ ENTRY(__export_parasite_head_start)
 parasite_args_ptr:
 	.quad	__export_parasite_args
 
-__export_parasite_cmd:
-	.quad	0
 END(__export_parasite_head_start)
+
+	.section .compel.data, "aw"
+GLOBAL(__export_parasite_cmd)
+	.quad 0

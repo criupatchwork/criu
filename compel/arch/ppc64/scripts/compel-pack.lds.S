@@ -8,11 +8,6 @@ SECTIONS
 		*(.compel.init)
 	}
 
-	.data : {
-		*(.data*)
-		*(.bss*)
-	}
-
 	.rodata : {
 		*(.rodata*)
 		*(.got*)
@@ -22,6 +17,18 @@ SECTIONS
 		*(.toc*)
 	}
 
+	/* RW data starts on parasite_cmd, check compel_protect_parasite() */
+	. = ALIGN(0x1000);
+	.data : {
+		*(.compel.data) /* it's parasite_cmd */
+		*(.data*)
+		*(.bss*)
+	}
+
+	/* Parasite args should have 4 bytes align, as we have futex inside. */
+	. = ALIGN(4);
+	__export_parasite_args = .;
+
 	/DISCARD/ : {
 		*(.debug*)
 		*(.comment*)
@@ -29,8 +36,4 @@ SECTIONS
 		*(.group*)
 		*(.eh_frame*)
 	}
-
-/* Parasite args should have 4 bytes align, as we have futex inside. */
-. = ALIGN(4);
-__export_parasite_args = .;
 }

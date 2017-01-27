@@ -703,7 +703,7 @@ static int parasite_mmap_exchange(struct parasite_ctl *ctl, unsigned long size)
 	int fd;
 
 	ctl->remote_map = remote_mmap(ctl, NULL, size,
-				      PROT_READ | PROT_WRITE | PROT_EXEC,
+				      PROT_READ | PROT_WRITE,
 				      MAP_ANONYMOUS | MAP_SHARED, -1, 0);
 	if (!ctl->remote_map) {
 		pr_err("Can't allocate memory for parasite blob (pid: %d)\n", ctl->rpid);
@@ -781,7 +781,7 @@ static int parasite_memfd_exchange(struct parasite_ctl *ctl, unsigned long size)
 	}
 
 	ctl->remote_map = remote_mmap(ctl, NULL, size,
-				      PROT_READ | PROT_WRITE | PROT_EXEC,
+				      PROT_READ | PROT_WRITE,
 				      MAP_FILE | MAP_SHARED, fd, 0);
 	if (!ctl->remote_map) {
 		pr_err("Can't rmap memfd for parasite blob\n");
@@ -854,6 +854,25 @@ static inline unsigned long total_pie_size(size_t blob_size, size_t nr_gp)
 	return round_up(blob_size + nr_gp * sizeof(long), page_size());
 }
 
+static int compel_protect_parasite(struct parasite_ctl *ctl)
+{
+	bool __maybe_unused compat_task = !compel_mode_native(ctl);
+	/* RW parasite area starts from parasite_cmd */
+	uintptr_t ro_size = ctl->pblob.hdr.addr_cmd_off;
+	long ret;
+
+	compel_syscall(ctl, __NR(mprotect, compat_task), &ret,
+			(unsigned long)ctl->remote_map, ro_size,
+			PROT_READ | PROT_EXEC, 0, 0, 0);
+	if (ret) {
+		pr_err("mprotect() parasites [%#lx, %#lx) failed with %ld\n",
+			(unsigned long)ctl->remote_map,
+			(unsigned long)ctl->remote_map + ro_size, ret);
+		return -1;
+	}
+	return 0;
+}
+
 int compel_infect(struct parasite_ctl *ctl, unsigned long nr_threads, unsigned long args_size)
 {
 	int ret;
@@ -914,6 +933,11 @@ int compel_infect(struct parasite_ctl *ctl, unsigned long nr_threads, unsigned l
 		ctl->r_thread_stack = ctl->remote_map + p;
 	}
 
+	pr_info("Protecting parasite's text from writes\n");
+	if (compel_protect_parasite(ctl))
+		goto err;
+
+	pr_info("Starting parasite daemon\n");
 	if (parasite_start_daemon(ctl))
 		goto err;
 
