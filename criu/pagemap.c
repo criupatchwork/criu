@@ -453,6 +453,31 @@ static void free_pagemaps(struct page_read *pr)
 	xfree(pr->pmes);
 }
 
+static void advance_piov(struct page_read_iov *piov, ssize_t len)
+{
+	ssize_t olen = len;
+	int onr = piov->nr;
+	piov->from += len;
+
+	while (len) {
+		struct iovec *cur = piov->to;
+
+		if (cur->iov_len <= len) {
+			piov->to++;
+			piov->nr--;
+			len -= cur->iov_len;
+			continue;
+		}
+
+		cur->iov_base += len;
+		cur->iov_len -= len;
+		break;
+	}
+
+	pr_info("Advanced iov %ld bytes, %d->%d iovs, %ld tail\n",
+			olen, onr, piov->nr, len);
+}
+
 static int process_async_reads(struct page_read *pr)
 {
 	int fd, ret = 0;
@@ -460,21 +485,38 @@ static int process_async_reads(struct page_read *pr)
 
 	fd = img_raw_fd(pr->pi);
 	list_for_each_entry_safe(piov, n, &pr->async, l) {
-		int ret;
-
+		ssize_t ret;
+		off_t start = piov->from;
+		struct iovec *iovs = piov->to;
+more:
 		ret = preadv(fd, piov->to, piov->nr, piov->from);
 		if (ret != piov->end - piov->from) {
-			pr_err("Can't read async pr bytes\n");
-			return -1;
+			if (ret < 0) {
+				pr_err("Can't read async pr bytes (%ld / %lu read, %lu off, %d iovs)\n",
+						ret, piov->end - piov->from, piov->from, piov->nr);
+				return -1;
+			}
+
+			/*
+			 * The preadv() can return less than requested. It's
+			 * valid and doesn't mean error or EOF. We should advance
+			 * the iovecs and continue
+			 *
+			 * Modify the piov in-place, we're going to drop this one
+			 * anyway.
+			 */
+
+			advance_piov(piov, ret);
+			goto more;
 		}
 
-		if (opts.auto_dedup && punch_hole(pr, piov->from, ret, false))
+		if (opts.auto_dedup && punch_hole(pr, start, ret, false))
 			return -1;
 
 		BUG_ON(pr->io_complete); /* FIXME -- implement once needed */
 
 		list_del(&piov->l);
-		xfree(piov->to);
+		xfree(iovs);
 		xfree(piov);
 	}
 
