@@ -1,8 +1,8 @@
 #include <unistd.h>
 
-#include "asm/string.h"
 #include "asm/types.h"
 
+#include <compel/plugins/std/string.h>
 #include <compel/plugins/std/syscall.h>
 #include "parasite-vdso.h"
 #include "log.h"
@@ -59,7 +59,7 @@ int vdso_redirect_calls(unsigned long base_to, unsigned long base_from,
 			 base_to, to->symbols[i].offset, i);
 
 		IMMEDIATE(jmp) = base_to + to->symbols[i].offset;
-		builtin_memcpy((void *)(base_from + from->symbols[i].offset), &jmp, sizeof(jmp));
+		memcpy((void *)(base_from + from->symbols[i].offset), &jmp, sizeof(jmp));
 	}
 
 	return 0;

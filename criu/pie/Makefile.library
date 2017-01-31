@@ -18,8 +18,7 @@ ifeq ($(VDSO),y)
 endif
 
 ifeq ($(SRCARCH),ppc64)
-        lib-y		+= ./$(ARCH_DIR)/memcpy_power7.o		\
-			   ./$(ARCH_DIR)/memcmp_64.o ./$(ARCH_DIR)/misc.o
+        lib-y		+= ./$(ARCH_DIR)/misc.o
 endif
 
 ifeq ($(SRCARCH),x86)
@@ -27,8 +26,6 @@ ifeq ($(SRCARCH),x86)
                 lib-y	+= util-vdso-elf32.o
         endif
         CFLAGS_util-vdso-elf32.o	+= -DCONFIG_VDSO_32
-
-        lib-y		+= ./$(ARCH_DIR)/memcpy.o
 endif
 
 #

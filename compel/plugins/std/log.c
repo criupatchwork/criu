@@ -61,14 +61,14 @@ static void sbuf_log_init(struct simple_buf *b)
 		n = std_vprint_num(pbuf, sizeof(pbuf), (unsigned)now.tv_sec, &s);
 		pad_num(&s, &n, 2);
 		b->bp[0] = '(';
-		std_memcpy(b->bp + 1, s, n);
+		memcpy(b->bp + 1, s, n);
 		b->bp[n + 1] = '.';
 		b->bp += n + 2;
 
 		/* Mu-seconds */
 		n = std_vprint_num(pbuf, sizeof(pbuf), (unsigned)now.tv_usec, &s);
 		pad_num(&s, &n, 6);
-		std_memcpy(b->bp, s, n);
+		memcpy(b->bp, s, n);
 		b->bp[n] = ')';
 		b->bp += n + 1;
 	}
@@ -79,7 +79,7 @@ static void sbuf_log_init(struct simple_buf *b)
 	b->bp[2] = 'e';
 	b->bp[3] = ':';
 	b->bp[4] = ' ';
-	std_memcpy(b->bp + 5, s, n);
+	memcpy(b->bp + 5, s, n);
 	b->bp[n + 5] = ':';
 	b->bp[n + 6] = ' ';
 	b->bp += n + 7;

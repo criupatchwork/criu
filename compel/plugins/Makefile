@@ -1,6 +1,7 @@
 .PHONY: .FORCE
 
-CFLAGS			:= $(filter-out -pg $(CFLAGS-GCOV),$(CFLAGS)) -DCR_NOGLIBC
+CFLAGS			:= $(filter-out -pg $(CFLAGS-GCOV),$(CFLAGS))
+CFLAGS			+= -DCR_NOGLIBC -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
 PLUGIN_ARCH_DIR		:= compel/arch/$(ARCH)/plugins
 
 #
@@ -46,6 +47,15 @@ std-obj-y		+= std/log.o
 std-obj-y		+= std/string.o
 std-obj-y		+= std/infect.o
 std-obj-y		+= ./$(PLUGIN_ARCH_DIR)/std/parasite-head.o
+
+ifeq ($(SRCARCH),x86)
+	std-obj-y	+= ./$(PLUGIN_ARCH_DIR)/std/memcpy.o
+endif
+
+ifeq ($(SRCARCH),ppc64)
+	std-obj-y	+= ./$(PLUGIN_ARCH_DIR)/std/memcpy.o
+	std-obj-y	+= ./$(PLUGIN_ARCH_DIR)/std/memcmp.o
+endif
 
 include ./$(PLUGIN_ARCH_DIR)/std/syscalls/Makefile.syscalls
 

@@ -30,7 +30,6 @@
 #include "infect-util.h"
 
 #define __sys(foo)	foo
-#define __memcpy	memcpy
 
 #include "common/scm.h"
 #include "common/scm-code.c"
