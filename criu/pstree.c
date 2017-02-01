@@ -221,6 +221,7 @@ struct pstree_item *__alloc_pstree_item(bool rst)
 	item->born_sid = -1;
 	futex_init(&item->task_st);
 	item->pid->item = item;
+	BUG_ON(item & 3); /* Futex should be aligned */
 
 	return item;
 }
