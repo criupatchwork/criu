@@ -931,7 +931,7 @@ int cr_page_server(bool daemon_mode, bool lazy_dump, int cfd)
 no_server:
 	ret = run_tcp_server(daemon_mode, &ask, cfd, sk);
 	if (ret != 0)
-		return ret;
+		return ret > 0 ? 0 : -1;
 
 	if (ask >= 0)
 		ret = page_server_serve(ask);
