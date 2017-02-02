@@ -1155,6 +1155,9 @@ static inline int fork_with_pid(struct pstree_item *item)
 		BUG_ON(pid != INIT_PID);
 	}
 
+	if (ca.clone_flags & CLONE_FILES)
+		close_pid_proc();
+
 	/*
 	 * Some kernel modules, such as netwrok packet generator
 	 * run kernel thread upon net-namespace creattion taking
