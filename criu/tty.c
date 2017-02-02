@@ -1981,26 +1981,6 @@ static int dump_one_tty(int lfd, u32 id, const struct fd_parms *p)
 	e.has_mnt_id	= true;
 	e.mnt_id	= mnt_id;
 
-	/*
-	 * FIXME
-	 *
-	 * Figure out how to fetch data buffered in terminal.
-	 * For a while simply flush before dumping. Note
-	 * we don't check for errors here since it makes
-	 * no sense anyway, the buffered data is not handled
-	 * properly yet.
-	 *
-	 * Note as well that if we have only one peer here
-	 * the external end might be sending the data to us
-	 * again and again while kernel buffer is not full,
-	 * this might lead to endless SIGTTOU signal delivery
-	 * to the dumpee, ruining checkpoint procedure.
-	 *
-	 * So simply do not flush the line while we dump
-	 * parameters tty never was being a guaranteed delivery
-	 * transport anyway.
-	 */
-
 	bitmap = tty_lookup_bitmap(&tty_info_id_bitmap, mnt_id);
 	if (!bitmap)
 		return -ENOMEM;
