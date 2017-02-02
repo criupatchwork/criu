@@ -150,9 +150,6 @@ static LIST_HEAD(all_ttys);
 #define STTY_INDEX	1010
 #define INDEX_ERR	(MAX_TTYS + 1)
 
-static DECLARE_BITMAP(tty_bitmap, (MAX_TTYS << 1));
-static DECLARE_BITMAP(tty_active_pairs, (MAX_TTYS << 1));
-
 struct tty_driver {
 	short				type;
 	short				subtype;
@@ -165,6 +162,47 @@ struct tty_driver {
 
 #define TTY_SUBTYPE_MASTER			0x0001
 #define TTY_SUBTYPE_SLAVE			0x0002
+
+typedef struct tty_bitmap_s {
+	struct tty_bitmap_s		*next;
+	unsigned long			bitmap[BITS_TO_LONGS((MAX_TTYS << 1))];
+	int				mnt_id;
+} tty_bitmap_t;
+
+static tty_bitmap_t *tty_info_id_bitmap;
+static tty_bitmap_t *tty_active_pairs_bitmap;
+
+static void tty_free_bitmap(tty_bitmap_t *root)
+{
+	tty_bitmap_t *t, *next;
+
+	for (t = root; t; t = next) {
+		next = t->next;
+		xfree(t);
+	}
+}
+
+static unsigned long *tty_lookup_bitmap(tty_bitmap_t **root, int mnt_id)
+{
+	tty_bitmap_t *t, *prev;
+
+	for (t = *root, prev = NULL; t; prev = t, t = t->next) {
+		if (t->mnt_id == mnt_id)
+			return t->bitmap;
+	}
+
+	t = xzalloc(sizeof(*t));
+	if (!t)
+		return NULL;
+
+	if (prev)
+		prev->next = t;
+	if (!*root)
+		*root = t;
+
+	t->mnt_id = mnt_id;
+	return t->bitmap;
+}
 
 static int ptm_fd_get_index(int fd, const struct fd_parms *p)
 {
@@ -367,13 +405,13 @@ static int tty_get_index(u32 id)
 }
 
 /* Make sure the active pairs do exist */
-static int tty_verify_active_pairs(void * unused)
+static int __tty_verify_active_pairs(unsigned long *bitmap)
 {
 	unsigned long i, unpaired_slaves = 0;
 
-	for_each_bit(i, tty_active_pairs) {
+	for_each_bit(i, bitmap) {
 		if ((i % 2) == 0) {
-			if (test_bit(i + 1, tty_active_pairs)) {
+			if (test_bit(i + 1, bitmap)) {
 				i++;
 				continue;
 			}
@@ -394,6 +432,18 @@ static int tty_verify_active_pairs(void * unused)
 				return -1;
 			}
 		}
+	}
+
+	return 0;
+}
+
+static int tty_verify_active_pairs(void *unused)
+{
+	tty_bitmap_t *t;
+
+	for (t = tty_active_pairs_bitmap; t; t = t->next) {
+		if (__tty_verify_active_pairs(t->bitmap))
+			return -1;
 	}
 
 	return 0;
@@ -738,12 +788,11 @@ static bool tty_is_hung(struct tty_info *info)
 	return info->tie->termios == NULL;
 }
 
-static bool tty_has_active_pair(struct tty_info *info)
+static bool tty_has_active_pair(struct tty_info *info, unsigned long *bitmap)
 {
 	int d = tty_is_master(info) ? -1 : + 1;
 
-	return test_bit(info->tfe->tty_info_id + d,
-			tty_active_pairs);
+	return test_bit(info->tfe->tty_info_id + d, bitmap);
 }
 
 static void tty_show_pty_info(char *prefix, struct tty_info *info)
@@ -1233,7 +1282,13 @@ static int tty_find_restoring_task(struct tty_info *info)
 
 	if (info->tie->sid) {
 		if (!tty_is_master(info)) {
-			if (tty_has_active_pair(info))
+			unsigned long *bitmap;
+
+			bitmap = tty_lookup_bitmap(&tty_active_pairs_bitmap,
+						   info->tfe->mnt_id);
+			if (!bitmap)
+				goto nobitmap;
+			if (tty_has_active_pair(info, bitmap))
 				return 0;
 			else
 				goto shell_job;
@@ -1263,9 +1318,15 @@ static int tty_find_restoring_task(struct tty_info *info)
 
 		goto notask;
 	} else {
+		unsigned long *bitmap;
+
 		if (tty_is_master(info))
 			return 0;
-		if (tty_has_active_pair(info))
+		bitmap = tty_lookup_bitmap(&tty_active_pairs_bitmap,
+					   info->tfe->mnt_id);
+		if (!bitmap)
+			goto nobitmap;
+		if (tty_has_active_pair(info, bitmap))
 			return 0;
 	}
 
@@ -1278,6 +1339,9 @@ shell_job:
 
 notask:
 	pr_err("No task found with sid %d\n", info->tie->sid);
+	return -1;
+nobitmap:
+	pr_err("No pairing bitmap for %#x\n", info->tfe->id);
 	return -1;
 }
 
@@ -1594,8 +1658,18 @@ static int collect_one_tty(void *obj, ProtobufCMessage *msg, struct cr_img *i)
 	 * can't be used. Most likely they appear if a user has
 	 * dumped program when it was closing a peer.
 	 */
-	if (is_pty(info->driver) && info->tie->termios)
-		tty_test_and_set(info->tfe->tty_info_id, tty_active_pairs);
+	if (is_pty(info->driver) && info->tie->termios) {
+		unsigned long *bitmap;
+
+		bitmap = tty_lookup_bitmap(&tty_active_pairs_bitmap,
+					   info->tfe->mnt_id);
+		if (!bitmap) {
+			pr_err("No pairing bitmap for %#x\n", info->tfe->id);
+			return -1;
+		}
+
+		tty_test_and_set(info->tfe->tty_info_id, bitmap);
+	}
 
 	pr_info("Collected tty ID %#x (%s)\n", info->tfe->id, info->driver->name);
 
@@ -1793,8 +1867,16 @@ static int dump_tty_info(int lfd, u32 id, const struct fd_parms *p, int mnt_id,
 	 * not yet supported by our tool and better to
 	 * inform a user about such situation.
 	 */
-	if (is_pty(driver))
-		tty_test_and_set(id, tty_active_pairs);
+	if (is_pty(driver)) {
+		unsigned long *bitmap;
+
+		bitmap = tty_lookup_bitmap(&tty_active_pairs_bitmap, mnt_id);
+		if (!bitmap) {
+			pr_err("No pairing bitmap for %#x\n", id);
+			return -1;
+		}
+		tty_test_and_set(id, bitmap);
+	}
 
 	info.termios		= &termios;
 	info.termios_locked	= &termios_locked;
@@ -1842,6 +1924,7 @@ static int dump_one_tty(int lfd, u32 id, const struct fd_parms *p)
 	TtyFileEntry e = TTY_FILE_ENTRY__INIT;
 	int ret = 0, index = -1, mnt_id;
 	struct tty_driver *driver;
+	unsigned long *bitmap;
 
 	pr_info("Dumping tty %d with id %#x\n", lfd, id);
 
@@ -1906,7 +1989,11 @@ static int dump_one_tty(int lfd, u32 id, const struct fd_parms *p)
 	 * transport anyway.
 	 */
 
-	if (!tty_test_and_set(e.tty_info_id, tty_bitmap))
+	bitmap = tty_lookup_bitmap(&tty_info_id_bitmap, mnt_id);
+	if (!bitmap)
+		return -ENOMEM;
+
+	if (!tty_test_and_set(e.tty_info_id, bitmap))
 		ret = dump_tty_info(lfd, e.tty_info_id, p, mnt_id, driver, index);
 
 	if (!ret)
@@ -2150,4 +2237,6 @@ int tty_prep_fds(void)
 void tty_fini_fds(void)
 {
 	close_service_fd(SELF_STDIN_OFF);
+	tty_free_bitmap(tty_info_id_bitmap);
+	tty_free_bitmap(tty_active_pairs_bitmap);
 }
