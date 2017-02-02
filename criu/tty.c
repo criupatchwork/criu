@@ -464,13 +464,41 @@ static int tty_test_and_set(int bit, unsigned long *bitmap)
  * in the image file, ie obsolete interface has been used on
  * checkpoint.
  */
-static struct file_desc *pty_alloc_reg(struct tty_info *info, bool add)
+static struct file_desc *pty_alloc_reg(struct tty_info *info, bool add, bool invert_peer)
 {
 	TtyFileEntry *tfe = info->tfe;
-	const size_t namelen = 64;
 	struct reg_file_info *r;
 	static struct file_desc_ops noops = {};
+	struct mount_info *mi;
+	size_t namelen;
+	bool need_pts;
 
+	mi = lookup_mnt_id(info->tfe->mnt_id);
+	if (!mi) {
+		pr_err("Can't resolve mnt_id %#x\n", info->tfe->mnt_id);
+		return NULL;
+	}
+
+	if ((tty_is_master(info) && !invert_peer) ||
+	    (!tty_is_master(info) && invert_peer)) {
+		need_pts = false;
+	} else {
+		need_pts = true;
+
+		if (info->link) {
+			struct reg_file_info *rfi = container_of(info->link->reg_d,
+								 struct reg_file_info, d);
+			pr_debug("Trying to use link: %s\n", rfi->path);
+			mi = lookup_mnt_id(info->link->tfe->mnt_id);
+			if (!mi) {
+				pr_err("Can't resolve link mnt_id %#x\n", info->tfe->mnt_id);
+				return NULL;
+			}
+			pr_debug("Mount at %s\n", mi->ns_mountpoint);
+		}
+	}
+
+	namelen = strlen(mi->ns_mountpoint) + 64;
 	r = xzalloc(sizeof(*r) + sizeof(*r->rfe) + namelen);
 	if (!r)
 		return NULL;
@@ -479,12 +507,12 @@ static struct file_desc *pty_alloc_reg(struct tty_info *info, bool add)
 	reg_file_entry__init(r->rfe);
 
 	r->rfe->name = (void *)r + sizeof(*r) + sizeof(*r->rfe);
-	if (tty_is_master(info))
-		strcpy(r->rfe->name, "/dev/ptmx");
-	else
-		snprintf(r->rfe->name, namelen, "/dev/pts/%u",
-			 info->tie->pty->index);
 
+	if (!need_pts)
+		snprintf(r->rfe->name, namelen, "%s/ptmx", mi->ns_mountpoint);
+	else
+		snprintf(r->rfe->name, namelen, "%s/%u",
+			 mi->ns_mountpoint, info->tie->pty->index);
 	if (add)
 		file_desc_add(&r->d, tfe->id, &noops);
 	else
@@ -493,6 +521,7 @@ static struct file_desc *pty_alloc_reg(struct tty_info *info, bool add)
 	r->rfe->id	= tfe->id;
 	r->rfe->flags	= tfe->flags;
 	r->rfe->fown	= tfe->fown;
+	r->rfe->mnt_id	= mi->mnt_id;
 	r->path		= &r->rfe->name[1];
 
 	return &r->d;
@@ -514,52 +543,32 @@ static struct file_desc *pty_alloc_reg(struct tty_info *info, bool add)
  */
 static struct reg_file_info *pty_alloc_fake_reg(struct tty_info *info, int subtype)
 {
-	struct reg_file_info *new, *orig;
 	struct file_desc *fake_desc;
-
-	pr_debug("Allocating fake descriptor for %#x (reg_d %p)\n",
-		 info->tfe->id, info->reg_d);
+	struct reg_file_info *rfi;
+	bool invert_peer;
 
 	BUG_ON(!info->reg_d);
 	BUG_ON(!is_pty(info->driver));
 
-	fake_desc = pty_alloc_reg(info, false);
+	if ((subtype == TTY_SUBTYPE_MASTER && tty_is_master(info)) ||
+	    (subtype == TTY_SUBTYPE_SLAVE && !tty_is_master(info)))
+		invert_peer = false;
+	else
+		invert_peer = true;
+
+	rfi = container_of(info->reg_d, struct reg_file_info, d);
+	pr_debug("Allocating fake descriptor for %#x (path %s, invert_peer %d)\n",
+		 info->tfe->id, rfi->path, invert_peer);
+
+	fake_desc = pty_alloc_reg(info, false, invert_peer);
 	if (!fake_desc)
 		return NULL;
 
-	orig = container_of(info->reg_d, struct reg_file_info, d);
-	new = container_of(fake_desc, struct reg_file_info, d);
+	rfi = container_of(fake_desc, struct reg_file_info, d);
+	pr_debug("Allocated fake descriptor for %#x as (path %s, invert_peer %d)\n",
+		 info->tfe->id, rfi->path, invert_peer);
 
-	if ((subtype == TTY_SUBTYPE_MASTER && tty_is_master(info)) ||
-	    (subtype == TTY_SUBTYPE_SLAVE && !tty_is_master(info))) {
-		new->path = xstrdup(orig->path);
-		new->rfe->name = &new->path[1];
-	} else {
-		char *pos = strrchr(orig->rfe->name, '/');
-		size_t len = strlen(orig->rfe->name) + 1;
-		size_t slash_at = pos - orig->rfe->name;
-		char *inverted_path = xmalloc(len + 32);
-
-		BUG_ON(!pos || !inverted_path);
-
-		memcpy(inverted_path, orig->rfe->name, slash_at + 1);
-		if (subtype == TTY_SUBTYPE_MASTER) {
-			inverted_path[slash_at + 1] = '\0';
-			strcat(inverted_path, "ptmx");
-		} else {
-			if (slash_at >= 3 && strncmp(&inverted_path[slash_at - 3], "pts", 3))
-				snprintf(&inverted_path[slash_at + 1], 10, "pts/%u",
-					 info->tie->pty->index);
-			else
-				snprintf(&inverted_path[slash_at + 1], 10, "%u",
-					 info->tie->pty->index);
-		}
-
-		new->rfe->name = inverted_path;
-		new->path = &inverted_path[1];
-	}
-
-	return new;
+	return rfi;
 }
 
 #define pty_alloc_fake_master(info)	pty_alloc_fake_reg(info, TTY_SUBTYPE_MASTER)
@@ -568,7 +577,6 @@ static struct reg_file_info *pty_alloc_fake_reg(struct tty_info *info, int subty
 static void pty_free_fake_reg(struct reg_file_info **r)
 {
 	if (*r) {
-		xfree((*r)->rfe->name);
 		xfree((*r));
 		*r = NULL;
 	}
@@ -1403,7 +1411,8 @@ static int tty_setup_slavery(void * unused)
 		list_for_each_entry_continue(peer, &all_ttys, list) {
 			if (!is_pty(peer->driver) || peer->link)
 				continue;
-			if (peer->tie->pty->index == info->tie->pty->index) {
+			if (peer->tie->pty->index == info->tie->pty->index &&
+			    peer->tie->mnt_id == info->tie->mnt_id) {
 				info->link = peer;
 				peer->link = info;
 
@@ -1434,7 +1443,8 @@ static int tty_setup_slavery(void * unused)
 			if (!peer->tie->sid || peer->ctl_tty ||
 			    peer->driver->type == TTY_TYPE__CTTY)
 				continue;
-			if (peer->tie->sid == info->tie->sid) {
+			if (peer->tie->sid == info->tie->sid &&
+			    peer->tie->mnt_id == info->tie->mnt_id) {
 				pr_debug(" `- slave %#x\n", peer->tfe->id);
 				peer->ctl_tty = info;
 			}
@@ -1451,7 +1461,8 @@ static int tty_setup_slavery(void * unused)
 		list_for_each_entry_safe_continue(peer, m, &all_ttys, list) {
 			if (!is_pty(peer->driver))
 				continue;
-			if (peer->tie->pty->index != info->tie->pty->index)
+			if (peer->tie->pty->index != info->tie->pty->index ||
+			    peer->tie->mnt_id != info->tie->mnt_id)
 				continue;
 
 			if (tty_find_restoring_task(peer))
@@ -1527,12 +1538,12 @@ static int verify_info(struct tty_info *info)
 	return 0;
 }
 
-static TtyInfoEntry *lookup_tty_info_entry(u32 id)
+static TtyInfoEntry *lookup_tty_info_entry(u32 id, int mnt_id)
 {
 	struct tty_info_entry *e;
 
 	list_for_each_entry(e, &all_tty_info_entries, list) {
-		if (e->tie->id == id)
+		if (e->tie->id == id && e->tie->mnt_id == mnt_id)
 			return e->tie;
 	}
 
@@ -1599,7 +1610,7 @@ static int collect_one_tty(void *obj, ProtobufCMessage *msg, struct cr_img *i)
 		info->tfe->mnt_id = 0;
 	}
 
-	info->tie = lookup_tty_info_entry(info->tfe->tty_info_id);
+	info->tie = lookup_tty_info_entry(info->tfe->tty_info_id, info->tfe->mnt_id);
 	if (!info->tie) {
 		pr_err("No tty-info-id %#x found on id %#x\n",
 		       info->tfe->tty_info_id, info->tfe->id);
@@ -1638,7 +1649,7 @@ static int collect_one_tty(void *obj, ProtobufCMessage *msg, struct cr_img *i)
 				return -1;
 
 			if (is_pty(info->driver)) {
-				info->reg_d = pty_alloc_reg(info, true);
+				info->reg_d = pty_alloc_reg(info, true, false);
 				if (!info->reg_d) {
 					pr_err("Can't generate new reg descriptor for id %#x\n",
 					       info->tfe->id);
@@ -1706,7 +1717,8 @@ static int collect_one_tty_data(void *obj, ProtobufCMessage *msg, struct cr_img 
 		 tdo->tde->tty_id, (size_t)tdo->tde->data.len);
 
 	list_for_each_entry(info, &all_ttys, list) {
-		if (tdo->tde->tty_id == info->tie->id) {
+		if (tdo->tde->tty_id == info->tie->id &&
+		    tdo->tde->mnt_id == info->tie->mnt_id) {
 			info->tty_data = tdo;
 			return 0;
 		}
@@ -2169,7 +2181,8 @@ static int tty_dump_queued_data(void)
 			if (!is_pty(peer->driver) || peer->link)
 				continue;
 
-			if (peer->index == dinfo->index) {
+			if (peer->index == dinfo->index &&
+			    peer->mnt_id == dinfo->mnt_id) {
 				dinfo->link = peer;
 				peer->link = dinfo;
 				pr_debug("Link PTYs (%#x)\n", dinfo->id);
