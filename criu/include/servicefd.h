@@ -22,6 +22,7 @@ enum sfd_type {
 	TRANSPORT_FD_OFF, /* to transfer file descriptors */
 	LAZY_PAGES_SK_OFF, /* socket for communication with lazy-pages daemon */
 	RPC_SK_OFF,
+	FDSTORE_SK_OFF,
 
 	SERVICE_FD_MAX
 };
