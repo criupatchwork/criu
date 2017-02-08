@@ -619,11 +619,119 @@ static int get_free_pid()
 	return -1;
 }
 
-static int prepare_pstree_ids(void)
+static int is_session_leader(struct pstree_item *item)
 {
-	struct pstree_item *item, *child, *helper, *tmp;
+	return item->sid == item->pid->ns[0].virt;
+}
+
+static int can_inherit_sid(struct pstree_item *item)
+{
+	struct pstree_item *parent;
+
+	parent = item->parent;
+	while (parent) {
+		if (item->sid == parent->sid)
+			return 1;
+		if (!is_session_leader(parent))
+			break;
+		parent = parent->parent;
+	}
+	return 0;
+}
+
+static struct pstree_item *get_helper_by_sid(int sid, struct list_head *helpers) {
+	struct pstree_item *helper;
+	list_for_each_entry(helper, helpers, sibling)
+		if (helper->sid == sid)
+			return helper;
+	return NULL;
+}
+
+static int handle_init_reparent(struct pstree_item *init)
+{
+	struct pstree_item *item, *helper, *child, *tmp;
 	LIST_HEAD(helpers);
 
+	for_each_pssubtree_item(item, init) {
+skip:
+		if (!item)
+			break;
+		if (item == init) /* skip init task */
+			continue;
+
+		if (is_session_leader(item)) /* session leader has no trouble with sid */
+			continue;
+
+		if (can_inherit_sid(item)) {
+			/* descendants of non-leader should be fine, skip them */
+			item = pssubtree_item_next(item, init, true);
+			goto skip;
+		}
+
+		helper = get_helper_by_sid(item->sid, &helpers);
+		if (!helper) {
+			struct pstree_item *leader;
+
+			leader = pstree_item_by_virt(item->sid);
+			BUG_ON(leader == NULL);
+			if (leader->pid->state != TASK_UNDEF) {
+				pid_t pid;
+
+				pid = get_free_pid();
+				if (pid < 0)
+					break;
+				helper = lookup_create_item(pid);
+				if (helper == NULL)
+					return -1;
+
+				pr_info("Session leader %d\n", item->sid);
+
+				helper->sid = item->sid;
+				helper->pgid = leader->pgid;
+				helper->ids = leader->ids;
+				helper->parent = leader;
+			} else {
+				helper = leader;
+				helper->sid = item->sid;
+				helper->pgid = item->sid;
+				helper->parent = init;
+				helper->ids = init->ids;
+			}
+			list_add_tail(&helper->sibling, &helpers);
+			init_pstree_helper(helper);
+
+			pr_info("Add a helper %d for restoring SID %d\n",
+					helper->pid->ns[0].virt, helper->sid);
+		}
+
+		child = item;
+		while (child->parent && child->parent != init)
+			child = child->parent;
+
+		pr_info("Attach %d to the temporary task %d\n",
+				child->pid->ns[0].virt, helper->pid->ns[0].virt);
+		if (child->sibling.next == &init->children)
+			/* last child of init */
+			item = NULL;
+		else
+			/* skip the subtree that we reparent to helper */
+			item = list_entry(child->sibling.next, struct pstree_item, sibling);
+		child->parent = helper;
+		list_move(&child->sibling, &helper->children);
+		goto skip;
+	}
+
+	list_for_each_entry_safe(helper, tmp, &helpers, sibling) {
+		list_move(&helper->sibling, &helper->parent->children);
+		pr_info("Attach helper %d to the task %d\n",
+				helper->pid->ns[0].virt, helper->parent->pid->ns[0].virt);
+	}
+	return 0;
+}
+
+static int prepare_pstree_ids(void)
+{
+	struct pstree_item *item, *helper;
 	pid_t current_pgid = getpgid(getpid());
 
 	/*
@@ -632,71 +740,8 @@ static int prepare_pstree_ids(void)
 	 * immediately after forking children and all children will be
 	 * reparented to init.
 	 */
-	list_for_each_entry(item, &root_item->children, sibling) {
-		struct pstree_item *leader;
-
-		/*
-		 * If a child belongs to the root task's session or it's
-		 * a session leader himself -- this is a simple case, we
-		 * just proceed in a normal way.
-		 */
-		if (item->sid == root_item->sid || item->sid == item->pid->ns[0].virt)
-			continue;
-
-		leader = pstree_item_by_virt(item->sid);
-		BUG_ON(leader == NULL);
-		if (leader->pid->state != TASK_UNDEF) {
-			pid_t pid;
-
-			pid = get_free_pid();
-			if (pid < 0)
-				break;
-			helper = lookup_create_item(pid);
-			if (helper == NULL)
-				return -1;
-
-			pr_info("Session leader %d\n", item->sid);
-
-			helper->sid = item->sid;
-			helper->pgid = leader->pgid;
-			helper->ids = leader->ids;
-			helper->parent = leader;
-			list_add(&helper->sibling, &leader->children);
-
-			pr_info("Attach %d to the task %d\n",
-					helper->pid->ns[0].virt, leader->pid->ns[0].virt);
-		} else {
-			helper = leader;
-			helper->sid = item->sid;
-			helper->pgid = item->sid;
-			helper->parent = root_item;
-			helper->ids = root_item->ids;
-			list_add_tail(&helper->sibling, &helpers);
-		}
-		init_pstree_helper(helper);
-
-		pr_info("Add a helper %d for restoring SID %d\n",
-				helper->pid->ns[0].virt, helper->sid);
-
-		child = list_entry(item->sibling.prev, struct pstree_item, sibling);
-		item = child;
-
-		/*
-		 * Stack on helper task all children with target sid.
-		 */
-		list_for_each_entry_safe_continue(child, tmp, &root_item->children, sibling) {
-			if (child->sid != helper->sid)
-				continue;
-			if (child->sid == child->pid->ns[0].virt)
-				continue;
-
-			pr_info("Attach %d to the temporary task %d\n",
-					child->pid->ns[0].virt, helper->pid->ns[0].virt);
-
-			child->parent = helper;
-			list_move(&child->sibling, &helper->children);
-		}
-	}
+	if (handle_init_reparent(root_item) < 0)
+		return -1;
 
 	/* Try to connect helpers to session leaders */
 	for_each_pstree_item(item) {
@@ -734,9 +779,6 @@ static int prepare_pstree_ids(void)
 			continue;
 		}
 	}
-
-	/* All other helpers are session leaders for own sessions */
-	list_splice(&helpers, &root_item->children);
 
 	/* Add a process group leader if it is absent  */
 	for_each_pstree_item(item) {
