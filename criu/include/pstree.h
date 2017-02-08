@@ -93,6 +93,9 @@ extern struct pstree_item *pstree_item_next(struct pstree_item *item);
 #define for_each_pstree_item(pi) \
 	for (pi = root_item; pi != NULL; pi = pstree_item_next(pi))
 
+#define for_each_pssubtree_item(pi, root) \
+	for (pi = root; pi != NULL; pi = pssubtree_item_next(pi, root, false))
+
 extern bool restore_before_setsid(struct pstree_item *child);
 extern int prepare_pstree(void);
 extern int prepare_dummy_pstree(void);
