@@ -122,6 +122,7 @@ struct cr_options {
 	int			status_fd;
 	bool			orphan_pts_master;
 	bool			check_only;
+	bool			remote;
 };
 
 extern struct cr_options opts;
