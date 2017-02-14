@@ -43,6 +43,7 @@ struct kerndat_s {
 	bool ipv6;
 	enum loginuid_func luid;
 	bool compat_cr;
+	bool sk_ns;
 	enum pagemap_func pmap;
 	unsigned int has_xtlocks;
 	unsigned long mmap_min_addr;
