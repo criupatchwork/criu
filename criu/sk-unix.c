@@ -1292,12 +1292,6 @@ static int open_unixsk_standalone(struct unix_sk_info *ui, int *new_fd)
 		wake_connected_sockets(ui);
 	}
 out:
-	if (rst_file_params(sk, ui->ue->fown, ui->ue->flags))
-		return -1;
-
-	if (restore_socket_opts(sk, ui->ue->opts))
-		return -1;
-
 	*new_fd = sk;
 	return 1;
 }
