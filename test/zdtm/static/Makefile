@@ -173,6 +173,7 @@ TST_NOFILE	:=				\
 		sock_peercred			\
 		s390x_mmap_high			\
 		uffd-events			\
+		netns_sub			\
 #		jobctl00			\
 
 include ../Makefile.inc
