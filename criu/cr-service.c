@@ -735,7 +735,7 @@ static int start_page_server_req(int sk, CriuOpts *req)
 		pr_debug("Starting page server\n");
 
 		pid = cr_page_server(true, false, start_pipe[1]);
-		if (pid <= 0)
+		if (pid < 0)
 			goto out_ch;
 
 		info.pid = pid;
