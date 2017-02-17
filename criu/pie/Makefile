@@ -30,6 +30,7 @@ CFLAGS		+= -iquote $(SRC_DIR)
 ccflags-y	+= $(COMPEL_UAPI_INCLUDES)
 ccflags-y	+= -DCR_NOGLIBC
 ccflags-y	+= -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
+ccflags-y	+= -Wp,-U_FORTIFY_SOURCE -Wp,-D_FORTIFY_SOURCE=0
 
 ifneq ($(filter-out clean mrproper,$(MAKECMDGOALS)),)
         CFLAGS	+= $(shell $(COMPEL_BIN) cflags)
