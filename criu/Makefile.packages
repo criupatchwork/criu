@@ -38,3 +38,6 @@ check-packages:
 	$(Q) $(call try-cc,$(PROGRAM_STUB),$(LIBS)) \
 		|| $(MAKE) -f $(obj)/Makefile.packages check-packages-failed
 .PHONY: check-packages-failed check-packages
+
+$(obj)/Makefile.packages:
+	@true
