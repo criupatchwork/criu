@@ -48,7 +48,7 @@ install: install-man install-lib install-criu install-compel
 uninstall:
 	$(Q) $(MAKE) -C Documentation $@
 	$(Q) $(MAKE) $(build)=lib $@
-	$(Q) $(MAKE) -C criu $@
+	$(Q) $(MAKE) $(build)=criu $@
 	$(Q) $(MAKE) $(build)=compel $@
 	$(Q) $(MAKE) $(build)=compel/plugins $@
 .PHONY: uninstall
