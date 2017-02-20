@@ -1,8 +1,5 @@
 target		+= parasite restorer
 
-parasite-obj-e	+= ./compel/plugins/std.built-in.o
-restorer-obj-e	+= ./compel/plugins/std.built-in.o
-
 parasite-obj-y	+= parasite.o
 restorer-obj-y	+= restorer.o
 restorer-obj-y	+= ./$(ARCH_DIR)/restorer.o
@@ -33,7 +30,6 @@ ccflags-y	+= -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
 
 ifneq ($(filter-out clean mrproper,$(MAKECMDGOALS)),)
         CFLAGS	+= $(shell $(COMPEL_BIN) cflags)
-	compel_std	:= $(shell $(COMPEL_BIN) plugins)
 endif
 
 ifeq ($(SRCARCH),arm)
@@ -43,19 +39,16 @@ endif
 asflags-y	+= -D__ASSEMBLY__
 
 BLOBS		+= $(obj)/restorer-blob.h $(obj)/parasite-blob.h
-LDS		:= $(SRC_DIR)/compel/arch/$(SRCARCH)/scripts/compel-pack.lds.S
 
 .SECONDARY:
 
 target-name = $(patsubst criu/pie/%-blob.h,%,$(1))
 
-$(obj)/restorer.built-in.o: $(compel_std)
-$(obj)/parasite.built-in.o: $(compel_std)
-$(obj)/%.built-in.bin.o: $(obj)/%.built-in.o $(obj)/pie.lib.a $(LDS)
+$(obj)/%.built-in.bin.o: $(obj)/%.built-in.o $(obj)/pie.lib.a
 	$(call msg-gen, $@)
-	$(Q) $(LD) $(shell $(COMPEL_BIN) ldflags) -o $@ $^
+	$(Q) $(LD) $(shell $(COMPEL_BIN) ldflags) -o $@ $^ $(shell $(COMPEL_BIN) plugins)
 
-$(obj)/%-blob.h: $(obj)/%.built-in.bin.o $(SRC_DIR)/compel/compel-host-bin
+$(obj)/%-blob.h: $(obj)/%.built-in.bin.o
 	$(call msg-gen, $@)
 	$(Q) $(COMPEL_BIN) hgen -f $< -o $@
 
