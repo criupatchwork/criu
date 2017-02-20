@@ -1,13 +1,18 @@
-all: images rpc_pb2.py
+all-y	+= libpy-images rpc_pb2.py
 
-.PHONY: all images clean
+$(obj)/images/%:
+	$(Q) $(MAKE) $(build)=$(obj)/images $@
 
-images:
-	$(Q) $(MAKE) -C images all
+libpy-images:
+	$(Q) $(MAKE) $(build)=$(obj)/images all
+.PHONY: libpy-images
 
 rpc_pb2.py:
-	$(Q) protoc -I=$(SRC_DIR)/images/ --python_out=./ $(SRC_DIR)/images/$(@:_pb2.py=.proto)
+	$(Q) protoc -I=$(SRC_DIR)/images/ --python_out=$(obj) $(SRC_DIR)/images/$(@:_pb2.py=.proto)
 
-clean:
-	$(Q) $(MAKE) -C images clean
-	$(Q) $(RM) rpc_pb2.py *.pyc
+cleanup-y	+= $(addprefix $(obj)/,rpc_pb2.py *.pyc)
+
+clean-lib-py:
+	$(Q) $(MAKE) $(build)=$(obj)/images clean
+.PHONY: clean-lib-py
+clean: clean-lib-py
