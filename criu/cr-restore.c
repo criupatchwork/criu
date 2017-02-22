@@ -928,7 +928,6 @@ static int restore_one_task(int pid, CoreEntry *core)
 struct cr_clone_arg {
 	struct pstree_item *item;
 	unsigned long clone_flags;
-	int fd;
 
 	CoreEntry *core;
 };
@@ -974,6 +973,7 @@ static inline int fork_with_pid(struct pstree_item *item)
 	struct cr_clone_arg ca;
 	int ret = -1;
 	pid_t pid = vpid(item);
+	bool locked;
 
 	if (item->pid->state != TASK_HELPER) {
 		if (open_core(pid, &ca.core))
@@ -1014,25 +1014,24 @@ static inline int fork_with_pid(struct pstree_item *item)
 
 	if (!(ca.clone_flags & CLONE_NEWPID)) {
 		char buf[32];
-		int len;
+		int len, fd;
 
-		ca.fd = open_proc_rw(PROC_GEN, LAST_PID_PATH);
-		if (ca.fd < 0)
+		fd = open_proc_rw(PROC_GEN, LAST_PID_PATH);
+		if (fd < 0)
 			goto err;
 
-		if (flock(ca.fd, LOCK_EX)) {
-			close(ca.fd);
-			pr_perror("%d: Can't lock %s", pid, LAST_PID_PATH);
-			goto err;
-		}
+		mutex_lock(&task_entries->last_pid_mutex);
+		locked = true;
 
 		len = snprintf(buf, sizeof(buf), "%d", pid - 1);
-		if (write(ca.fd, buf, len) != len) {
+		len -= write(fd, buf, len);
+		close(fd);
+		if (len) {
 			pr_perror("%d: Write %s to %s", pid, buf, LAST_PID_PATH);
 			goto err_unlock;
 		}
 	} else {
-		ca.fd = -1;
+		locked = false;
 		BUG_ON(pid != INIT_PID);
 	}
 
@@ -1066,12 +1065,8 @@ static inline int fork_with_pid(struct pstree_item *item)
 	}
 
 err_unlock:
-	if (ca.fd >= 0) {
-		if (flock(ca.fd, LOCK_UN))
-			pr_perror("%d: Can't unlock %s", pid, LAST_PID_PATH);
-
-		close(ca.fd);
-	}
+	if (locked)
+		mutex_unlock(&task_entries->last_pid_mutex);
 err:
 	if (ca.core)
 		core_entry__free_unpacked(ca.core, NULL);
@@ -1356,9 +1351,6 @@ static int restore_task_with_children(void *_arg)
 		pr_debug("PID: real %d virt %d\n",
 				current->pid->real, vpid(current));
 	}
-
-	if ( !(ca->clone_flags & CLONE_FILES))
-		close_safe(&ca->fd);
 
 	if (current->pid->state != TASK_HELPER) {
 		ret = clone_service_fd(rsti(current)->service_fd_id);
@@ -2079,6 +2071,7 @@ int prepare_task_entries(void)
 	task_entries->nr_helpers = 0;
 	futex_set(&task_entries->start, CR_STATE_RESTORE_NS);
 	mutex_init(&task_entries->userns_sync_lock);
+	mutex_init(&task_entries->last_pid_mutex);
 
 	return 0;
 }

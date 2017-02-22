@@ -1425,12 +1425,7 @@ long __export_restore_task(struct task_restore_args *args)
 			goto core_restore_end;
 		}
 
-		ret = sys_flock(fd, LOCK_EX);
-		if (ret) {
-			pr_err("Can't lock last_pid %d\n", fd);
-			sys_close(fd);
-			goto core_restore_end;
-		}
+		mutex_lock(&task_entries_local->last_pid_mutex);
 
 		for (i = 0; i < args->nr_threads; i++) {
 			char last_pid_buf[16], *s;
@@ -1459,13 +1454,7 @@ long __export_restore_task(struct task_restore_args *args)
 			RUN_CLONE_RESTORE_FN(ret, clone_flags, new_sp, parent_tid, thread_args, args->clone_restore_fn);
 		}
 
-		ret = sys_flock(fd, LOCK_UN);
-		if (ret) {
-			pr_err("Can't unlock last_pid %ld\n", ret);
-			sys_close(fd);
-			goto core_restore_end;
-		}
-
+		mutex_unlock(&task_entries_local->last_pid_mutex);
 		sys_close(fd);
 	}
 

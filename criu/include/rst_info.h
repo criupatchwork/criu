@@ -11,6 +11,7 @@ struct task_entries {
 	futex_t start;
 	atomic_t cr_err;
 	mutex_t userns_sync_lock;
+	mutex_t last_pid_mutex;
 };
 
 struct fdt {
