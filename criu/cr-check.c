@@ -49,6 +49,7 @@
 #include "cr_options.h"
 #include "libnetlink.h"
 #include "net.h"
+#include "inet_diag.h"
 #include "linux/userfaultfd.h"
 #include "restorer.h"
 
@@ -1090,6 +1091,14 @@ static int check_sk_netns(void)
 	return 0;
 }
 
+static int check_net_diag_raw(void)
+{
+	check_sock_diag();
+	return !socket_test_collect_bit(AF_INET, IPPROTO_RAW) &&
+		!socket_test_collect_bit(AF_INET6, IPPROTO_RAW);
+}
+
+
 static int check_compat_cr(void)
 {
 	if (kdat_compat_sigreturn_test())
@@ -1202,6 +1211,7 @@ int cr_check(void)
 		ret |= check_userns();
 		ret |= check_loginuid();
 		ret |= check_sk_netns();
+		ret |= check_net_diag_raw();
 	}
 
 	/*
@@ -1254,6 +1264,7 @@ static struct feature_list feature_list[] = {
 	{ "lazy_pages", check_uffd },
 	{ "compat_cr", check_compat_cr },
 	{ "sk_ns", check_sk_netns },
+	{ "net_diag_raw", check_net_diag_raw },
 	{ NULL, NULL },
 };
 
