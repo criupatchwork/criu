@@ -244,14 +244,12 @@ criu: $(criu-deps)
 # (we might generate headers and such
 # when building criu itself).
 lib/%: criu .FORCE
-	$(Q) $(MAKE) -C lib $@
+	$(Q) $(MAKE) $(build)=lib $@
 lib: criu
-	$(Q) $(MAKE) -C lib all
+	$(Q) $(MAKE) $(build)=lib all
 .PHONY: lib
 
 subclean:
-	$(call msg-clean, criu)
-	$(Q) $(MAKE) -C lib clean
 	$(Q) $(MAKE) -C Documentation clean
 	$(Q) $(MAKE) $(build)=test/compel clean
 	$(Q) $(RM) .gitid
@@ -263,6 +261,7 @@ clean: subclean
 	$(Q) $(MAKE) $(build)=soccr $@
 	$(Q) $(MAKE) $(build)=compel $@
 	$(Q) $(MAKE) $(build)=compel/plugins $@
+	$(Q) $(MAKE) $(build)=lib $@
 .PHONY: clean
 
 # mrproper depends on clean in nmk
