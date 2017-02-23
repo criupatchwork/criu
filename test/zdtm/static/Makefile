@@ -175,6 +175,7 @@ TST_NOFILE	:=				\
 		uffd-events			\
 		netns_sub			\
 		userns00			\
+		userns01			\
 #		jobctl00			\
 
 include ../Makefile.inc
