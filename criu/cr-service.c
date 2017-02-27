@@ -550,7 +550,7 @@ err:
 static int dump_using_req(int sk, CriuOpts *req)
 {
 	bool success = false;
-	bool self_dump = !req->pid;
+	bool self_dump = !req->has_pid;
 
 	if (setup_opts_from_req(sk, req))
 		goto exit;
