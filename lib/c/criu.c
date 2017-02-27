@@ -880,6 +880,17 @@ int criu_add_external(char *key)
 	return criu_local_add_external(global_opts, key);
 }
 
+void criu_local_set_target_pid(criu_opts *opts, int target_pid)
+{
+	opts->rpc->has_target_pid	= true;
+	opts->rpc->target_pid		= target_pid;
+}
+
+void criu_set_target_pid(int target_pid)
+{
+	criu_local_set_target_pid(global_opts, target_pid);
+}
+
 static CriuResp *recv_resp(int socket_fd)
 {
 	unsigned char *buf = NULL;

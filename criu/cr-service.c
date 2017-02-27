@@ -531,6 +531,9 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 			goto err;
 	}
 
+	if (req->has_target_pid)
+		opts.pid = req->target_pid;
+
 	if (req->orphan_pts_master)
 		opts.orphan_pts_master = true;
 
