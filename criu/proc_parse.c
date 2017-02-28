@@ -39,6 +39,7 @@
 #include "cgroup-props.h"
 #include "timerfd.h"
 #include "path.h"
+#include "file-ids.h"
 
 #include "protobuf.h"
 #include "images/fdinfo.pb-c.h"
@@ -1734,6 +1735,8 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type,
 		}
 		if (fdinfo_field(str, "tfd")) {
 			union fdinfo_entries *e;
+			unsigned long pos, ino;
+			unsigned int sdev;
 
 			if (type != FD_TYPES__EVENTPOLL)
 				goto parse_err;
@@ -1744,11 +1747,21 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type,
 
 			eventpoll_tfd_entry__init(&e->epl.e);
 
-			ret = sscanf(str, "tfd: %d events: %x data: %"PRIx64,
-					&e->epl.e.tfd, &e->epl.e.events, &e->epl.e.data);
-			if (ret != 3) {
-				free_event_poll_entry(e);
-				goto parse_err;
+			ret = sscanf(str, "tfd: %d events: %x data: %"PRIx64
+				     " pos:%lx ino:%lx sdev:%x",
+				     &e->epl.e.tfd, &e->epl.e.events, &e->epl.e.data,
+				     &pos, &ino, &sdev);
+			if (ret != 6) {
+				if (ret != 3) {
+					free_event_poll_entry(e);
+					goto parse_err;
+				} else {
+					e->epl.gen_id = 0;
+					e->epl.use_kcmp = 0;
+				}
+			} else {
+				e->epl.gen_id = kcmp_fd_make_gen_id(sdev, ino, pos);
+				e->epl.use_kcmp = 1;
 			}
 			ret = cb(e, arg);
 			if (ret)

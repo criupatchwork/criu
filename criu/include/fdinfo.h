@@ -28,6 +28,8 @@ struct fanotify_mark_entry {
 struct eventpoll_tfd_entry {
 	EventpollTfdEntry e;
 	struct list_head node;
+	unsigned int gen_id;
+	int use_kcmp;
 };
 
 union fdinfo_entries {
