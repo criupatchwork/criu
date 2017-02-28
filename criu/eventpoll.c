@@ -22,12 +22,22 @@
 #include "util.h"
 #include "log.h"
 #include "pstree.h"
+#include "kcmp-ids.h"
+#include "file-ids.h"
 
 #include "protobuf.h"
 #include "images/eventpoll.pb-c.h"
 
 #undef	LOG_PREFIX
 #define LOG_PREFIX "epoll: "
+
+struct eventpoll_dump_info {
+	EventpollFileEntry		efe;
+	struct list_head		list;
+	struct list_head		ep_list;
+	pid_t				pid;
+	int				fd;
+};
 
 struct eventpoll_file_info {
 	EventpollFileEntry		*efe;
@@ -40,6 +50,7 @@ struct eventpoll_tfd_file_info {
 };
 
 static LIST_HEAD(eventpoll_tfds);
+static LIST_HEAD(eventpoll_fds);
 
 /* Checks if file descriptor @lfd is eventfd */
 int is_eventpoll_link(char *link)
@@ -63,12 +74,12 @@ struct eventpoll_list {
 	int n;
 };
 
-static int dump_eventpoll_entry(union fdinfo_entries *e, void *arg)
+static int collect_eventpoll_entry(union fdinfo_entries *e, void *arg)
 {
 	struct eventpoll_list *ep_list = (struct eventpoll_list *) arg;
 	EventpollTfdEntry *efd = &e->epl.e;
 
-	pr_info_eventpoll_tfd("Dumping: ", efd);
+	pr_info_eventpoll_tfd("Collecting: ", efd);
 
 	list_add_tail(&e->epl.node, &ep_list->list);
 	ep_list->n++;
@@ -76,43 +87,117 @@ static int dump_eventpoll_entry(union fdinfo_entries *e, void *arg)
 	return 0;
 }
 
-static int dump_one_eventpoll(int lfd, u32 id, const struct fd_parms *p)
+static int collect_one_eventpoll(int lfd, u32 id, const struct fd_parms *p)
 {
-	EventpollFileEntry e = EVENTPOLL_FILE_ENTRY__INIT;
+	struct eventpoll_dump_info *dinfo;
 	struct eventpoll_list ep_list = {LIST_HEAD_INIT(ep_list.list), 0};
 	union fdinfo_entries *te, *tmp;
-	int i, ret = -1;
+	int i;
 
-	e.id = id;
-	e.flags = p->flags;
-	e.fown = (FownEntry *)&p->fown;
+	dinfo = xmalloc(sizeof(*dinfo) + sizeof(*dinfo->efe.fown));
+	if (!dinfo)
+		return -ENOMEM;
+	INIT_LIST_HEAD(&dinfo->ep_list);
 
-	if (parse_fdinfo(lfd, FD_TYPES__EVENTPOLL, dump_eventpoll_entry, &ep_list))
-		goto out;
+	eventpoll_file_entry__init(&dinfo->efe);
 
-	e.tfd = xmalloc(sizeof(struct EventpollTfdEntry *) * ep_list.n);
-	if (!e.tfd)
-		goto out;
+	dinfo->efe.fown = (void *)dinfo + sizeof(*dinfo);
+	fown_entry__init(dinfo->efe.fown);
+
+	dinfo->pid			= p->pid;
+	dinfo->efe.id			= id;
+	dinfo->efe.flags		= p->flags;
+	dinfo->efe.fown->uid		= p->fown.uid;
+	dinfo->efe.fown->euid		= p->fown.euid;
+	dinfo->efe.fown->signum		= p->fown.signum;
+	dinfo->efe.fown->pid_type	= p->fown.pid_type;
+	dinfo->efe.fown->pid		= p->fown.pid;
+	dinfo->fd			= p->fd;
+
+	if (parse_fdinfo(lfd, FD_TYPES__EVENTPOLL, collect_eventpoll_entry, &ep_list)) {
+		xfree(dinfo);
+		return -1;
+	}
+
+	dinfo->efe.tfd = xmalloc(sizeof(struct EventpollTfdEntry *) * ep_list.n);
+	if (!dinfo->efe.tfd) {
+		xfree(dinfo);
+		return -ENOMEM;
+	}
 
 	i = 0;
-	list_for_each_entry(te, &ep_list.list, epl.node)
-		e.tfd[i++] = &te->epl.e;
-	e.n_tfd = ep_list.n;
+	list_for_each_entry_safe(te, tmp, &ep_list.list, epl.node) {
+		list_move_tail(&te->epl.node, &dinfo->ep_list);
+		dinfo->efe.tfd[i++] = &te->epl.e;
+	}
+	dinfo->efe.n_tfd = ep_list.n;
 
-	pr_info_eventpoll("Dumping ", &e);
-	ret = pb_write_one(img_from_set(glob_imgset, CR_FD_EVENTPOLL_FILE),
-		     &e, PB_EVENTPOLL_FILE);
-out:
-	list_for_each_entry_safe(te, tmp, &ep_list.list, epl.node)
-		free_event_poll_entry(te);
+	pr_info_eventpoll("Collecting ", &dinfo->efe);
+	list_add(&dinfo->list, &eventpoll_fds);
 
-	return ret;
+	return 0;
 }
 
 const struct fdtype_ops eventpoll_dump_ops = {
 	.type		= FD_TYPES__EVENTPOLL,
-	.dump		= dump_one_eventpoll,
+	.dump		= collect_one_eventpoll,
 };
+
+int dump_eventpoll(void)
+{
+	struct eventpoll_dump_info *dinfo, *dinfo_tmp;
+	union fdinfo_entries *te, *te_tmp;
+	int ret = -1, prev_tfd;
+	struct kid_elem *kid;
+
+	list_for_each_entry(dinfo, &eventpoll_fds, list) {
+		kcmp_epoll_slot_t slot = {
+			.efd	= dinfo->fd,
+			.toff	= 0,
+		};
+
+		prev_tfd = -1;
+		list_for_each_entry(te, &dinfo->ep_list, epl.node) {
+			slot.tfd = te->epl.e.tfd;
+			if (prev_tfd == slot.tfd)
+				slot.toff++;
+			prev_tfd = slot.tfd;
+
+			if (te->epl.use_kcmp) {
+				kid = fd_kid_epoll_lookup(dinfo->pid,
+							  te->epl.gen_id,
+							  &slot);
+				if (!kid || kid->pid != dinfo->pid) {
+					pr_err("Target %d not found for pid %d "
+					       "(or pid mismatsh %d)\n",
+					       te->epl.e.tfd, dinfo->pid,
+					       kid ? kid->pid : -1);
+					goto out;
+				}
+
+				pr_debug("Target %d for pid %d matched fd %d\n",
+					 te->epl.e.tfd, dinfo->pid, kid->idx);
+			}
+
+			if (pb_write_one(img_from_set(glob_imgset, CR_FD_EVENTPOLL_FILE),
+					 &dinfo->efe, PB_EVENTPOLL_FILE))
+				goto out;
+		}
+	}
+
+	ret = 0;
+
+out:
+	/* Free everything */
+	list_for_each_entry_safe(dinfo, dinfo_tmp, &eventpoll_fds, list) {
+		list_for_each_entry_safe(te, te_tmp, &dinfo->ep_list, epl.node)
+			free_event_poll_entry(te);
+		xfree(dinfo->efe.tfd);
+		xfree(dinfo);
+	}
+
+	return ret;
+}
 
 static int eventpoll_post_open(struct file_desc *d, int fd);
 

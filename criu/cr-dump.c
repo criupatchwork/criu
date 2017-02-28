@@ -83,6 +83,7 @@
 #include "fault-injection.h"
 #include "dump.h"
 #include "img-remote.h"
+#include "eventpoll.h"
 
 static char loc_buf[PAGE_SIZE];
 
@@ -1832,6 +1833,14 @@ int cr_dump_tasks(pid_t pid)
 		goto err;
 
 	ret = tty_post_actions();
+	if (ret)
+		goto err;
+
+	/*
+	 * Dump epolls late when all files are already
+	 * collected in kcmp tree.
+	 */
+	ret = dump_eventpoll();
 	if (ret)
 		goto err;
 
