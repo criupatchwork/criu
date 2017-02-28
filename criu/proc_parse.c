@@ -1744,6 +1744,7 @@ static int parse_fdinfo_pid_s(int pid, int fd, int type,
 			e = xmalloc(sizeof(union fdinfo_entries));
 			if (!e)
 				goto out;
+			e->epl.valid = 1;
 
 			eventpoll_tfd_entry__init(&e->epl.e);
 

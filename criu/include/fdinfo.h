@@ -30,6 +30,7 @@ struct eventpoll_tfd_entry {
 	struct list_head node;
 	unsigned int gen_id;
 	int use_kcmp;
+	int valid;
 };
 
 union fdinfo_entries {

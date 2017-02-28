@@ -151,6 +151,7 @@ int dump_eventpoll(void)
 	struct kid_elem *kid;
 
 	list_for_each_entry(dinfo, &eventpoll_fds, list) {
+		unsigned long nr_valid = 0;
 		kcmp_epoll_slot_t slot = {
 			.efd	= dinfo->fd,
 			.toff	= 0,
@@ -167,22 +168,56 @@ int dump_eventpoll(void)
 				kid = fd_kid_epoll_lookup(dinfo->pid,
 							  te->epl.gen_id,
 							  &slot);
-				if (!kid || kid->pid != dinfo->pid) {
-					pr_err("Target %d not found for pid %d "
-					       "(or pid mismatsh %d)\n",
-					       te->epl.e.tfd, dinfo->pid,
-					       kid ? kid->pid : -1);
-					goto out;
+				if (!kid || kid->pid != dinfo->pid ||
+				    kid->idx != te->epl.e.tfd) {
+					pr_warn("Target %d not found for pid %d "
+						"(or pid mismatsh %d), ignoring\n",
+						te->epl.e.tfd, dinfo->pid,
+						kid ? kid->pid : -1);
+					te->epl.valid = 0;
+				} else {
+					pr_debug("Target %d for pid %d matched fd %d\n",
+						 te->epl.e.tfd, dinfo->pid, kid->idx);
+					nr_valid++;
 				}
+			} else {
+				char path[PATH_MAX];
 
-				pr_debug("Target %d for pid %d matched fd %d\n",
-					 te->epl.e.tfd, dinfo->pid, kid->idx);
+				snprintf(path, sizeof(path), "/proc/%d/fd/%d",
+					 dinfo->pid, slot.tfd);
+				if (access(path, F_OK)) {
+					pr_warn("Target %d not found for pid %d, ignoring\n",
+						te->epl.e.tfd, dinfo->pid);
+					te->epl.valid = 0;
+				} else {
+					pr_debug("Target %d for pid %d is accessible\n",
+						 te->epl.e.tfd, dinfo->pid);
+					nr_valid++;
+				}
+			}
+		}
+
+		if (nr_valid != dinfo->efe.n_tfd) {
+			size_t i = 0;
+
+			EventpollTfdEntry **tfd = xmalloc(sizeof(struct EventpollTfdEntry *) * nr_valid);
+			if (!tfd)
+				goto out;
+
+			list_for_each_entry(te, &dinfo->ep_list, epl.node) {
+				if (te->epl.valid)
+					tfd[i++] = &te->epl.e;
 			}
 
-			if (pb_write_one(img_from_set(glob_imgset, CR_FD_EVENTPOLL_FILE),
-					 &dinfo->efe, PB_EVENTPOLL_FILE))
-				goto out;
+			xfree(dinfo->efe.tfd);
+			dinfo->efe.tfd = tfd;
+			dinfo->efe.n_tfd = nr_valid;
 		}
+
+		pr_info_eventpoll("Dumping ", &dinfo->efe);
+		if (pb_write_one(img_from_set(glob_imgset, CR_FD_EVENTPOLL_FILE),
+				 &dinfo->efe, PB_EVENTPOLL_FILE))
+			goto out;
 	}
 
 	ret = 0;
