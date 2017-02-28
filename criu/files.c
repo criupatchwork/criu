@@ -265,19 +265,6 @@ static int fixup_overlayfs(struct fd_parms *p, struct fd_link *link)
 	return 0;
 }
 
-/*
- * The gen_id thing is used to optimize the comparison of shared files.
- * If two files have different gen_ids, then they are different for sure.
- * If it matches, we don't know it and have to call sys_kcmp().
- *
- * The kcmp-ids.c engine does this trick, see comments in it for more info.
- */
-
-static u32 make_gen_id(const struct fd_parms *p)
-{
-	return ((u32)p->stat.st_dev) ^ ((u32)p->stat.st_ino) ^ ((u32)p->pos);
-}
-
 int do_dump_gen_file(struct fd_parms *p, int lfd,
 		const struct fdtype_ops *ops, struct cr_img *img)
 {
@@ -285,7 +272,9 @@ int do_dump_gen_file(struct fd_parms *p, int lfd,
 	int ret = -1;
 
 	e.type	= ops->type;
-	e.id	= make_gen_id(p);
+	e.id	= kcmp_fd_make_gen_id((uint32_t)p->stat.st_dev,
+				      (uint32_t)p->stat.st_ino,
+				      (uint32_t)p->pos);
 	e.fd	= p->fd;
 	e.flags = p->fd_flags;
 
