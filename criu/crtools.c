@@ -78,6 +78,7 @@ void init_opts(void)
 	opts.timeout = DEFAULT_TIMEOUT;
 	opts.empty_ns = 0;
 	opts.status_fd = -1;
+	opts.pid = -1;
 }
 
 static int parse_join_ns(const char *ptr)
@@ -212,7 +213,7 @@ bool deprecated_ok(char *what)
 
 int main(int argc, char *argv[], char *envp[])
 {
-	pid_t pid = 0, tree_id = 0;
+	pid_t tree_id = 0;
 	int ret = -1;
 	bool usage_error = true;
 	bool has_exec_cmd = false;
@@ -344,8 +345,8 @@ int main(int argc, char *argv[], char *envp[])
 			opts.ext_unix_sk = true;
 			break;
 		case 'p':
-			pid = atoi(optarg);
-			if (pid <= 0)
+			opts.pid = atoi(optarg);
+			if (opts.pid <= 0)
 				goto bad_arg;
 			break;
 		case 't':
@@ -851,6 +852,9 @@ usage:
 "\n"
 "* Generic:\n"
 "  -t|--tree PID         checkpoint a process tree identified by PID\n"
+"  -p|--pid PID          within a specified process tree, checkpoint only a\n"
+"                        process with this PID(for now only root of a tree\n"
+"                        is supported)\n"
 "  -d|--restore-detached detach after restore\n"
 "  -S|--restore-sibling  restore root task as sibling\n"
 "  -s|--leave-stopped    leave tasks in stopped state after checkpoint\n"

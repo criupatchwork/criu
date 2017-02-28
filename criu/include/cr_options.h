@@ -108,6 +108,7 @@ struct cr_options {
 	bool			lazy_pages;
 	bool			tcp_skip_in_flight;
 	char			*work_dir;
+	int			pid;
 
 	/*
 	 * When we scheduler for removal some functionality we first

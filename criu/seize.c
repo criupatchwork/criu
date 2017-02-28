@@ -807,10 +807,13 @@ static int collect_task(struct pstree_item *item)
 	if (ret < 0)
 		goto err_close;
 
-	/* Depth-first search (DFS) is used for traversing a process tree. */
-	ret = collect_loop(item, collect_children);
-	if (ret < 0)
-		goto err_close;
+	/* FIXME: for now only root process is supported for selective dump */
+	if (opts.pid == -1 || opts.pid != item->pid->real) {
+		/* Depth-first search (DFS) is used for traversing a process tree. */
+		ret = collect_loop(item, collect_children);
+		if (ret < 0)
+			goto err_close;
+	}
 
 	if ((item->pid->state == TASK_DEAD) && !list_empty(&item->children)) {
 		pr_err("Zombie with children?! O_o Run, run, run!\n");
