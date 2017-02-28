@@ -880,7 +880,7 @@ usage:
 "                            tty[rdev:dev]\n"
 "                            file[mnt_id:inode]\n"
 "                            dev[major/minor]:NAME\n"
-"                            unix[ino]\n"
+"                            unix[ino]{:stub[string]}\n"
 "                            mnt[MOUNTPOINT]:COOKIE\n"
 "                            mnt[]{:AUTO_OPTIONS}\n"
 "                        Formats of RES on restore:\n"

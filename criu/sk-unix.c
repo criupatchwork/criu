@@ -263,6 +263,8 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 	SkOptsEntry *skopts;
 	FilePermsEntry *perms;
 	FownEntry *fown;
+	char buf[PATH_MAX];
+	char *stub = NULL;
 
 	ue = xmalloc(sizeof(UnixSkEntry) +
 			sizeof(SkOptsEntry) +
@@ -322,6 +324,18 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 		ue->state = TCP_CLOSE;
 		ue->peer = 0;
 		ue->uflags |= USK_SERVICE;
+	}
+
+	/* Same as with service_sk, but for custom sockets */
+	snprintf(buf, sizeof(buf), "unix[%u]", ue->ino);
+	stub = external_lookup_stub_by_key(buf);
+	if (unlikely(!IS_ERR_OR_NULL(stub))) {
+		pr_info("Unix socket %#x is closed and plugged with stub '%s' "
+			"for restore\n", ue->ino, stub);
+		ue->state = TCP_CLOSE;
+		ue->peer = 0;
+		ue->uflags |= USK_SERVICE;
+		ue->stub = (void *)stub;
 	}
 
 	if (sk->namelen && *sk->name) {
@@ -1165,8 +1179,15 @@ static int open_unixsk_standalone(struct unix_sk_info *ui, int *new_fd)
 			return -1;
 		}
 
-		if (send_criu_dump_resp(sks[1], true, true) == -1)
-			return -1;
+		if (ui->ue->stub) {
+			pr_warn("Writing stub %s to unix socket %#x\n",
+				(char *)ui->ue->stub, ui->ue->ino);
+			if (write(sks[1], ui->ue->stub, strlen(ui->ue->stub)) != strlen(ui->ue->stub))
+				return -1;
+		} else {
+			if (send_criu_dump_resp(sks[1], true, true) == -1)
+				return -1;
+		}
 
 		close(sks[1]);
 		sk = sks[0];

@@ -9,6 +9,7 @@ struct external {
 extern int add_external(char *key);
 extern bool external_lookup_id(char *id);
 extern char *external_lookup_by_key(char *id);
+extern char *external_lookup_stub_by_key(char *id);
 extern void *external_lookup_data(char *id);
 extern int external_for_each_type(char *type, int (*cb)(struct external *, void *), void *arg);
 

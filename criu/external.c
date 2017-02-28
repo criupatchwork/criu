@@ -73,6 +73,32 @@ char *external_lookup_by_key(char *key)
 	return ERR_PTR(-ENOENT);
 }
 
+char *external_lookup_stub_by_key(char *key)
+{
+	char *val, *stub, *end;
+	char prefix[] = "stub[";
+	char suffix = ']';
+
+	val = external_lookup_by_key(key);
+	if (IS_ERR_OR_NULL(val))
+		return val;
+
+	if (strncmp(val, prefix, strlen(prefix)))
+		return ERR_PTR(-ENOENT);
+
+	val += strlen(prefix);
+	stub = strdup(val);
+
+	end = strrchr(stub, suffix);
+	if (!end) {
+		free(stub);
+		return ERR_PTR(-EINVAL);
+	}
+	*end = '\0';
+
+	return stub;
+}
+
 int external_for_each_type(char *type, int (*cb)(struct external *, void *), void *arg)
 {
 	struct external *ext;
