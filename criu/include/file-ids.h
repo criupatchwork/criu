@@ -5,6 +5,7 @@
 
 #include "common/compiler.h"
 #include "rbtree.h"
+#include "kcmp.h"
 
 #include "images/fdinfo.pb-c.h"
 
@@ -13,10 +14,13 @@
 
 struct fdinfo_entry;
 struct stat;
-
+struct kid_elem;
 struct fd_parms;
+
 extern int fd_id_generate(pid_t pid, FdinfoEntry *fe, struct fd_parms *p);
 extern int fd_id_generate_special(struct fd_parms *p, u32 *id);
+extern struct kid_elem *fd_kid_epoll_lookup(pid_t pid, unsigned int genid,
+					    kcmp_epoll_slot_t *slot);
 
 /*
  * The gen_id thing is used to optimize the comparison of shared files.

@@ -154,3 +154,54 @@ uint32_t kid_generate_gen(struct kid_tree *tree,
 	return e->subid;
 
 }
+
+static struct kid_elem *kid_epoll_lookup_sub(struct kid_tree *tree,
+					     struct kid_entry *e,
+					     struct kid_elem *elem,
+					     kcmp_epoll_slot_t *slot)
+{
+	struct rb_node *node = e->subtree_root.rb_node;
+
+	BUG_ON(!node);
+
+	while (node) {
+		struct kid_entry *this = rb_entry(node, struct kid_entry, subtree_node);
+		int ret = syscall(SYS_kcmp, this->elem.pid, elem->pid, KCMP_EPOLL_TFD,
+				this->elem.idx, slot);
+
+		if (ret == 1)
+			node = node->rb_left;
+		else if (ret == 2)
+			node = node->rb_right;
+		else if (ret == 0)
+			return &this->elem;
+		else {
+			pr_perror("kcmp failed: pid (%d %d) type %u idx (%u %u)",
+				  this->elem.pid, elem->pid, KCMP_EPOLL_TFD,
+				  this->elem.idx, elem->idx);
+			return NULL;
+		}
+	}
+
+	return NULL;
+}
+
+struct kid_elem *kid_epoll_lookup(struct kid_tree *tree,
+				  struct kid_elem *elem,
+				  kcmp_epoll_slot_t *slot)
+{
+	struct rb_node *node = tree->root.rb_node;
+
+	while (node) {
+		struct kid_entry *this = rb_entry(node, struct kid_entry, node);
+
+		if (elem->genid < this->elem.genid)
+			node = node->rb_left;
+		else if (elem->genid > this->elem.genid)
+			node = node->rb_right;
+		else
+			return kid_epoll_lookup_sub(tree, this, elem, slot);
+	}
+
+	return NULL;
+}

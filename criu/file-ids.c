@@ -111,3 +111,15 @@ int fd_id_generate(pid_t pid, FdinfoEntry *fe, struct fd_parms *p)
 	fe->id = id;
 	return new_id;
 }
+
+struct kid_elem *fd_kid_epoll_lookup(pid_t pid, unsigned int genid,
+				     kcmp_epoll_slot_t *slot)
+{
+	struct kid_elem e = {
+		.pid	= pid,
+		.genid	= genid,
+		.idx	= -1,	/* A stub, not needed for epoll */
+	};
+
+	return kid_epoll_lookup(&fd_tree, &e, slot);
+}
