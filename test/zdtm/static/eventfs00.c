@@ -34,8 +34,8 @@ const char *test_author	= "Cyrill Gorcunov <gorcunov@openvz.org>";
 
 int main(int argc, char *argv[])
 {
-	int efd, ret, epollfd;
-	int pipefd[2];
+	int pipefd1[2], pipefd2[2];
+	int efd, ret, epollfd, fd;
 	uint64_t v = EVENTFD_INITIAL;
 	struct epoll_event ev;
 
@@ -56,15 +56,27 @@ int main(int argc, char *argv[])
 	memset(&ev, 0xff, sizeof(ev));
 	ev.events = EPOLLIN | EPOLLOUT;
 
-	if (pipe(pipefd)) {
+	if (pipe(pipefd1) || pipe(pipefd2)) {
 		fail("pipe");
 		exit(1);
 	}
 
-	if (epoll_ctl(epollfd, EPOLL_CTL_ADD, pipefd[0], &ev)) {
+	if (epoll_ctl(epollfd, EPOLL_CTL_ADD, pipefd1[0], &ev)) {
 		fail("epoll_ctl");
 		exit(1);
 	}
+
+	fd = dup2(pipefd2[0], 64);
+	if (fd < 0) {
+		fail(" dup on pipe");
+		exit(1);
+	}
+
+	if (epoll_ctl(epollfd, EPOLL_CTL_ADD, fd, &ev)) {
+		fail("epoll_ctl on duped pipe");
+		exit(1);
+	}
+	close(fd);
 
 	test_msg("created eventfd with %"PRIu64"\n", v);
 
