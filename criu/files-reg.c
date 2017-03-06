@@ -134,7 +134,11 @@ static int mkreg_ghost(char *path, u32 mode, struct ghost_file *gf, struct cr_im
 	if (gfd < 0)
 		return -1;
 
-	ret = copy_file(img_raw_fd(img), gfd, 0);
+	int rfd = img_raw_fd(img);
+	if (rfd < 0)
+		return -1;
+
+	ret = copy_file(rfd, gfd, 0);
 	if (ret < 0)
 		unlink(path);
 	close(gfd);

@@ -127,6 +127,11 @@ int skip_remote_bytes(int fd, unsigned long len)
 	int n = 0;
 	unsigned long curr = 0;
 
+	if (fd < 0) {
+		pr_perror("Invalid fd: %d", fd);
+		return -1;
+	}
+
 	for (; curr < len; ) {
 		n = read(fd, buf, min(len - curr, (unsigned long)4096));
 		if (n == 0) {

@@ -593,7 +593,6 @@ void *accept_local_image_connections(void *port)
 		if (cli_fd < 0) {
 			if (!finished)
 				pr_err("Unable to accept local image connection");
-			close(cli_fd);
 			return NULL;
 		}
 
@@ -624,6 +623,7 @@ void *accept_local_image_connections(void *port)
 		int fd = open_proc_rw(PROC_GEN, LAST_PID_PATH);
 		if (fd < 0) {
 			pr_perror("Can't open %s", LAST_PID_PATH);
+			return NULL;
 		}
 
 		if (flock(fd, LOCK_EX)) {
