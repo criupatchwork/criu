@@ -909,7 +909,7 @@ int compel_infect(struct parasite_ctl *ctl, unsigned long nr_threads, unsigned l
 		ctl->r_thread_stack = ctl->remote_map + p;
 	}
 
-	ret = arch_fetch_sas(ctl, ctl->rsigframe);
+	ret = arch_fetch_sas_for_sigframe(ctl, ctl->rsigframe);
 	if (ret) {
 		pr_err("Can't fetch sigaltstack for task %d (ret %d)",
 		       ctl->rpid, ret);

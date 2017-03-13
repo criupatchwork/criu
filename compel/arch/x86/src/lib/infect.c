@@ -419,19 +419,26 @@ bool arch_can_dump_task(struct parasite_ctl *ctl)
 	return true;
 }
 
-int arch_fetch_sas(struct parasite_ctl *ctl, struct rt_sigframe *s)
+int arch_fetch_sas(struct parasite_ctl *ctl, stack_t *rsas)
+{
+	int native = compel_mode_native(ctl);
+	long ret;
+	int err;
+
+	err = compel_syscall(ctl, __NR(sigaltstack, !native),
+			     &ret, 0, (unsigned long)rsas,
+			     0, 0, 0, 0);
+	return err ? err : ret;
+}
+
+int arch_fetch_sas_for_sigframe(struct parasite_ctl *ctl, struct rt_sigframe *s)
 {
 	int native = compel_mode_native(ctl);
 	void *where = native ?
 		(void *)&s->native.uc.uc_stack :
 		(void *)&s->compat.uc.uc_stack;
-	long ret;
-	int err;
 
-	err = compel_syscall(ctl, __NR(sigaltstack, !native),
-			     &ret, 0, (unsigned long)where,
-			     0, 0, 0, 0);
-	return err ? err : ret;
+	return arch_fetch_sas(ctl, where);
 }
 
 /* Copied from the gdb header gdb/nat/x86-dregs.h */

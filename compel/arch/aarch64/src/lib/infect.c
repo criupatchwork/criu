@@ -140,15 +140,20 @@ bool arch_can_dump_task(struct parasite_ctl *ctl)
 	return true;
 }
 
-int arch_fetch_sas(struct parasite_ctl *ctl, struct rt_sigframe *s)
+int arch_fetch_sas(struct parasite_ctl *ctl, stack_t *rsas)
 {
 	long ret;
 	int err;
 
 	err = compel_syscall(ctl, __NR_sigaltstack,
-			     &ret, 0, (unsigned long)&s->uc.uc_stack,
+			     &ret, 0, (unsigned long)rsas,
 			     0, 0, 0, 0);
 	return err ? err : ret;
+}
+
+int arch_fetch_sas_for_sigframe(struct parasite_ctl *ctl, struct rt_sigframe *s)
+{
+	return arch_fetch_sas(ctl, (stack_t *)&s->uc.uc_stack);
 }
 
 /*
