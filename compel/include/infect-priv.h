@@ -29,7 +29,7 @@ struct parasite_ctl {
 	struct rt_sigframe	*sigframe;
 	struct rt_sigframe	*rsigframe;				/* address in a parasite */
 
-	void			*r_thread_stack;			/* stack for non-leader threads */
+	void			*r_thread_stack;			/* stack for non-leader threads (shared) */
 
 	unsigned long		parasite_ip;				/* service routine start ip */
 
