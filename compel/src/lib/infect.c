@@ -485,9 +485,8 @@ static int restore_thread_ctx(int pid, struct thread_ctx *ctx)
 
 
 /* we run at @regs->ip */
-static int parasite_trap(struct parasite_ctl *ctl, pid_t pid,
-				user_regs_struct_t *regs,
-				struct thread_ctx *octx)
+static int parasite_trap(pid_t pid, user_regs_struct_t *regs,
+			 struct thread_ctx *octx)
 {
 	siginfo_t siginfo;
 	int status;
@@ -559,7 +558,7 @@ int compel_execute_syscall(struct parasite_ctl *ctl,
 
 	err = parasite_run(pid, PTRACE_CONT, ctl->ictx.syscall_ip, 0, regs, &ctl->orig);
 	if (!err)
-		err = parasite_trap(ctl, pid, regs, &ctl->orig);
+		err = parasite_trap(pid, regs, &ctl->orig);
 
 	if (ptrace_poke_area(pid, (void *)code_orig,
 			     (void *)ctl->ictx.syscall_ip, sizeof(code_orig))) {
@@ -577,7 +576,7 @@ int compel_run_at(struct parasite_ctl *ctl, unsigned long ip, user_regs_struct_t
 
 	ret = parasite_run(ctl->rpid, PTRACE_CONT, ip, 0, &regs, &ctl->orig);
 	if (!ret)
-		ret = parasite_trap(ctl, ctl->rpid, ret_regs ? ret_regs : &regs, &ctl->orig);
+		ret = parasite_trap(ctl->rpid, ret_regs ? ret_regs : &regs, &ctl->orig);
 	return ret;
 }
 
@@ -1363,7 +1362,7 @@ int compel_run_in_thread(struct parasite_thread_ctl *tctl, unsigned int cmd)
 
 	ret = parasite_run(pid, PTRACE_CONT, ctl->parasite_ip, stack, &regs, octx);
 	if (ret == 0)
-		ret = parasite_trap(ctl, pid, &regs, octx);
+		ret = parasite_trap(pid, &regs, octx);
 	if (ret == 0)
 		ret = (int)REG_RES(regs);
 
