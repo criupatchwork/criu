@@ -538,35 +538,48 @@ err:
 }
 
 
-int compel_execute_syscall(struct parasite_ctl *ctl,
-		user_regs_struct_t *regs, const char *code_syscall)
+static int __compel_execute_syscall(pid_t pid,
+				    const char *code_syscall,
+				    unsigned long syscall_ip,
+				    unsigned long syscall_sp,
+				    user_regs_struct_t *regs,
+				    struct thread_ctx *octx)
 {
-	pid_t pid = ctl->rpid;
-	int err;
 	uint8_t code_orig[BUILTIN_SYSCALL_SIZE];
+	int err;
 
 	/*
 	 * Inject syscall instruction and remember original code,
 	 * we will need it to restore original program content.
 	 */
 	memcpy(code_orig, code_syscall, sizeof(code_orig));
-	if (ptrace_swap_area(pid, (void *)ctl->ictx.syscall_ip,
+	if (ptrace_swap_area(pid, (void *)syscall_ip,
 			     (void *)code_orig, sizeof(code_orig))) {
 		pr_err("Can't inject syscall blob (pid: %d)\n", pid);
 		return -1;
 	}
 
-	err = parasite_run(pid, PTRACE_CONT, ctl->ictx.syscall_ip, 0, regs, &ctl->orig);
+	err = parasite_run(pid, PTRACE_CONT, syscall_ip,
+			   (void *)syscall_sp, regs, octx);
 	if (!err)
-		err = parasite_trap(pid, regs, &ctl->orig);
+		err = parasite_trap(pid, regs, octx);
 
 	if (ptrace_poke_area(pid, (void *)code_orig,
-			     (void *)ctl->ictx.syscall_ip, sizeof(code_orig))) {
-		pr_err("Can't restore syscall blob (pid: %d)\n", ctl->rpid);
+			     (void *)syscall_ip, sizeof(code_orig))) {
+		pr_err("Can't restore syscall blob (pid: %d)\n", pid);
 		err = -1;
 	}
 
 	return err;
+}
+
+int compel_execute_syscall(struct parasite_ctl *ctl,
+		user_regs_struct_t *regs, const char *code_syscall)
+{
+	return __compel_execute_syscall(ctl->rpid,
+					code_syscall,
+					ctl->ictx.syscall_ip,
+					0, regs, &ctl->orig);
 }
 
 int compel_run_at(struct parasite_ctl *ctl, unsigned long ip, user_regs_struct_t *ret_regs)
