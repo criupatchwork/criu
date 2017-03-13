@@ -937,6 +937,12 @@ struct parasite_thread_ctl *compel_prepare_thread(struct parasite_ctl *ctl, int 
 		} else {
 			tctl->tid = pid;
 			tctl->ctl = ctl;
+
+			if (arch_fetch_sas(ctl, ctl->r_thread_sas)) {
+				xfree(tctl);
+				tctl = NULL;
+			} else
+				memcpy(&tctl->sas, ctl->thread_sas, sizeof(tctl->sas));
 		}
 	}
 
