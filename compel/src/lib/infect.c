@@ -863,7 +863,7 @@ int compel_infect(struct parasite_ctl *ctl, unsigned long nr_threads, unsigned l
 	map_exchange_size = parasite_size;
 	map_exchange_size += RESTORE_STACK_SIGFRAME + PARASITE_STACK_SIZE;
 	if (nr_threads > 1)
-		map_exchange_size += PARASITE_STACK_SIZE;
+		map_exchange_size += PARASITE_STACK_SIZE + sizeof(stack_t);
 
 	ret = compel_map_exchange(ctl, map_exchange_size);
 	if (ret)
@@ -890,6 +890,9 @@ int compel_infect(struct parasite_ctl *ctl, unsigned long nr_threads, unsigned l
 	ctl->rstack = ctl->remote_map + p;
 
 	if (nr_threads > 1) {
+		p += sizeof(stack_t);
+		ctl->r_thread_sas = ctl->remote_map + p;
+		ctl->thread_sas = ctl->local_map + p;
 		p += PARASITE_STACK_SIZE;
 		ctl->r_thread_stack = ctl->remote_map + p;
 	}
@@ -914,7 +917,7 @@ struct parasite_thread_ctl *compel_prepare_thread(struct parasite_ctl *ctl, int 
 {
 	struct parasite_thread_ctl *tctl;
 
-	tctl = xmalloc(sizeof(*tctl));
+	tctl = xzalloc(sizeof(*tctl));
 	if (tctl) {
 		if (prepare_thread(pid, &tctl->th)) {
 			xfree(tctl);

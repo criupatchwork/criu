@@ -2,6 +2,7 @@
 #define __COMPEL_INFECT_PRIV_H__
 
 #include <stdbool.h>
+#include <signal.h>
 
 #define BUILTIN_SYSCALL_SIZE	8
 
@@ -29,6 +30,8 @@ struct parasite_ctl {
 	struct rt_sigframe	*sigframe;
 	struct rt_sigframe	*rsigframe;				/* address in a parasite */
 
+	stack_t			*thread_sas;
+	stack_t			*r_thread_sas;				/* per-thread sas storage (shared) */
 	void			*r_thread_stack;			/* stack for non-leader threads (shared) */
 
 	unsigned long		parasite_ip;				/* service routine start ip */
@@ -45,6 +48,7 @@ struct parasite_thread_ctl {
 	int			tid;
 	struct parasite_ctl	*ctl;
 	struct thread_ctx	th;
+	stack_t			sas;
 };
 
 #define MEMFD_FNAME	"CRIUMFD"
