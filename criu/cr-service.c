@@ -15,6 +15,7 @@
 #include <arpa/inet.h>
 #include <sched.h>
 
+#include "version.h"
 #include "crtools.h"
 #include "cr_options.h"
 #include "external.h"
@@ -806,8 +807,73 @@ static int chk_keepopen_req(CriuReq *msg)
 		return 0;
 	else if (msg->type == CRIU_REQ_TYPE__FEATURE_CHECK)
 		return 0;
+	else if (msg->type == CRIU_REQ_TYPE__VERSION)
+		return 0;
 
 	return -1;
+}
+
+/*
+ * Return the version information, depending on the information
+ * available in version.h
+ */
+static int handle_version(int sk, CriuReq * msg)
+{
+	CriuResp resp = CRIU_RESP__INIT;
+	CriuVersion version = CRIU_VERSION__INIT;
+	int pid, status;
+	int ret;
+
+
+	pid = fork();
+	if (pid < 0) {
+		pr_perror("Can't fork");
+		goto out;
+	}
+
+	if (pid == 0) {
+		/* This assumes we will always have a major and minor version */
+		version.major = CRIU_VERSION_MAJOR;
+		version.minor = CRIU_VERSION_MINOR;
+		version.gitid = xstrdup(CRIU_GITID);
+#ifdef CRIU_VERSION_SUBLEVEL
+		version.has_sublevel = 1;
+		version.sublevel = CRIU_VERSION_SUBLEVEL;
+#endif
+#ifdef CRIU_VERSION_EXTRA
+		version.has_extra = 1;
+		version.extra = CRIU_VERSION_EXTRA;
+#endif
+#ifdef CRIU_VERSION_NAME
+		/* This is not actually exported in version.h */
+		version.name = xstrdup(CRIU_VERSION_NAME);
+#endif
+		resp.type = msg->type;
+		resp.success = true;
+		resp.version = &version;
+		return send_criu_msg(sk, &resp);
+	}
+
+	ret = waitpid(pid, &status,  0);
+	if (ret == -1)
+		goto out;
+
+	if (WIFEXITED(status) && !WEXITSTATUS(status))
+		/*
+		 * The child process exited and was able to send the answer.
+		 * Nothing more to do here.
+		 */
+		return 0;
+
+	/*
+	 * The child process was not able to send an answer. Tell
+	 * the RPC client that something did not work as expected.
+	 */
+out:
+	resp.type = msg->type;
+	resp.success = false;
+
+	return send_criu_msg(sk, &resp);
 }
 
 /*
@@ -1010,6 +1076,9 @@ more:
 		break;
 	case CRIU_REQ_TYPE__FEATURE_CHECK:
 		ret = handle_feature_check(sk, msg);
+		break;
+	case CRIU_REQ_TYPE__VERSION:
+		ret = handle_version(sk, msg);
 		break;
 
 	default:
