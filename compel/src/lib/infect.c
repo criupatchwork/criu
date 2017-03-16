@@ -581,6 +581,20 @@ int compel_run_at(struct parasite_ctl *ctl, unsigned long ip, user_regs_struct_t
 	return ret;
 }
 
+int compel_release_at(struct parasite_ctl *ctl, unsigned long ip)
+{
+	user_regs_struct_t regs = ctl->orig.regs;
+
+	return parasite_run(ctl->rpid, PTRACE_CONT, ip, 0, &regs, &ctl->orig);
+}
+
+int compel_catch(struct parasite_ctl *ctl, user_regs_struct_t *ret_regs)
+{
+	user_regs_struct_t regs;
+
+	return parasite_trap(ctl, ctl->rpid, ret_regs ? ret_regs : &regs, &ctl->orig);
+}
+
 static int accept_tsock(struct parasite_ctl *ctl)
 {
 	int sock;
