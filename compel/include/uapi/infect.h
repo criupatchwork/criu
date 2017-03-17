@@ -93,6 +93,9 @@ extern k_rtsigset_t *compel_thread_sigmask(struct parasite_thread_ctl *tctl);
 
 struct rt_sigframe;
 
+extern int compel_emergency_sigframe(struct parasite_ctl *ctl, struct rt_sigframe *f,
+				     struct rt_sigframe *rtf);
+
 typedef int (*open_proc_fn)(int pid, int mode, const char *fmt, ...)
 	__attribute__ ((__format__ (__printf__, 3, 4)));
 

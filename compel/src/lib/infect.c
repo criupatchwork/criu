@@ -1155,6 +1155,20 @@ static int make_sigframe_plain(void *from, struct rt_sigframe *f, struct rt_sigf
 	return 0;
 }
 
+int compel_emergency_sigframe(struct parasite_ctl *ctl, struct rt_sigframe *f,
+			      struct rt_sigframe *rtf)
+{
+	pid_t pid = ctl->rpid;
+	struct thread_ctx *thread = &ctl->orig;
+	struct plain_regs_struct regs;
+
+	if (get_task_regs(pid, &thread->regs, save_regs_plain, &regs)) {
+		pr_err("Can't obtain regs for thread %d\n", pid);
+		return -1;
+	}
+	return make_sigframe_plain(&regs, f, rtf, &thread->sigmask);
+}
+
 struct parasite_ctl *compel_prepare(int pid)
 {
 	struct parasite_ctl *ctl;
