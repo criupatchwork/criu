@@ -19,13 +19,13 @@
  */
 int clone_noasan(int (*fn)(void *), int flags, void *arg)
 {
+	int ret;
 	/*
 	 * Reserve some space for clone() to locate arguments
-	 * and retcode in this place
+	 * and retcode in this place. stack_ptr is set out of the current used
+	 * stack to be able to use CLONE_VFORK | CLONE_VM.
 	 */
-	char stack[128] __stack_aligned__;
-	char *stack_ptr = &stack[sizeof(stack)];
-	int ret;
+	void *stack_ptr = (void *) round_down(((unsigned long) &ret) - 256, 16);
 
 	ret = clone(fn, stack_ptr, flags, arg);
 	return ret;

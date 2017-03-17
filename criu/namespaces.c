@@ -33,6 +33,7 @@
 #include "common/scm.h"
 #include "fdstore.h"
 #include "proc_parse.h"
+#include "clone-noasan.h"
 
 static struct ns_desc *ns_desc_array[] = {
 	&net_ns_desc,
@@ -985,19 +986,17 @@ static int dump_user_ns(void *arg)
 
 	if (switch_ns(ns->parent->ns_pid, &user_ns_desc, NULL) < 0) {
 		pr_err("Can't enter user namespace\n");
-		return -1;
+		_exit(1);
 	}
-
-	return __dump_user_ns(ns);
+	_exit(__dump_user_ns(ns) == 0 ? 0 : 1);
 }
 
 int collect_user_ns(struct ns_id *ns, void *oarg)
 {
-	int status, stack_size;
+	int status;
 	struct ns_id *p_ns;
 	pid_t pid = -1;
 	UsernsEntry *e;
-	char *stack;
 
 	p_ns = ns->parent;
 
@@ -1026,13 +1025,7 @@ int collect_user_ns(struct ns_id *ns, void *oarg)
 		 * may do changes about CRIU's internal files states in memory,
 		 * so pass CLONE_FILES to reflect that.
 		 */
-		stack_size = 2 * 1024 * 1024;
-		stack = mmap(NULL, stack_size, PROT_WRITE | PROT_READ, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-		if (stack == MAP_FAILED) {
-			pr_perror("Can't allocate stack");
-			return -1;
-		}
-		pid = clone(dump_user_ns, stack + stack_size, CLONE_VM | CLONE_FILES | SIGCHLD, ns);
+		pid = clone_noasan(dump_user_ns, CLONE_VM | CLONE_FILES | SIGCHLD | CLONE_VFORK, ns);
 		if (pid == -1) {
 			pr_perror("Can't clone");
 			return -1;
@@ -1045,7 +1038,6 @@ int collect_user_ns(struct ns_id *ns, void *oarg)
 			pr_err("Can't dump nested user_ns: %x\n", status);
 			return -1;
 		}
-		munmap(stack, stack_size);
 		return 0;
 	} else {
 		if (__dump_user_ns(ns))
