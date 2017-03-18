@@ -522,6 +522,11 @@ int copy_file(int fd_in, int fd_out, size_t bytes)
 	char *buffer = (char*) malloc(chunk);
 	ssize_t ret;
 
+	if (buffer == NULL) {
+		pr_perror("failed to allocate buffer to copy file");
+		return -1;
+	}
+
 	while (1) {
 		if (opts.remote) {
 			ret = read(fd_in, buffer, chunk);

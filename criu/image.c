@@ -332,9 +332,14 @@ int do_open_remote_image(int dfd, char *path, int flags)
 	/* When using namespaces, the current dir is changed so we need to
 	 * change to previous working dir and back to correctly open the image
 	 * proxy and cache sockets. */
-	int save = dirfd(opendir("."));
+	int save = open(".", O_RDONLY);
+	if (save < 0) {
+		pr_perror("unable to open current working directory");
+		return -1;
+	}
+
 	if (fchdir(get_service_fd(IMG_FD_OFF)) < 0) {
-		pr_debug("fchdir to dfd failed!\n");
+		pr_perror("fchdir to dfd failed!\n");
 		return -1;
 	}
 
@@ -353,7 +358,7 @@ int do_open_remote_image(int dfd, char *path, int flags)
 	}
 
 	if (fchdir(save) < 0) {
-		pr_debug("fchdir to save failed!\n");
+		pr_perror("fchdir to save failed");
 		return -1;
 	}
 	close(save);
