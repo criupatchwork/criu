@@ -728,7 +728,7 @@ int64_t send_image(int fd, struct rimage *rimg, int flags, bool close_fd)
 			} else if (rimg->curr_sent_bytes == rimg->curr_sent_buf->nbytes) {
 				if (close_fd)
 					close(fd);
-			       return nblocks*BUF_SIZE + rimg->curr_sent_buf->nbytes;
+			       return ((int64_t)nblocks*BUF_SIZE) + rimg->curr_sent_buf->nbytes;
 			}
 		} else if (errno == EPIPE || errno == ECONNRESET) {
 			pr_warn("Connection for %s:%s was closed early than expected\n",
