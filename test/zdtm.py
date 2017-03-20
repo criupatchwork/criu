@@ -329,6 +329,13 @@ def wait_pid_die(pid, who, tmo = 30):
 def test_flag(tdesc, flag):
 	return flag in tdesc.get('flags', '').split()
 
+
+def reset_pid(pid = 1):
+	fd = open('/proc/sys/kernel/ns_last_pid', 'w')
+	fd.write('%s' % pid)
+	fd.close()
+
+
 #
 # Exception thrown when something inside the test goes wrong,
 # e.g. test doesn't start, criu returns with non zero code or
@@ -383,7 +390,7 @@ class zdtm_test:
 		if self.__freezer:
 			self.__freezer.freeze()
 
-	def __pidfile(self):
+	def pidfile(self):
 		return self.__name + '.pid'
 
 	def __wait_task_die(self):
@@ -464,7 +471,7 @@ class zdtm_test:
 
 	def getpid(self):
 		if self.__pid == 0:
-			self.__pid = rpidfile(self.__pidfile())
+			self.__pid = rpidfile(self.pidfile())
 
 		return self.__pid
 
@@ -472,7 +479,7 @@ class zdtm_test:
 		return self.__name
 
 	def __getcropts(self):
-		opts = self.__desc.get('opts', '').split() + ["--pidfile", os.path.realpath(self.__pidfile())]
+		opts = self.__desc.get('opts', '').split() + ["--pidfile", os.path.realpath(self.pidfile())]
 		if self.__flavor.ns:
 			opts += ["--root", self.__flavor.root]
 		if test_flag(self.__desc, 'crlib'):
@@ -494,7 +501,7 @@ class zdtm_test:
 		self.__wait_task_die()
 		self.__pid = 0
 		if force:
-			os.unlink(self.__pidfile())
+			os.unlink(self.pidfile())
 
 	def print_output(self):
 		if os.access(self.__name + '.out', os.R_OK):
@@ -788,6 +795,7 @@ class criu:
 		self.__leave_stopped = (opts['stop'] and True or False)
 		self.__remote = (opts['remote'] and True or False)
 		self.__criu = (opts['rpc'] and criu_rpc or criu_cli)
+		self.__check_only = (opts['check_only'] and True or False)
 		self.__lazy_pages_p = None
 		self.__page_server_p = None
 
@@ -832,7 +840,10 @@ class criu:
 
 		with open(os.path.join(self.__ddir(), action + '.cropt'), 'w') as f:
 			f.write(' '.join(s_args) + '\n')
-		print "Run criu " + action
+		if '--check-only' in opts:
+			print "Run criu " + action + " in check-only mode"
+		else:
+			print "Run criu " + action
 
 		strace = []
 		if self.__sat:
@@ -867,6 +878,15 @@ class criu:
 				raise test_fail_exc("criu %s exited with %s" % (action, ret))
 			os.close(status_fds[0])
 			return ret
+
+
+		if '--check-only' in opts and action == "restore":
+			try:
+				# Delete the pidfile of the check-only restore,
+				# so that the real restore does not fail.
+				os.unlink(self.__test.pidfile())
+			except:
+				pass
 
 		grep_errors(os.path.join(__ddir, log))
 		if ret != 0:
@@ -949,6 +969,9 @@ class criu:
 		if self.__empty_ns:
 			a_opts += ['--empty-ns', 'net']
 
+		if self.__check_only:
+			self.__criu_act(action, opts = a_opts + opts + ['--check-only'])
+
 		self.__criu_act(action, opts = a_opts + opts)
 		if self.__mdedup and self.__iter > 1:
 			self.__criu_act("dedup", opts = [])
@@ -997,6 +1020,11 @@ class criu:
 
 		if self.__leave_stopped:
 			r_opts += ['--leave-stopped']
+
+		if self.__check_only:
+			self.__criu_act("restore", opts = r_opts + ["--restore-detached"] + ['--check-only'])
+			# the real restore fails with PID conflicts without this
+			reset_pid()
 
 		self.__criu_act("restore", opts = r_opts + ["--restore-detached"])
 
@@ -1454,7 +1482,7 @@ class launcher:
 		nd = ('nocr', 'norst', 'pre', 'iters', 'page_server', 'sibling', 'stop', 'empty_ns',
 				'fault', 'keep_img', 'report', 'snaps', 'sat', 'script', 'rpc', 'lazy_pages',
 				'join_ns', 'dedup', 'sbs', 'freezecg', 'user', 'dry_run', 'noauto_dedup',
-				'remote_lazy_pages', 'remote')
+				'remote_lazy_pages', 'remote', 'check_only')
 		arg = repr((name, desc, flavor, {d: self.__opts[d] for d in nd}))
 
 		if self.__use_log:
@@ -1947,6 +1975,7 @@ rp.add_argument("--report", help = "Generate summary report in directory")
 rp.add_argument("--keep-going", help = "Keep running tests in spite of failures", action = 'store_true')
 rp.add_argument("--lazy-pages", help = "restore pages on demand", action = 'store_true')
 rp.add_argument("--remote-lazy-pages", help = "simulate lazy migration", action = 'store_true')
+rp.add_argument("--check-only", help = "Additionally try to dump/restore in --check-only mode", action = 'store_true')
 
 lp = sp.add_parser("list", help = "List tests")
 lp.set_defaults(action = list_tests)
