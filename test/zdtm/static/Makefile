@@ -179,6 +179,7 @@ TST_NOFILE	:=				\
 		netns_sub			\
 		userns00			\
 		userns01			\
+		userns02			\
 #		jobctl00			\
 
 ifneq ($(SRCARCH),arm)
@@ -466,6 +467,7 @@ socket-tcp6-closing:	override CFLAGS += -D ZDTM_IPV6
 socket-tcp6-unconn:	override CFLAGS += -D ZDTM_IPV6
 
 pty-console:		override CFLAGS += -D ZDTM_DEV_CONSOLE
+userns02:		override CFLAGS += -D USERNS02
 
 $(LIB):	force
 	$(Q) $(MAKE) -C $(LIBDIR)
