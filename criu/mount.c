@@ -1335,6 +1335,7 @@ static int dump_one_mountpoint(struct mount_info *pm, struct cr_img *img)
 		 * for reverse mapping details.
 		 */
 		me.root	= pm->external;
+		me.ext_real_root = pm->root;
 		me.has_ext_mount = true;
 		me.ext_mount = true;
 	} else
@@ -2445,7 +2446,7 @@ static int get_mp_root(MntEntry *me, struct mount_info *mi)
 {
 	char *ext = NULL;
 
-	mi->root = xstrdup(me->root);
+	mi->root = xstrdup(me->ext_real_root ? : me->root);
 	if (!mi->root)
 		return -1;
 
