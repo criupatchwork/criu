@@ -185,6 +185,7 @@ TST_NOFILE	:=				\
 		netns_sub			\
 		userns00			\
 		userns01			\
+		userns02			\
 #		jobctl00			\
 
 include ../Makefile.inc
@@ -481,6 +482,7 @@ socket-tcp6-closing:	CFLAGS += -D ZDTM_IPV6
 socket-tcp6-unconn:	CFLAGS += -D ZDTM_IPV6
 
 pty-console:		CFLAGS += -D ZDTM_DEV_CONSOLE
+userns02:		CFLAGS += -D USERNS02
 
 shm-unaligned:		CFLAGS += -DZDTM_SHM_UNALIGNED
 
