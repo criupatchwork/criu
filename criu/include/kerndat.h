@@ -41,6 +41,8 @@ struct kerndat_s {
 	unsigned long mmap_min_addr;
 	bool has_tcp_half_closed;
 	unsigned long uffd_features;
+	bool has_nsid;
+	bool has_link_nsid;
 };
 
 extern struct kerndat_s kdat;
