@@ -1785,8 +1785,9 @@ int prepare_net_namespaces()
 				pr_perror("Can't clone");
 				goto err;
 			}
+			errno = 0;
 			if (waitpid(pid, &status, 0) != pid || !WIFEXITED(status) || WEXITSTATUS(status)) {
-				pr_perror("Child process waiting %d", status);
+				pr_err("Child waiting: errno=%d, status=%d\n", errno, status);
 				goto err;
 			}
 		} else {
