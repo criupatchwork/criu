@@ -1788,14 +1788,18 @@ int prepare_net_namespaces()
 			errno = 0;
 			if (waitpid(pid, &status, 0) != pid || !WIFEXITED(status) || WEXITSTATUS(status)) {
 				pr_err("Child waiting: errno=%d, status=%d\n", errno, status);
+				close_pid_proc();
 				goto err;
 			}
+			/*
+			 * Child opened PROC_SELF for pid. If we create one more child
+			 * with the same pid later, it will try to reuse this PROC_SELF.
+			 */
+			close_pid_proc();
 		} else {
 			if (do_create_net_ns(nsid))
 				goto err;
-
 		}
-
 	}
 
 	close_service_fd(NS_FD_OFF);

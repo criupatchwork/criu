@@ -1039,8 +1039,15 @@ int collect_user_ns(struct ns_id *ns, void *oarg)
 		}
 		if (waitpid(pid, &status, 0) != pid) {
 			pr_perror("Unable to wait the %d process", pid);
+			close_pid_proc();
 			return -1;
 		}
+		/*
+		 * Child opened PROC_SELF for pid. If we create one more child
+		 * with the same pid later, it will try to reuse this /proc/self.
+		 */
+		close_pid_proc();
+
 		if (!WIFEXITED(status) || WEXITSTATUS(status)) {
 			pr_err("Can't dump nested user_ns: %x\n", status);
 			return -1;
