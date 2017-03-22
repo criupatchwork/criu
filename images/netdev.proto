@@ -45,6 +45,8 @@ message net_device_entry {
 
 	optional uint32 peer_ifindex	= 12;
 	optional uint32 peer_nsid	= 13;
+
+	optional uint32 master		= 14;
 }
 
 message netns_id {
