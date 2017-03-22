@@ -476,6 +476,11 @@ int open_image_dir(char *dir)
 	}
 
 	ret = install_service_fd(IMG_FD_OFF, fd);
+	if (ret < 0) {
+		pr_err("Can't install service fd\n");
+		close(fd);
+		return -1;
+	}
 	close(fd);
 	fd = ret;
 
