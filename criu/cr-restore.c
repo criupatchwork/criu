@@ -1795,9 +1795,10 @@ static int restore_root_task(struct pstree_item *init)
 	}
 
 	ret = install_service_fd(CR_PROC_FD_OFF, fd);
-	close(fd);
-	if (ret < 0)
+	if (ret < 0) {
+		close(fd);
 		return -1;
+	}
 
 	/*
 	 * FIXME -- currently we assume that all the tasks live

@@ -481,7 +481,6 @@ int open_image_dir(char *dir)
 		close(fd);
 		return -1;
 	}
-	close(fd);
 	fd = ret;
 
 	if (opts.remote) {

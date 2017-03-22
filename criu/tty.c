@@ -2133,7 +2133,7 @@ int tty_prep_fds(void)
 	else
 		stdin_isatty = true;
 
-	if (install_service_fd(SELF_STDIN_OFF, STDIN_FILENO) < 0) {
+	if (do_install_service_fd(SELF_STDIN_OFF, STDIN_FILENO) < 0) {
 		pr_err("Can't dup stdin to SELF_STDIN_OFF\n");
 		return -1;
 	}

@@ -267,7 +267,8 @@ static inline int set_proc_pid_fd(int pid, int fd)
 
 	open_proc_pid = pid;
 	ret = install_service_fd(PROC_PID_FD_OFF, fd);
-	close(fd);
+	if (ret < 0)
+		close(fd);
 
 	return ret;
 }
@@ -301,7 +302,7 @@ void close_proc()
 
 int set_proc_fd(int fd)
 {
-	if (install_service_fd(PROC_FD_OFF, fd) < 0)
+	if (do_install_service_fd(PROC_FD_OFF, fd) < 0)
 		return -1;
 	return 0;
 }
@@ -318,9 +319,10 @@ static int open_proc_sfd(char *path)
 	}
 
 	ret = install_service_fd(PROC_FD_OFF, fd);
-	close(fd);
-	if (ret < 0)
+	if (ret < 0) {
+		close(fd);
 		return -1;
+	}
 
 	return 0;
 }
@@ -432,7 +434,7 @@ int reserve_service_fd(enum sfd_type type)
 	return sfd;
 }
 
-int install_service_fd(enum sfd_type type, int fd)
+int do_install_service_fd(enum sfd_type type, int fd)
 {
 	int sfd = __get_service_fd(type, service_fd_id);
 
@@ -444,6 +446,18 @@ int install_service_fd(enum sfd_type type, int fd)
 	}
 
 	set_bit(type, sfd_map);
+	return sfd;
+}
+
+int install_service_fd(enum sfd_type type, int fd)
+{
+	int sfd;
+
+	sfd = do_install_service_fd(type, fd);
+	if (sfd < 0)
+		return sfd;
+	if (sfd != fd)
+		close(fd);
 	return sfd;
 }
 

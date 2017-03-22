@@ -1867,11 +1867,11 @@ int netns_keep_nsfd(void)
 	}
 
 	ret = install_service_fd(NS_FD_OFF, ns_fd);
-	if (ret < 0)
+	if (ret < 0) {
 		pr_err("Can't install ns net reference\n");
-	else
+		close(ns_fd);
+	} else
 		pr_info("Saved netns fd for links restore\n");
-	close(ns_fd);
 
 	return ret >= 0 ? 0 : -1;
 }

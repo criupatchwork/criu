@@ -276,9 +276,10 @@ int prepare_lazy_pages_socket(void)
 		return -1;
 
 	new_fd = install_service_fd(LAZY_PAGES_SK_OFF, fd);
-	close(fd);
-	if (new_fd < 0)
+	if (new_fd < 0) {
+		close(fd);
 		return -1;
+	}
 
 	len = offsetof(struct sockaddr_un, sun_path) + strlen(sun.sun_path);
 	if (connect(new_fd, (struct sockaddr *) &sun, len) < 0) {

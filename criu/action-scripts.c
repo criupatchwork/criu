@@ -161,7 +161,7 @@ int add_rpc_notify(int sk)
 	BUG_ON(scripts_mode == SCRIPTS_SHELL);
 	scripts_mode = SCRIPTS_RPC;
 
-	rpc_sk = install_service_fd(RPC_SK_OFF, sk);
+	rpc_sk = do_install_service_fd(RPC_SK_OFF, sk);
 
 	return 0;
 }

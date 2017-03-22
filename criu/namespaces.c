@@ -1684,7 +1684,6 @@ static int start_usernsd(void)
 		return -1;
 	}
 
-	close(sk[0]);
 	return 0;
 }
 

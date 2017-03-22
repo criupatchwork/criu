@@ -1659,7 +1659,6 @@ int open_transport_socket(void)
 		close(sock);
 		return -1;
 	}
-	close(sock);
 
 	return 0;
 }

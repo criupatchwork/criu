@@ -160,9 +160,10 @@ int log_init(const char *output)
 	}
 
 	fd = install_service_fd(LOG_FD_OFF, new_logfd);
-	close(new_logfd);
-	if (fd < 0)
+	if (fd < 0) {
+		close(new_logfd);
 		goto err;
+	}
 
 	return 0;
 
