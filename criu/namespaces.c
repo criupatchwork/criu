@@ -2210,7 +2210,7 @@ static int create_user_ns_hierarhy_fn(void *in_arg)
 		futex_set_and_wake(p_futex, NS__CREATED);
 		fd = open("/proc/self/ns/user", O_RDONLY);
 		if (fd < 0) {
-			pr_err("Can't get self user ns");
+			pr_perror("Can't get self user ns");
 			goto out;
 		}
 		me->user.nsfd_id = fdstore_add(fd);
