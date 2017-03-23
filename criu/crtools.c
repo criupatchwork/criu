@@ -291,6 +291,7 @@ int main(int argc, char *argv[], char *envp[])
 		{ "weak-sysctls",		no_argument,		0, 1087 },
 		{ "status-fd",			required_argument,	0, 1088 },
 		{ "remote",			no_argument,		0, 1089 },
+		{ "skip-fsize-path",		required_argument,	0, 1090 },
 		{ },
 	};
 
@@ -625,6 +626,20 @@ int main(int argc, char *argv[], char *envp[])
 		case 1089:
 			opts.remote = true;
 			break;
+		case 1090:
+			if (xrealloc_safe(&opts.skip_fsize_paths,
+					  sizeof(opts.skip_fsize_paths) *
+					  (opts.nr_skip_fsize_paths + 1))) {
+				pr_err("Can't setup path to skip size on\n");
+				return 1;
+			} else {
+				/*
+				 * We don't release this memory
+				 * explicitly, OS will do upon exit.
+				 */
+				opts.skip_fsize_paths[opts.nr_skip_fsize_paths++] = optarg;
+			}
+			break;
 		case 'V':
 			pr_msg("Version: %s\n", CRIU_VERSION);
 			if (strcmp(CRIU_GITID, "0"))
@@ -926,6 +941,9 @@ usage:
 "                        define cgroup controller to be dumped\n"
 "                        and skip anything else present in system\n"
 "  --skip-mnt PATH       ignore this mountpoint when dumping the mount namespace\n"
+"  --skip-fsize-path PATH\n"
+"                        ignore this relative PATH when checking for file size on both\n"
+"                        during checkpoing and restore\n"
 "  --enable-fs FSNAMES   a comma separated list of filesystem names or \"all\"\n"
 "                        force criu to (try to) dump/restore these filesystem's\n"
 "                        mountpoints even if fs is not supported\n"

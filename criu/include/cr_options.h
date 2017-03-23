@@ -122,6 +122,8 @@ struct cr_options {
 	bool			orphan_pts_master;
 	bool			check_only;
 	bool			remote;
+	size_t			nr_skip_fsize_paths;
+	char			**skip_fsize_paths;
 };
 
 extern struct cr_options opts;

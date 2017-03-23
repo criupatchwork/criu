@@ -1089,8 +1089,28 @@ static int check_path_remap(struct fd_link *link, const struct fd_parms *parms,
 	return 0;
 }
 
-static bool should_check_size(int flags)
+static bool in_skip_fsize_list(const char *name)
 {
+	size_t i;
+
+	/*
+	 * If been explicitly requested, don't check for
+	 * size, for example on files which are updated
+	 * by kernel itself with acct() syscall.
+	 */
+	for (i = 0; i < opts.nr_skip_fsize_paths; i++) {
+		if (!strcmp(opts.skip_fsize_paths[i], name))
+			return true;
+	}
+
+	return false;
+}
+
+static bool should_check_size(char *name, int flags)
+{
+	if (in_skip_fsize_list(name))
+		return false;
+
 	/* Skip size if file has O_APPEND and O_WRONLY flags (e.g. log file). */
 	if (((flags & O_ACCMODE) == O_WRONLY) &&
 			(flags & O_APPEND))
@@ -1160,7 +1180,7 @@ ext:
 	rfe.has_mode	= true;
 	rfe.mode	= p->stat.st_mode;
 
-	if (S_ISREG(p->stat.st_mode) && should_check_size(rfe.flags)) {
+	if (S_ISREG(p->stat.st_mode) && should_check_size(&link->name[1], rfe.flags)) {
 		rfe.has_size = true;
 		rfe.size = p->stat.st_size;
 	}
@@ -1514,7 +1534,9 @@ ext:
 			return -1;
 		}
 
-		if (rfi->rfe->has_size && (st.st_size != rfi->rfe->size)) {
+		if (rfi->rfe->has_size &&
+		    !in_skip_fsize_list(rfi->path) &&
+		    (st.st_size != rfi->rfe->size)) {
 			pr_err("File %s has bad size %"PRIu64" (expect %"PRIu64")\n",
 					rfi->path, st.st_size,
 					rfi->rfe->size);
