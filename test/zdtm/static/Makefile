@@ -106,7 +106,6 @@ TST_NOFILE	:=				\
 		groups				\
 		pdeath_sig			\
 		file_fown			\
-		proc-self			\
 		eventfs00			\
 		signalfd00			\
 		inotify_irmap			\
