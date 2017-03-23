@@ -760,7 +760,7 @@ int set_netns(uint32_t ns_id)
 
 	ns = lookup_ns_by_id(ns_id, &net_ns_desc);
 	if (ns == NULL) {
-		pr_err("Unable to find a network namespace");
+		pr_err("Unable to find a network namespace\n");
 		return -1;
 	}
 	nsfd = fdstore_get(ns->net.nsfd_id);

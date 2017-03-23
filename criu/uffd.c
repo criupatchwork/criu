@@ -626,7 +626,7 @@ static int ud_open(int client, struct lazy_pages_info **_lpi)
 
 	lpi->lpfd.fd = recv_fd(client);
 	if (lpi->lpfd.fd < 0) {
-		pr_err("recv_fd error");
+		pr_err("recv_fd error\n");
 		goto out;
 	}
 	pr_debug("Received PID: %d, uffd: %d\n", lpi->pid, lpi->lpfd.fd);

@@ -1750,7 +1750,7 @@ static int create_net_ns(void *arg)
 		exit(2);
 	}
 	if (prepare_userns_creds() < 0) {
-		pr_err("Can't prepare creds");
+		pr_err("Can't prepare creds\n");
 		exit(3);
 	}
 	close(ufd);

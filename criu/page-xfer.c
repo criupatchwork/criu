@@ -466,7 +466,7 @@ int check_parent_local_xfer(int fd_type, int id)
 
 	if (opts.remote) {
 		pfd = get_curr_parent_snapshot_id_idx();
-		pr_err("Unable to get parent snapsgot id");
+		pr_err("Unable to get parent snapshot id\n");
 		if (pfd == -1)
 			return -1;
 	} else {
