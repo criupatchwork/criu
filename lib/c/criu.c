@@ -880,6 +880,31 @@ int criu_add_external(char *key)
 	return criu_local_add_external(global_opts, key);
 }
 
+int criu_local_add_skip_fsize_path(criu_opts *opts, char *path)
+{
+	char **new;
+	size_t nr;
+
+	nr = opts->rpc->n_skip_fsize_paths + 1;
+	new = realloc(opts->rpc->skip_fsize_paths, nr * sizeof(char *));
+	if (!new)
+		return -ENOMEM;
+
+	new[opts->rpc->n_skip_fsize_paths] = strdup(path);
+	if (!new[opts->rpc->n_skip_fsize_paths])
+		return -ENOMEM;
+
+	opts->rpc->n_skip_fsize_paths = nr;
+	opts->rpc->skip_fsize_paths = new;
+
+	return 0;
+}
+
+int criu_add_skip_fsize_path(char *path)
+{
+	return criu_local_add_skip_fsize_path(global_opts, path);
+}
+
 static CriuResp *recv_resp(int socket_fd)
 {
 	unsigned char *buf = NULL;

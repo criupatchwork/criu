@@ -534,6 +534,15 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	if (req->orphan_pts_master)
 		opts.orphan_pts_master = true;
 
+	if (req->n_skip_fsize_paths) {
+		opts.skip_fsize_paths = xmalloc(sizeof(opts.skip_fsize_paths) *
+						req->n_skip_fsize_paths);
+		if (!opts.skip_fsize_paths)
+			goto err;
+		for (i = 0; i < req->n_skip_fsize_paths; i++)
+			opts.skip_fsize_paths[i] = req->skip_fsize_paths[i];
+	}
+
 	if (check_namespace_opts())
 		goto err;
 
