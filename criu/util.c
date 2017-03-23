@@ -540,7 +540,8 @@ int copy_file(int fd_in, int fd_out, size_t bytes)
 				goto err;
 			}
 		} else
-                        ret = sendfile(fd_out, fd_in, NULL, chunk);
+			ret = sendfile(fd_out, fd_in, NULL, chunk);
+
 		if (ret < 0) {
 			pr_perror("Can't send data to ghost file");
 			ret = -1;

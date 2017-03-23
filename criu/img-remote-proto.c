@@ -490,38 +490,38 @@ struct rimage *prepare_remote_image(char *path, char *snapshot_id, int open_mode
 
 void *process_local_read(struct wthread *wt)
 {
-    	struct rimage *rimg = NULL;
+	struct rimage *rimg = NULL;
 	int64_t ret;
-        /* TODO - split wait_for_image
-        * in cache - improve the parent stuf
-        * in proxy - do not wait for anything, return no file
-        */
-        rimg = wait_for_image(wt);
-        if (!rimg) {
-                pr_info("No image %s:%s.\n", wt->path, wt->snapshot_id);
-                if (write_reply_header(wt->fd, ENOENT) < 0)
-                        pr_perror("Error writing reply header for unexisting image");
-                close(wt->fd);
-                return NULL;
-        } else {
-                if (write_reply_header(wt->fd, 0) < 0) {
-                    pr_perror("Error writing reply header for %s:%s",
-                        wt->path, wt->snapshot_id);
-                    close(wt->fd);
-                    return NULL;
-                }
-        }
+	/* TODO - split wait_for_image
+	 * in cache - improve the parent stuf
+	 * in proxy - do not wait for anything, return no file
+	 */
+	rimg = wait_for_image(wt);
+	if (!rimg) {
+		pr_info("No image %s:%s.\n", wt->path, wt->snapshot_id);
+		if (write_reply_header(wt->fd, ENOENT) < 0)
+			pr_perror("Error writing reply header for unexisting image");
+		close(wt->fd);
+		return NULL;
+	} else {
+		if (write_reply_header(wt->fd, 0) < 0) {
+			pr_perror("Error writing reply header for %s:%s",
+					wt->path, wt->snapshot_id);
+			close(wt->fd);
+			return NULL;
+		}
+	}
 
-        pthread_mutex_lock(&(rimg->in_use));
-        ret = send_image(wt->fd, rimg, wt->flags, true);
-        if (ret < 0)
-                pr_perror("Unable to send %s:%s to CRIU (sent %ld bytes)",
-                    rimg->path, rimg->snapshot_id, (long)ret);
-        else
-                pr_info("Finished sending %s:%s to CRIU (sent %ld bytes)\n",
-                    rimg->path, rimg->snapshot_id, (long)ret);
-        pthread_mutex_unlock(&(rimg->in_use));
-        return NULL;
+	pthread_mutex_lock(&(rimg->in_use));
+	ret = send_image(wt->fd, rimg, wt->flags, true);
+	if (ret < 0)
+		pr_perror("Unable to send %s:%s to CRIU (sent %ld bytes)",
+				rimg->path, rimg->snapshot_id, (long)ret);
+	else
+		pr_info("Finished sending %s:%s to CRIU (sent %ld bytes)\n",
+				rimg->path, rimg->snapshot_id, (long)ret);
+	pthread_mutex_unlock(&(rimg->in_use));
+	return NULL;
 }
 
 static void *process_local_image_connection(void *ptr)
@@ -532,46 +532,46 @@ static void *process_local_image_connection(void *ptr)
 
 	/* NOTE: the code inside this if is shared for both cache and proxy. */
 	if (wt->flags == O_RDONLY)
-            return process_local_read(wt);
+		return process_local_read(wt);
 
 	/* NOTE: IMAGE PROXY ONLY. The image cache receives write connections
 	 * through TCP (see accept_remote_image_connections).
 	 */
-        rimg = prepare_remote_image(wt->path, wt->snapshot_id, wt->flags);
-        ret = recv_image(wt->fd, rimg, 0, wt->flags, true);
-        if (ret < 0) {
-                pr_perror("Unable to receive %s:%s to CRIU (received %ld bytes)",
-                    rimg->path, rimg->snapshot_id, (long)ret);
-                finalize_recv_rimg(NULL);
-                return NULL;
-        }
-        finalize_recv_rimg(rimg);
-        pr_info("Finished receiving %s:%s (received %ld bytes)\n",
-                rimg->path, rimg->snapshot_id, (long)ret);
+	rimg = prepare_remote_image(wt->path, wt->snapshot_id, wt->flags);
+	ret = recv_image(wt->fd, rimg, 0, wt->flags, true);
+	if (ret < 0) {
+		pr_perror("Unable to receive %s:%s to CRIU (received %ld bytes)",
+				rimg->path, rimg->snapshot_id, (long)ret);
+		finalize_recv_rimg(NULL);
+		return NULL;
+	}
+	finalize_recv_rimg(rimg);
+	pr_info("Finished receiving %s:%s (received %ld bytes)\n",
+			rimg->path, rimg->snapshot_id, (long)ret);
 
 
-        if (!strncmp(rimg->path, DUMP_FINISH, sizeof(DUMP_FINISH))) {
-                finished = true;
-                shutdown(local_req_fd, SHUT_RD);
-        } else {
-                pthread_mutex_lock(&proxy_to_cache_lock);
-                ret = forward_image(rimg);
-                pthread_mutex_unlock(&proxy_to_cache_lock);
-        }
+	if (!strncmp(rimg->path, DUMP_FINISH, sizeof(DUMP_FINISH))) {
+		finished = true;
+		shutdown(local_req_fd, SHUT_RD);
+	} else {
+		pthread_mutex_lock(&proxy_to_cache_lock);
+		ret = forward_image(rimg);
+		pthread_mutex_unlock(&proxy_to_cache_lock);
+	}
 
-        finalize_fwd_rimg();
-        if (ret < 0) {
-            pr_perror("Unable to forward %s:%s to Image Cache",
-                    rimg->path, rimg->snapshot_id);
+	finalize_fwd_rimg();
+	if (ret < 0) {
+		pr_perror("Unable to forward %s:%s to Image Cache",
+				rimg->path, rimg->snapshot_id);
 
-            return NULL;
-        }
+		return NULL;
+	}
 
-        if (finished && !is_forwarding() && !is_receiving()) {
-            pr_info("Closing connection to Image Cache.\n");
-            close(proxy_to_cache_fd);
-            unlock_workers();
-        }
+	if (finished && !is_forwarding() && !is_receiving()) {
+		pr_info("Closing connection to Image Cache.\n");
+		close(proxy_to_cache_fd);
+		unlock_workers();
+	}
 	return NULL;
 }
 
@@ -726,7 +726,7 @@ int64_t send_image(int fd, struct rimage *rimg, int flags, bool close_fd)
 			} else if (rimg->curr_sent_bytes == rimg->curr_sent_buf->nbytes) {
 				if (close_fd)
 					close(fd);
-			       return nblocks*BUF_SIZE + rimg->curr_sent_buf->nbytes;
+				return nblocks*BUF_SIZE + rimg->curr_sent_buf->nbytes;
 			}
 		} else if (errno == EPIPE || errno == ECONNRESET) {
 			pr_warn("Connection for %s:%s was closed early than expected\n",
