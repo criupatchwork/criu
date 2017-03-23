@@ -106,7 +106,7 @@ static int check_ns_file(char *ns_file)
 
 	ret = access(ns_file, 0);
 	if (ret < 0) {
-		pr_perror("Can't access join-ns file: %s", ns_file);
+		pr_perror("Can't access join-ns file %s", ns_file);
 		return -1;
 	}
 	return 0;
@@ -1366,7 +1366,7 @@ static int write_id_map(pid_t pid, UidGidExtent **extents, int n, char *id_map)
 	snprintf(buf, PAGE_SIZE, "%d/%s", pid, id_map);
 	fd = openat(fd, buf, O_WRONLY);
 	if (fd < 0) {
-		pr_perror("Can't open %s\n", buf);
+		pr_perror("Can't open %s", buf);
 		return -1;
 	}
 
@@ -2073,7 +2073,7 @@ static int get_join_ns_fd(struct join_ns *jn)
 
 	fd = open(pnsf, O_RDONLY);
 	if (fd < 0) {
-		pr_perror("Can't open ns file: %s", pnsf);
+		pr_perror("Can't open ns file %s", pnsf);
 		return -1;
 	}
 	jn->ns_fd = fd;
@@ -2254,7 +2254,7 @@ static int create_user_ns_hierarhy_fn(void *in_arg)
 
 		errno = 0;
 		if (wait(&status) < 0 || !WIFEXITED(status) || WEXITSTATUS(status)) {
-			pr_perror("Child process waiting: %d\n", status);
+			pr_perror("Child process waiting: %d", status);
 			goto out;
 		}
 	}
