@@ -1,3 +1,19 @@
+#define _GNU_SOURCE
+#include <sched.h>
+#include <stdbool.h>
+#include <string.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <signal.h>
+#include <stdio.h>
+#include <sys/mount.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <stdlib.h>
+#include <limits.h>
+#include <dirent.h>
 #include <unistd.h>
 #include <string.h>
 #include <fcntl.h>
@@ -6,6 +22,7 @@
 #include <linux/if.h>
 #include <linux/if_tun.h>
 
+#include "lock.h"
 #include "zdtmtst.h"
 
 const char *test_doc	= "Test TUN/TAP devices\n";
@@ -112,12 +129,34 @@ static int dev_get_hwaddr(int fd, char *a)
 	return 0;
 }
 
+futex_t *futex;
+
+int child(void *unused)
+{
+	futex_wait_while_lt(futex, 1);
+	return 0;
+}
+
 int main(int argc, char **argv)
 {
 	int fds[5], ret;
-	char addr[ETH_ALEN], a2[ETH_ALEN];
+	char addr[ETH_ALEN], a2[ETH_ALEN], stack[128];
+	pid_t pid;
 
 	test_init(argc, argv);
+
+	futex = mmap(NULL, sizeof(*futex), PROT_WRITE | PROT_READ, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	if (futex == MAP_FAILED) {
+		fail("mmap futex\n");
+		return 1;
+	}
+	futex_init(futex);
+
+	pid = clone(child, stack + 128, CLONE_NEWNET | SIGCHLD, NULL);
+	if (pid < 0) {
+		pr_perror("clone");
+		return 1;
+	}
 
 	/* fd[0] -- opened file */
 	fds[0] = __open_tun();
