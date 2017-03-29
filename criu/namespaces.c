@@ -2251,6 +2251,7 @@ out:
 		futex_set_and_wake(p_futex, ret ? NS__ERROR : NS__RESTORED);
 	if (arg)
 		munmap(arg, sizeof(*arg));
+	close_pid_proc();
 	return ret ? 1 : 0;
 }
 
