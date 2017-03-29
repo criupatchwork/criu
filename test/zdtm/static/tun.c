@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+#include <sched.h>
 #include <unistd.h>
 #include <string.h>
 #include <fcntl.h>
@@ -118,6 +120,11 @@ int main(int argc, char **argv)
 	char addr[ETH_ALEN], a2[ETH_ALEN];
 
 	test_init(argc, argv);
+
+	if (unshare(CLONE_NEWNET) < 0) {
+		pr_perror("unshare");
+		return -1;
+	}
 
 	/* fd[0] -- opened file */
 	fds[0] = __open_tun();
