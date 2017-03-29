@@ -15,6 +15,9 @@ alpine:
 	$(MAKE) -C ../build $@$(target-suffix)
 	docker run --rm -it --privileged -v /lib/modules:/lib/modules criu-alpine ./test/zdtm.py run -t zdtm/static/env00
 
+asan:
+	$(MAKE) -C ../build fedora-asan
+	docker run --rm -it --privileged -v /lib/modules:/lib/modules criu-fedora-asan ./scripts/travis/asan.sh
 
 %:
 	$(MAKE) -C ../build $@$(target-suffix)
