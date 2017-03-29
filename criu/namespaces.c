@@ -241,16 +241,12 @@ int switch_ns(int pid, struct ns_desc *nd, int *rst)
 
 int switch_ns_by_fd(int nsfd, struct ns_desc *nd, int *rst)
 {
-	char buf[32];
 	int ret = -1;
 
 	if (rst) {
-		snprintf(buf, sizeof(buf), "/proc/self/ns/%s", nd->str);
-		*rst = open(buf, O_RDONLY);
-		if (*rst < 0) {
-			pr_perror("Can't open ns file");
+		*rst = open_proc(PROC_SELF, "ns/%s", nd->str);
+		if (*rst < 0)
 			goto err_ns;
-		}
 	}
 
 	ret = setns(nsfd, nd->cflag);
@@ -2194,11 +2190,9 @@ static int create_user_ns_hierarhy_fn(void *in_arg)
 		/* Set self pid to allow parent restore user_ns maps */
 		p_arg->pid = get_self_real_pid();
 		futex_set_and_wake(p_futex, NS__CREATED);
-		fd = open("/proc/self/ns/user", O_RDONLY);
-		if (fd < 0) {
-			pr_perror("Can't get self user ns");
+		fd = open_proc(PROC_SELF, "ns/user");
+		if (fd < 0)
 			goto out;
-		}
 		me->user.nsfd_id = fdstore_add(fd);
 		close(fd);
 		if (me->user.nsfd_id < 0) {
