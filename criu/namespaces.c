@@ -2163,6 +2163,20 @@ err_out:
 	return ret;
 }
 
+int store_self_ns(struct ns_id *ns)
+{
+	int fd, id;
+
+	/* Pin one with a file descriptor */
+	fd = open_proc(PROC_SELF, "ns/%s", ns->nd->str);
+	if (fd < 0)
+		return -1;
+
+	id = fdstore_add(fd);
+	close(fd);
+	return id;
+}
+
 enum {
 	NS__CREATED = 1,
 	NS__MAPS_POPULATED,
@@ -2182,8 +2196,8 @@ static int create_user_ns_hierarhy_fn(void *in_arg)
 	char stack[128] __stack_aligned__;
 	struct ns_arg *arg = NULL, *p_arg = in_arg;
 	futex_t *p_futex = NULL, *futex = NULL;
-	int status, fd, ret = -1;
 	struct ns_id *me, *child;
+	int status, ret = -1;
 	pid_t pid = -1;
 
 	if (p_arg->me != root_user_ns)
@@ -2194,13 +2208,7 @@ static int create_user_ns_hierarhy_fn(void *in_arg)
 		/* Set self pid to allow parent restore user_ns maps */
 		p_arg->pid = get_self_real_pid();
 		futex_set_and_wake(p_futex, NS__CREATED);
-		fd = open("/proc/self/ns/user", O_RDONLY);
-		if (fd < 0) {
-			pr_perror("Can't get self user ns");
-			goto out;
-		}
-		me->user.nsfd_id = fdstore_add(fd);
-		close(fd);
+		me->user.nsfd_id = store_self_ns(me);
 		if (me->user.nsfd_id < 0) {
 			pr_err("Can't add fd to fdstore\n");
 			goto out;
