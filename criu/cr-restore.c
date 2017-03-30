@@ -2824,6 +2824,7 @@ rst_prep_creds_args(CredsEntry *ce, unsigned long *prev_pos)
 
 			args = rst_mem_remap_ptr(this_pos, RM_PRIVATE);
 			args->lsm_profile = lsm_profile;
+			creds = &args->creds;
 			strncpy(args->lsm_profile, rendered, lsm_profile_len);
 			xfree(rendered);
 		}
@@ -2855,6 +2856,7 @@ rst_prep_creds_args(CredsEntry *ce, unsigned long *prev_pos)
 		if (!groups)
 			return ERR_PTR(-ENOMEM);
 		args = rst_mem_remap_ptr(this_pos, RM_PRIVATE);
+		creds = &args->creds;
 		args->groups = groups;
 		memcpy(args->groups, ce->groups, ce->n_groups * sizeof(u32));
 	} else {
