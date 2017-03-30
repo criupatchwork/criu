@@ -23,6 +23,11 @@ static inline unsigned long rst_mem_grow(unsigned long need_size)
 {
 	int rst_mem_batch = 2 * page_size();
 
+#ifdef CR_DEBUG
+	if (need_size == 0)
+		return 0;
+#endif
+
 	need_size = round_up(need_size, page_size());
 	if (likely(need_size < rst_mem_batch))
 		need_size = rst_mem_batch;
@@ -88,8 +93,18 @@ static int grow_remap(struct rst_mem_type_s *t, int flag, unsigned long size)
 		 * a completely new one and force callers use objects'
 		 * cpos-s.
 		 */
+#ifdef CR_DEBUG
+		/* Move vma each time to another palce */
+		void *ptr = mmap(NULL, t->size + size, PROT_NONE, MAP_ANONYMOUS | MAP_PRIVATE, 0, 0);
+		if (ptr == MAP_FAILED)
+			return -1;
+		aux = mremap(t->buf, t->size,
+				t->size + size, MREMAP_MAYMOVE | MREMAP_FIXED, ptr);
+		munmap(t->buf, t->size);
+#else
 		aux = mremap(t->buf, t->size,
 				t->size + size, MREMAP_MAYMOVE);
+#endif
 	}
 	if (aux == MAP_FAILED)
 		return -1;
@@ -175,6 +190,10 @@ void *rst_mem_alloc(unsigned long size, int type)
 		pr_perror("Can't grow rst mem");
 		return NULL;
 	}
+#ifdef CR_DEBUG
+	else if (type == RM_PRIVATE && t->grow(t, 0)) /* Move a vma to another place */
+		return NULL;
+#endif
 
 	ret = t->free_mem;
 	t->free_mem += size;
