@@ -2257,7 +2257,26 @@ out:
 static int create_user_ns_hierarhy(void)
 {
 	struct ns_arg arg = { .me = root_user_ns };
-	return create_user_ns_hierarhy_fn(&arg);
+	sigset_t blockmask, oldmask;
+	int ret = 0;
+
+	sigemptyset(&blockmask);
+	sigaddset(&blockmask, SIGCHLD);
+
+	if (sigprocmask(SIG_BLOCK, &blockmask, &oldmask) == -1) {
+		pr_perror("Can not set mask of blocked signals");
+		return -1;
+	}
+
+	if (create_user_ns_hierarhy_fn(&arg))
+		ret = -1;
+
+	if (sigprocmask(SIG_SETMASK, &oldmask, NULL) == -1) {
+		pr_perror("Can not unset mask of blocked signals");
+		ret = -1;
+	}
+
+	return ret;
 }
 
 int prepare_namespace(struct pstree_item *item, unsigned long clone_flags)
