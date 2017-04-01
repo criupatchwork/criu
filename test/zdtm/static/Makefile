@@ -103,6 +103,7 @@ TST_NOFILE	:=				\
 		pdeath_sig			\
 		file_fown			\
 		proc-self			\
+		proc-self01			\
 		eventfs00			\
 		signalfd00			\
 		inotify_irmap			\
@@ -470,6 +471,7 @@ socket-tcp6-unconn:	CFLAGS += -D ZDTM_IPV6
 
 pty-console:		CFLAGS += -D ZDTM_DEV_CONSOLE
 userns02:		CFLAGS += -D USERNS02
+proc-self01:		override CFLAGS += -D PROC_SELF01
 
 shm-unaligned:		CFLAGS += -DZDTM_SHM_UNALIGNED
 
