@@ -1073,6 +1073,17 @@ static int check_sk_netns(void)
 	return 0;
 }
 
+static int check_ns_pid(void)
+{
+	if (kerndat_has_nspid() < 0)
+		return -1;
+
+	if (!kdat.has_nspid)
+		return -1;
+
+	return 0;
+}
+
 static int (*chk_feature)(void);
 
 /*
@@ -1178,6 +1189,7 @@ int cr_check(void)
 		ret |= check_loginuid();
 		ret |= check_can_map_vdso();
 		ret |= check_sk_netns();
+		ret |= check_ns_pid();
 	}
 
 	/*
@@ -1259,6 +1271,7 @@ static struct feature_list feature_list[] = {
 	{ "sk_ns", check_sk_netns },
 	{ "nsid", check_nsid },
 	{ "link_nsid", check_link_nsid},
+	{ "ns_pid", check_ns_pid},
 	{ NULL, NULL },
 };
 
