@@ -53,6 +53,7 @@ struct kerndat_s {
 	unsigned long uffd_features;
 	bool has_nsid;
 	bool has_link_nsid;
+	bool has_nspid;
 };
 
 extern struct kerndat_s kdat;
@@ -75,5 +76,6 @@ extern int kerndat_fs_virtualized(unsigned int which, u32 kdev);
 
 extern int kerndat_tcp_repair();
 extern int kerndat_uffd(bool need_uffd);
+extern int kerndat_has_nspid(void);
 
 #endif /* __CR_KERNDAT_H__ */
