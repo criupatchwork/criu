@@ -285,6 +285,7 @@ TST_DIR		=				\
 		mnt_enablefs			\
 		autofs				\
 		del_standalone_un		\
+		sk-unix01			\
 
 TST_DIR_FILE	=				\
 		chroot				\
