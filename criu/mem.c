@@ -568,8 +568,6 @@ static int map_private_vma(struct pstree_item *t,
 			pr_err("Can't fixup VMA's fd\n");
 			return -1;
 		}
-
-		vma->vm_open = NULL; /* prevent from 2nd open in prepare_vmas */
 	}
 
 	nr_pages = vma_entry_len(vma->e) / PAGE_SIZE;
@@ -668,7 +666,7 @@ static int map_private_vma(struct pstree_item *t,
 	}
 
 	if (vma_area_is(vma, VMA_FILE_PRIVATE))
-		close(vma->e->fd);
+		vma->vm_open = NULL; /* prevent from 2nd open in prepare_vmas */
 
 	*tgt_addr += size;
 	return 0;
@@ -708,6 +706,8 @@ static int premap_priv_vmas(struct pstree_item *t, struct vm_area_list *vmas, vo
 		if (ret < 0)
 			break;
 	}
+
+	filemap_fin_opens();
 
 	return ret;
 }

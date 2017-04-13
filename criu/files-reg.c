@@ -1616,6 +1616,25 @@ int open_reg_by_id(u32 id)
 	return open_reg_fd(fd);
 }
 
+/*
+ * In many cases subsequent areas have the same file mapped,
+ * so we may save some open-s when mapping them and map the
+ * same descriptor many times (provided fdflags match).
+ */
+static struct {
+	struct file_desc *d;
+	u32 flags;
+	int fd;
+} prev_filemap;
+
+void filemap_fin_opens(void)
+{
+	if (prev_filemap.d) {
+		close(prev_filemap.fd);
+		prev_filemap.d = NULL;
+	}
+}
+
 static int open_filemap(int pid, struct vma_area *vma)
 {
 	u32 flags;
@@ -1636,9 +1655,20 @@ static int open_filemap(int pid, struct vma_area *vma)
 	else
 		flags = O_RDONLY;
 
-	ret = open_path(vma->vmfd, do_open_reg_noseek_flags, &flags);
-	if (ret < 0)
-		return ret;
+	if (prev_filemap.d == vma->vmfd && prev_filemap.flags == flags) {
+		BUG_ON(prev_filemap.fd < 0);
+		ret = prev_filemap.fd;
+	} else {
+		ret = open_path(vma->vmfd, do_open_reg_noseek_flags, &flags);
+		if (ret < 0)
+			return ret;
+
+		if (prev_filemap.d)
+			close(prev_filemap.fd);
+		prev_filemap.d = vma->vmfd;
+		prev_filemap.flags = flags;
+		prev_filemap.fd = ret;
+	}
 
 	vma->e->fd = ret;
 	return 0;

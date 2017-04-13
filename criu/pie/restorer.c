@@ -545,6 +545,7 @@ static long restore_self_exe_late(struct task_restore_args *args)
 
 static unsigned long restore_mapping(VmaEntry *vma_entry)
 {
+	static int prev_fd = -1;
 	int prot	= vma_entry->prot;
 	int flags	= vma_entry->flags | MAP_FIXED;
 	unsigned long addr;
@@ -595,8 +596,16 @@ static unsigned long restore_mapping(VmaEntry *vma_entry)
 			vma_entry->fd,
 			vma_entry->pgoff);
 
-	if (vma_entry->fd != -1)
-		sys_close(vma_entry->fd);
+	if (vma_entry->fd != -1) {
+		/*
+		 * Descriptors on VMA-s may be shared on subsequent
+		 * areas. See open_filemap() and filemap_fin_opens()
+		 */
+		if (prev_fd != vma_entry->fd) {
+			sys_close(vma_entry->fd);
+			prev_fd = vma_entry->fd;
+		}
+	}
 
 	return addr;
 }

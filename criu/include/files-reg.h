@@ -52,7 +52,7 @@ extern int prepare_remaps(void);
 extern int try_clean_remaps(bool only_ghosts);
 
 extern int strip_deleted(struct fd_link *link);
-
+extern void filemap_fin_opens(void);
 extern int prepare_procfs_remaps(void);
 extern int dead_pid_conflict(void);
 
