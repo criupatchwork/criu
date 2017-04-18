@@ -629,8 +629,7 @@ static inline bool thread_collected(struct pstree_item *i, pid_t tid)
 static bool creds_dumpable(struct proc_status_creds *parent,
 				struct proc_status_creds *child)
 {
-	const size_t size = sizeof(struct proc_status_creds) -
-			offsetof(struct proc_status_creds, cap_inh);
+	const size_t size = offsetof(struct proc_status_creds, cap_inh);
 
 	/*
 	 * The comparison rules are the following
