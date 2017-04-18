@@ -73,17 +73,16 @@ struct seccomp_info {
 #define PROC_CAP_SIZE	2
 
 struct proc_status_creds {
-	struct seize_task_status s;
-
 	unsigned int uids[4];
 	unsigned int gids[4];
 
 	u32			last_filter;
 
 	/*
-	 * Keep them at the end of structure
-	 * for fast comparison reason.
+	 * Keep them at the end of structure for fast comparison
+	 * reason (see creds_dumpable()); and place s before caps.
 	 */
+	struct seize_task_status s;
 	u32			cap_inh[PROC_CAP_SIZE];
 	u32			cap_prm[PROC_CAP_SIZE];
 	u32			cap_eff[PROC_CAP_SIZE];

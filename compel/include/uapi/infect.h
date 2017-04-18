@@ -18,9 +18,9 @@ extern int compel_interrupt_task(int pid);
 struct seize_task_status {
 	char			state;
 	int			ppid;
-	unsigned long long	sigpnd;
-	unsigned long long	shdpnd;
 	int			seccomp_mode;
+	unsigned long long	shdpnd;
+	unsigned long long	sigpnd;
 };
 
 extern int compel_wait_task(int pid, int ppid,

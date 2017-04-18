@@ -629,7 +629,9 @@ static inline bool thread_collected(struct pstree_item *i, pid_t tid)
 static bool creds_dumpable(struct proc_status_creds *parent,
 				struct proc_status_creds *child)
 {
-	const size_t size = offsetof(struct proc_status_creds, cap_inh);
+	/* From beginning of struct to proc_status_creds::s::shdpnd */
+	const size_t size = ((unsigned long)&parent->s.shdpnd) -
+			    ((unsigned long)parent) + sizeof(parent->s.shdpnd);
 
 	/*
 	 * The comparison rules are the following
@@ -649,7 +651,6 @@ static bool creds_dumpable(struct proc_status_creds *parent,
 				 "  gids:               %d:%d %d:%d %d:%d %d:%d\n"
 				 "  state:              %d:%d"
 				 "  ppid:               %d:%d\n"
-				 "  sigpnd:             %llu:%llu\n"
 				 "  shdpnd:             %llu:%llu\n"
 				 "  seccomp_mode:       %d:%d\n"
 				 "  last_filter:        %u:%u\n",
@@ -663,7 +664,6 @@ static bool creds_dumpable(struct proc_status_creds *parent,
 				 parent->gids[3], child->gids[3],
 				 parent->s.state, child->s.state,
 				 parent->s.ppid, child->s.ppid,
-				 parent->s.sigpnd, child->s.sigpnd,
 				 parent->s.shdpnd, child->s.shdpnd,
 				 parent->s.seccomp_mode, child->s.seccomp_mode,
 				 parent->last_filter, child->last_filter);
