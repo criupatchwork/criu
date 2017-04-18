@@ -21,6 +21,10 @@ struct seize_task_status {
 	int			seccomp_mode;
 	unsigned long long	shdpnd;
 	unsigned long long	sigpnd;
+	size_t			ns_levels;
+	uint32_t		*nspid;
+	uint32_t		*nspgid;
+	uint32_t		*nssid;
 	/* Add new members to the bottom and do not change existing */
 };
 

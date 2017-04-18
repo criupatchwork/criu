@@ -190,11 +190,17 @@ static int skip_sigstop(int pid, int nr_signals)
 /* Init dynamically allocated fields in NULL and do not touch other */
 static void init_seize_task_status(struct seize_task_status *ss)
 {
+	ss->ns_levels = 0;
+	ss->nspid = ss->nspgid = ss->nssid = NULL;
 }
 
 /* Free dynamically allocated fields in compel_wait_task() and do not touch other */
 void compel_consume_seize_task_status(struct seize_task_status *ss)
 {
+	xfree(ss->nspid);
+	xfree(ss->nspgid);
+	xfree(ss->nssid);
+
 	init_seize_task_status(ss);
 }
 
