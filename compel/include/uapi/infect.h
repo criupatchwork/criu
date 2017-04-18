@@ -25,8 +25,8 @@ struct seize_task_status {
 };
 
 extern int compel_wait_task(int pid, int ppid,
-		int (*get_status)(int pid, struct seize_task_status *),
-		struct seize_task_status *st);
+		int (*get_status)(int pid, struct seize_task_status *, void *data),
+		struct seize_task_status *st, void *data);
 extern void compel_consume_seize_task_status(struct seize_task_status *ss);
 
 extern int compel_stop_task(int pid);
