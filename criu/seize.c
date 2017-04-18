@@ -518,6 +518,7 @@ static int collect_children(struct pstree_item *item)
 
 		/* Here is a recursive call (Depth-first search) */
 		ret = collect_task(c);
+		compel_consume_seize_task_status(&creds->s);
 		if (ret < 0)
 			goto free;
 	}
@@ -739,15 +740,19 @@ static int collect_threads(struct pstree_item *item)
 
 		if (ret == TASK_DEAD) {
 			pr_err("Zombie thread not supported\n");
+			compel_consume_seize_task_status(&t_creds.s);
 			goto err;
 		}
 
-		if (!creds_dumpable(dmpi(item)->pi_creds, &t_creds))
+		if (!creds_dumpable(dmpi(item)->pi_creds, &t_creds)) {
+			compel_consume_seize_task_status(&t_creds.s);
 			goto err;
+		}
 
 		if (ret == TASK_STOPPED) {
 			nr_stopped++;
 		}
+		compel_consume_seize_task_status(&t_creds.s);
 	}
 
 	if (nr_stopped && nr_stopped != nr_inprogress) {
@@ -868,6 +873,7 @@ int collect_pstree(void)
 	dmpi(root_item)->pi_creds = creds;
 
 	ret = collect_task(root_item);
+	compel_consume_seize_task_status(&creds->s);
 	if (ret < 0)
 		goto err;
 

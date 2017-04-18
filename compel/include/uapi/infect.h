@@ -21,11 +21,13 @@ struct seize_task_status {
 	int			seccomp_mode;
 	unsigned long long	shdpnd;
 	unsigned long long	sigpnd;
+	/* Add new members to the bottom and do not change existing */
 };
 
 extern int compel_wait_task(int pid, int ppid,
 		int (*get_status)(int pid, struct seize_task_status *),
 		struct seize_task_status *st);
+extern void compel_consume_seize_task_status(struct seize_task_status *ss);
 
 extern int compel_stop_task(int pid);
 extern int compel_resume_task(pid_t pid, int orig_state, int state);

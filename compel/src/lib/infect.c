@@ -102,12 +102,15 @@ err_parse:
 
 int compel_stop_task(int pid)
 {
-	int ret;
 	struct seize_task_status ss;
+	int ret;
 
 	ret = compel_interrupt_task(pid);
-	if (ret == 0)
+	if (ret == 0) {
 		ret = compel_wait_task(pid, -1, parse_pid_status, &ss);
+		if (ret != -1)
+			compel_consume_seize_task_status(&ss);
+	}
 	return ret;
 }
 
@@ -184,6 +187,17 @@ static int skip_sigstop(int pid, int nr_signals)
 	return 0;
 }
 
+/* Init dynamically allocated fields in NULL and do not touch other */
+static void init_seize_task_status(struct seize_task_status *ss)
+{
+}
+
+/* Free dynamically allocated fields in compel_wait_task() and do not touch other */
+void compel_consume_seize_task_status(struct seize_task_status *ss)
+{
+	init_seize_task_status(ss);
+}
+
 /*
  * This routine seizes task putting it into a special
  * state where we can manipulate the task via ptrace
@@ -207,6 +221,7 @@ int compel_wait_task(int pid, int ppid,
 	 */
 
 try_again:
+	init_seize_task_status(ss);
 
 	ret = wait4(pid, &status, __WALL, NULL);
 	if (ret < 0) {
@@ -231,7 +246,7 @@ try_again:
 			else
 				pr_err("Unseizable non-zombie %d found, state %c, err %d/%d\n",
 						pid, ss->state, ret, wait_errno);
-			return -1;
+			goto err_free;
 		}
 
 		if (ret < 0)
@@ -271,6 +286,7 @@ try_again:
 		}
 
 		ret = 0;
+		compel_consume_seize_task_status(ss);
 		goto try_again;
 	}
 
@@ -304,6 +320,8 @@ err_stop:
 err:
 	if (ptrace(PTRACE_DETACH, pid, NULL, NULL))
 		pr_perror("Unable to detach from %d", pid);
+err_free:
+	compel_consume_seize_task_status(ss);
 	return -1;
 }
 
