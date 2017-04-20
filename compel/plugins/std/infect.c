@@ -181,6 +181,7 @@ err:
 
 int __used __parasite_entry parasite_service(unsigned int cmd, void *args)
 {
+	asm volatile ("\tbkpt #1\n");
 	pr_info("Parasite cmd %d/%x process\n", cmd, cmd);
 
 	if (cmd == PARASITE_CMD_INIT_DAEMON)

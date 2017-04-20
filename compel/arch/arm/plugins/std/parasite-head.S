@@ -12,7 +12,9 @@ ENTRY(__export_parasite_head_start)
 	add	r1, r1, r2			@ fixup __export_parasite_args
 
 	bl	parasite_service
-	.byte   0xf0, 0x01, 0xf0, 0xe7		@ the instruction UDF #32 generates the signal SIGTRAP in Linux
+
+	/* Guard generates the signal SIGTRAP in Linux */
+	bkpt	#0
 
 parasite_args_ptr:
 	.long __export_parasite_args
