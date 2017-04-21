@@ -34,7 +34,7 @@ struct kerndat_s {
 	unsigned long task_size;
 	bool ipv6;
 	bool has_loginuid;
-	bool has_compat_sigreturn;
+	bool compat_cr;
 	bool sk_ns;
 	enum pagemap_func pmap;
 	unsigned int has_xtlocks;
