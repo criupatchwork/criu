@@ -265,15 +265,23 @@ static int read_local_page(struct page_read *pr, unsigned long vaddr,
 		return -1;
 
 	pr_debug("\tpr%d-%u Read page from self %lx/%"PRIx64"\n", pr->pid, pr->id, pr->cvaddr, pr->pi_off);
-	while (1) {
-		ret = pread(fd, buf + curr, len - curr, pr->pi_off + curr);
-		if (ret < 1) {
+	if (!opts.remote) {
+		ret = pread(fd, buf, len, pr->pi_off);
+		if (ret != len) {
 			pr_perror("Can't read mapping page %d", ret);
 			return -1;
 		}
-		curr += ret;
-		if (curr == len)
-			break;
+	} else {
+		while (1) {
+			ret = read(fd, buf + curr, len - curr);
+			if (ret < 0) {
+				pr_perror("Can't read mapping page %d", ret);
+				return -1;
+			}
+			curr += ret;
+			if (curr == len)
+				break;
+		}
 	}
 
 	if (opts.auto_dedup) {
