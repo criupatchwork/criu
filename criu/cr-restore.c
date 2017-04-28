@@ -129,7 +129,6 @@ static inline int stage_participants(int next_stage)
 		return 0;
 	case CR_STATE_ROOT_TASK:
 	case CR_STATE_PREPARE_NAMESPACES:
-	case CR_STATE_RESTORE_SHARED:
 		return 1;
 	case CR_STATE_FORKING:
 		return task_entries->nr_tasks + task_entries->nr_helpers;
@@ -1561,9 +1560,6 @@ static int restore_task_with_children(void *_arg)
 
 		if (root_prepare_shared())
 			goto err;
-
-		if (restore_finish_stage(task_entries, CR_STATE_RESTORE_SHARED) < 0)
-			goto err;
 	}
 
 	if (restore_task_mnt_ns(current))
@@ -1962,14 +1958,11 @@ static int restore_root_task(struct pstree_item *init)
 			goto out_kill;
 	}
 
-	timing_start(TIME_FORK);
-	ret = restore_switch_stage(CR_STATE_RESTORE_SHARED);
-	if (ret < 0)
-		goto out_kill;
-
 	ret = run_scripts(ACT_POST_SETUP_NS);
 	if (ret)
 		goto out_kill;
+
+	timing_start(TIME_FORK);
 
 	ret = restore_switch_stage(CR_STATE_FORKING);
 	if (ret < 0)
