@@ -1375,6 +1375,50 @@ static int create_children_and_session(void)
 	return 0;
 }
 
+static int show_pstree(pid_t p, int level)
+{
+	pid_t *ch;
+	int i, nr_ch, ret;
+	char cmd[80];
+	int fd, len, llen;
+
+	/* limit output to a single line on a terminal */
+	llen = 79 - printf("%*s%d ", level*2, level ? "\\_" : "", p);
+
+	fd = open_proc(p, "cmdline");
+	if (fd < 0)
+		return -1;
+	len = read(fd, cmd, sizeof(cmd) - 1);
+	close(fd);
+
+	if (len > 0) {
+		if (len > llen) {
+			len = llen;
+			// ellipsis
+			cmd[len - 1] = '.';
+			cmd[len - 2] = '.';
+		}
+		for (i = 0; i < len; i++)
+			if (cmd[i] == '\0')
+				cmd[i] = ' ';
+		cmd[len] = '\0';
+		puts(cmd);
+	} else {
+		puts("???");
+	}
+
+	ret = parse_children(p, &ch, &nr_ch);
+	if (ret < 0)
+		return ret;
+
+	for (i = 0; i < nr_ch; i++) {
+		show_pstree(ch[i], level+1);
+	}
+
+	xfree(ch);
+	return 0;
+}
+
 static int restore_task_with_children(void *_arg)
 {
 	struct cr_clone_arg *ca = _arg;
@@ -1403,6 +1447,7 @@ static int restore_task_with_children(void *_arg)
 	pid = getpid();
 	if (vpid(current) != pid) {
 		pr_err("Pid %d do not match expected %d\n", pid, vpid(current));
+		show_pstree(1, 0);
 		set_task_cr_err(EEXIST);
 		goto err;
 	}
