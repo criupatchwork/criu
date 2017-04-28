@@ -1584,10 +1584,18 @@ static int restore_wait_inprogress_tasks()
 	return 0;
 }
 
-static void __restore_switch_stage(int next_stage)
+static inline void __restore_switch_stage_nw(int next_stage)
 {
 	futex_set(&task_entries->nr_in_progress,
 			stage_participants(next_stage));
+	futex_set(&task_entries->start, next_stage);
+}
+
+static inline void __restore_switch_stage(int next_stage)
+{
+	if (next_stage != CR_STATE_COMPLETE)
+		futex_set(&task_entries->nr_in_progress,
+				stage_participants(next_stage));
 	futex_set_and_wake(&task_entries->start, next_stage);
 }
 
@@ -1885,8 +1893,7 @@ static int restore_root_task(struct pstree_item *init)
 	if (prepare_namespace_before_tasks())
 		return -1;
 
-	futex_set(&task_entries->nr_in_progress,
-			stage_participants(CR_STATE_RESTORE_NS));
+	__restore_switch_stage_nw(CR_STATE_RESTORE_NS);
 
 	ret = fork_with_pid(init);
 	if (ret < 0)
@@ -2043,7 +2050,7 @@ static int restore_root_task(struct pstree_item *init)
 	ret = catch_tasks(root_seized, &flag);
 
 	pr_info("Restore finished successfully. Resuming tasks.\n");
-	futex_set_and_wake(&task_entries->start, CR_STATE_COMPLETE);
+	__restore_switch_stage(CR_STATE_COMPLETE);
 
 	if (opts.check_only)
 		goto skip_for_check;
@@ -2127,7 +2134,7 @@ int prepare_task_entries(void)
 	task_entries->nr_threads = 0;
 	task_entries->nr_tasks = 0;
 	task_entries->nr_helpers = 0;
-	futex_set(&task_entries->start, CR_STATE_RESTORE_NS);
+	futex_set(&task_entries->start, CR_STATE_FAIL);
 	mutex_init(&task_entries->userns_sync_lock);
 
 	return 0;
