@@ -182,8 +182,12 @@ int close_safe(int *fd)
 		ret = close(*fd);
 		if (!ret)
 			*fd = -1;
-		else
-			pr_perror("Unable to close fd %d", *fd);
+		else {
+			if (errno != EINTR)
+				pr_perror("Unable to close fd %d", *fd);
+			else
+				ret = 0, *fd = -1;
+		}
 	}
 
 	return ret;
