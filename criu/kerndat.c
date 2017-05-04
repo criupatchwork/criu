@@ -738,7 +738,7 @@ unl:
 	}
 }
 
-int kerndat_uffd(bool need_uffd)
+int kerndat_uffd(void)
 {
 	struct uffdio_api uffdio_api;
 	int uffd;
@@ -750,13 +750,15 @@ int kerndat_uffd(bool need_uffd)
 	 * on this system. Additionally checking for ENOSYS
 	 * makes sure it is actually not implemented.
 	 */
-	if (uffd == -1 && errno == ENOSYS) {
-		if (!need_uffd)
+	if (uffd == -1) {
+		if (errno == ENOSYS)
 			return 0;
 
 		pr_err("Lazy pages are not available\n");
 		return -1;
 	}
+
+	kdat.has_uffd = true;
 
 	uffdio_api.api = UFFD_API;
 	uffdio_api.features = 0;
@@ -845,7 +847,7 @@ int kerndat_init(void)
 	if (!ret)
 		ret = kerndat_detect_stack_guard_gap();
 	if (!ret)
-		ret = kerndat_uffd(opts.lazy_pages);
+		ret = kerndat_uffd();
 	if (!ret)
 		ret = kerndat_socket_netns();
 	if (!ret)
