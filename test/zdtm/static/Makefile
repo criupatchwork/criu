@@ -180,6 +180,7 @@ TST_NOFILE	:=				\
 		userns02			\
 		netns_sub_veth			\
 		pidns00				\
+		pidns01				\
 #		jobctl00			\
 
 include ../Makefile.inc
