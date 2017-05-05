@@ -1018,7 +1018,7 @@ out:
 
 static int restore_one_task(int pid, CoreEntry *core)
 {
-	int ret;
+	int i, ret;
 
 	/* No more fork()-s => no more per-pid logs */
 
@@ -1029,6 +1029,9 @@ static int restore_one_task(int pid, CoreEntry *core)
 	else if (current->pid->state == TASK_HELPER) {
 		sigset_t blockmask, oldmask;
 
+		if (prepare_fds(current))
+			return -1;
+
 		sigemptyset(&blockmask);
 		sigaddset(&blockmask, SIGCHLD);
 
@@ -1038,6 +1041,12 @@ static int restore_one_task(int pid, CoreEntry *core)
 		}
 
 		restore_finish_stage(task_entries, CR_STATE_RESTORE);
+
+		close_image_dir();
+		close_proc();
+		for (i = SERVICE_FD_MIN + 1; i < SERVICE_FD_MAX; i++)
+			close_service_fd(i);
+
 		if (wait_on_helpers_zombies()) {
 			pr_err("failed to wait on helpers and zombies\n");
 			ret = -1;
@@ -1446,11 +1455,9 @@ static int restore_task_with_children(void *_arg)
 	if ( !(ca->clone_flags & CLONE_FILES))
 		close_safe(&ca->fd);
 
-	if (current->pid->state != TASK_HELPER) {
-		ret = clone_service_fd(rsti(current)->service_fd_id);
-		if (ret)
-			goto err;
-	}
+	ret = clone_service_fd(rsti(current)->service_fd_id);
+	if (ret)
+		goto err;
 
 	pid = getpid();
 	if (vpid(current) != pid) {
@@ -1533,6 +1540,9 @@ static int restore_task_with_children(void *_arg)
 		BUG();
 	}
 
+	if (open_transport_socket())
+		goto err;
+
 	timing_start(TIME_FORK);
 
 	if (create_children_and_session())
@@ -1544,9 +1554,6 @@ static int restore_task_with_children(void *_arg)
 		goto err;
 
 	restore_pgid();
-
-	if (open_transport_socket())
-		return -1;
 
 	if (current->parent == NULL) {
 		/*
