@@ -61,6 +61,7 @@ struct page_read {
 	/* Private data of reader */
 	struct cr_img *pmi;
 	struct cr_img *pi;
+	u32 pages_img_id;
 
 	PagemapEntry *pe;		/* current pagemap we are on */
 	struct page_read *parent;	/* parent pagemap (if ->in_parent
