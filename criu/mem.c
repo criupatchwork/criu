@@ -553,7 +553,7 @@ int prepare_mm_pid(struct pstree_item *i)
 }
 
 /* Map a private vma, if it is not mapped by a parent yet */
-static int map_private_vma(struct pstree_item *t,
+static int premap_private_vma(struct pstree_item *t,
 		struct vma_area *vma, void **tgt_addr,
 		struct vma_area **pvma, struct list_head *pvma_list)
 {
@@ -581,7 +581,7 @@ static int map_private_vma(struct pstree_item *t,
 		if (p->e->start > vma->e->start)
 			 break;
 
-		if (!vma_area_is_private(p, kdat.task_size))
+		if (!vma_area_is(p, VMA_PREMMAPED))
 			continue;
 
 		 if (p->e->end != vma->e->end ||
@@ -658,6 +658,7 @@ static int map_private_vma(struct pstree_item *t,
 		*pvma = list_entry(p->list.next, struct vma_area, list);
 	}
 
+	vma->e->status |= VMA_PREMMAPED;
 	vma->premmaped_addr = (unsigned long) addr;
 	pr_debug("\tpremap %#016"PRIx64"-%#016"PRIx64" -> %016lx\n",
 		vma->e->start, vma->e->end, (unsigned long)addr);
@@ -685,7 +686,7 @@ static int premap_priv_vmas(struct pstree_item *t, struct vm_area_list *vmas,
 
 	/*
 	 * Keep parent vmas at hands to check whether we can "inherit" them.
-	 * See comments in map_private_vma.
+	 * See comments in premap_private_vma.
 	 */
 	if (t->parent)
 		parent_vmas = &rsti(t->parent)->vmas.h;
@@ -705,7 +706,7 @@ static int premap_priv_vmas(struct pstree_item *t, struct vm_area_list *vmas,
 		if (!vma_area_is_private(vma, kdat.task_size))
 			continue;
 
-		ret = map_private_vma(t, vma, &at, &pvma, parent_vmas);
+		ret = premap_private_vma(t, vma, &at, &pvma, parent_vmas);
 		if (ret < 0)
 			break;
 	}
@@ -950,7 +951,7 @@ int unmap_guard_pages(struct pstree_item *t)
 	struct list_head *vmas = &rsti(t)->vmas.h;
 
 	list_for_each_entry(vma, vmas, list) {
-		if (!vma_area_is_private(vma, kdat.task_size))
+		if (!vma_area_is(vma, VMA_PREMMAPED))
 			continue;
 
 		if (vma->e->flags & MAP_GROWSDOWN) {
@@ -1010,7 +1011,7 @@ int prepare_vmas(struct pstree_item *t, struct task_restore_args *ta)
 		 */
 		*vme = *vma->e;
 
-		if (vma_area_is_private(vma, kdat.task_size))
+		if (vma_area_is(vma, VMA_PREMMAPED))
 			vma_premmaped_start(vme) = vma->premmaped_addr;
 	}
 
