@@ -2690,19 +2690,18 @@ static int do_create_pid_ns_helper(void *arg, int sk, pid_t unused_pid)
 			goto err;
 		}
 	child = fork();
-	if (child < 0) {
-		flock(lock_fd, LOCK_UN);
-		close(lock_fd);
-		pr_perror("Can't fork");
-		return -1;
-	} else if (!child) {
+	if (!child) {
 		close(lock_fd);
 		exit(pid_ns_helper(ns, sk));
 	}
-	close(sk);
-	futex_set_and_wake(&ns->pid.helper_created, 1);
 	flock(lock_fd, LOCK_UN);
 	close(lock_fd);
+	if (child < 0) {
+		pr_perror("Can't fork");
+		goto err;
+	}
+	futex_set_and_wake(&ns->pid.helper_created, 1);
+	close(sk);
 	nr_pid_ns_helper_created++;
 
 	if (setns(pid_ns_fd, CLONE_NEWPID) < 0) {
