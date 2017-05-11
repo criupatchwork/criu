@@ -58,6 +58,9 @@ struct page_read {
 	int (*maybe_read_page)(struct page_read *pr, unsigned long vaddr,
 			       int nr, void *buf, unsigned flags);
 
+	/* Whether or not pages can be read in PIE code */
+	bool pieok;
+
 	/* Private data of reader */
 	struct cr_img *pmi;
 	struct cr_img *pi;
@@ -104,8 +107,11 @@ extern int open_page_read(int pid, struct page_read *, int pr_flags);
 extern int open_page_read_at(int dfd, int pid, struct page_read *pr,
 		int pr_flags);
 
+struct task_restore_args;
+
 int pagemap_enqueue_iovec(struct page_read *pr, void *buf,
 			      unsigned long len, struct list_head *to);
+int pagemap_render_iovec(struct list_head *from, struct task_restore_args *ta);
 
 /*
  * Create a shallow copy of page_read object.

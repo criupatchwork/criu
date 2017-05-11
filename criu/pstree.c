@@ -228,6 +228,7 @@ struct pstree_item *__alloc_pstree_item(bool rst, int level)
 			return NULL;
 		memset(item, 0, sz);
 		vm_area_list_init(&rsti(item)->vmas);
+		INIT_LIST_HEAD(&rsti(item)->vma_io);
 		/*
 		 * On restore we never expand pid level,
 		 * so allocate them all at once.
