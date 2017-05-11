@@ -115,4 +115,9 @@ static inline bool vma_entry_can_be_lazy(VmaEntry *e)
 		!(vma_entry_is(e, VMA_AREA_VSYSCALL)));
 }
 
+static inline struct vma_area *vma_next(struct vma_area *vma)
+{
+	return list_entry(vma->list.next, struct vma_area, list);
+}
+
 #endif /* __CR_VMA_H__ */
