@@ -1169,7 +1169,6 @@ static int restore_one_task(int pid, CoreEntry *core)
 struct cr_clone_arg {
 	struct pstree_item *item;
 	unsigned long clone_flags;
-	int fd;
 
 	CoreEntry *core;
 };
@@ -1378,19 +1377,12 @@ static inline int fork_with_pid(struct pstree_item *item)
 
 	pr_info("Forking task with %d pid (flags 0x%lx)\n", pid, ca.clone_flags);
 
-	ca.fd = open_proc_rw(PROC_GEN, LAST_PID_PATH);
-	if (ca.fd < 0)
-		goto err;
-
 	wait_pid_ns_helper_prepared(pid_ns, item->pid);
 
 	if (set_pid_ns_for_children(pid_ns, item->pid) < 0)
-		goto err_close;
+		goto err;
 
-	if (flock(ca.fd, LOCK_EX)) {
-		pr_perror("%d: Can't lock %s", pid, LAST_PID_PATH);
-		goto err_close;
-	}
+	lock_last_pid();
 
 	ret = do_fork_with_pid(item, pid_ns, &ca);
 	if (ret < 0) {
@@ -1399,10 +1391,7 @@ static inline int fork_with_pid(struct pstree_item *item)
 	}
 
 err_unlock:
-	if (flock(ca.fd, LOCK_UN))
-		pr_perror("%d: Can't unlock %s", pid, LAST_PID_PATH);
-err_close:
-	close(ca.fd);
+	unlock_last_pid();
 err:
 	if (ca.core)
 		core_entry__free_unpacked(ca.core, NULL);
@@ -1701,9 +1690,6 @@ static int restore_task_with_children(void *_arg)
 		if (current->pid->real < 0)
 			goto err;
 	}
-
-	if ( !(ca->clone_flags & CLONE_FILES))
-		close_safe(&ca->fd);
 
 	ret = clone_service_fd(rsti(current)->service_fd_id);
 	if (ret)
@@ -2080,7 +2066,7 @@ static int write_restored_pid(void)
 static int restore_root_task(struct pstree_item *init)
 {
 	enum trace_flags flag = TRACE_ALL;
-	int ret, fd, mnt_ns_fd = -1;
+	int ret, fd, mnt_ns_fd = -1, lock_fd = -1;
 	int root_seized = 0;
 	struct pstree_item *item;
 
@@ -2130,11 +2116,19 @@ static int restore_root_task(struct pstree_item *init)
 	if (prepare_namespace_before_tasks())
 		return -1;
 
+	lock_fd = open_proc_rw(PROC_GEN, LAST_PID_PATH);
+	if (lock_fd < 0)
+		goto out;
+	if (flock(lock_fd, LOCK_EX)) {
+		pr_perror("Can't flock ns_last_pid");
+		goto out_close;
+	}
+
 	__restore_switch_stage_nw(CR_STATE_ROOT_TASK);
 
 	ret = fork_with_pid(init);
 	if (ret < 0)
-		goto out;
+		goto out_unlock;
 
 	restore_origin_ns_hook();
 
@@ -2286,6 +2280,9 @@ skip_ns_bouncing:
 	ret = restore_switch_stage(CR_STATE_RESTORE_CREDS);
 	BUG_ON(ret);
 
+	if (flock(lock_fd, LOCK_UN) || close_safe(&lock_fd))
+		pr_perror("Can't unlock or close ns_last_pid");
+
 	timing_stop(TIME_RESTORE);
 
 	ret = catch_tasks(root_seized, &flag);
@@ -2354,7 +2351,11 @@ out_kill:
 			if (vpid(pi) > 0)
 				kill(vpid(pi), SIGKILL);
 	}
-
+out_unlock:
+	if (lock_fd >= 0 && flock(lock_fd, LOCK_UN))
+		pr_perror("Can't unlock ns_last_pid");
+out_close:
+	close_safe(&lock_fd);
 out:
 	fini_cgroup();
 	depopulate_roots_yard(mnt_ns_fd, true);

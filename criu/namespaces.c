@@ -2620,7 +2620,7 @@ static int pid_ns_helper(struct ns_id *ns, int sk)
 
 static int do_create_pid_ns_helper(void *arg, int sk, pid_t unused_pid)
 {
-	int pid_ns_fd, mnt_ns_fd, fd, i, lock_fd, transport_fd;
+	int pid_ns_fd, mnt_ns_fd, fd, i, transport_fd;
 	struct ns_id *ns, *tmp;
 	struct pid *pid;
 	pid_t child;
@@ -2660,21 +2660,12 @@ static int do_create_pid_ns_helper(void *arg, int sk, pid_t unused_pid)
 		goto err;
 	}
 
-	lock_fd = open("/proc/" LAST_PID_PATH, O_RDONLY);
-	if (lock_fd < 0) {
-		pr_perror("Unable to open /proc/" LAST_PID_PATH);
-		goto err;
-	}
-
 	if (restore_ns(mnt_ns_fd, &mnt_ns_desc) < 0) {
 		pr_err("Can't restore ns\n");
 		goto err;
 	}
 
-	if (flock(lock_fd, LOCK_EX)) {
-		close(lock_fd);
-		pr_perror("Can't lock %s", LAST_PID_PATH);
-	}
+	lock_last_pid();
 
 	transport_fd = get_service_fd(TRANSPORT_FD_OFF);
 	/*
@@ -2684,18 +2675,14 @@ static int do_create_pid_ns_helper(void *arg, int sk, pid_t unused_pid)
 	 */
 	for (i = pid->level - 2, tmp = ns->parent; i >= 0; i--, tmp = tmp->parent)
 		if (request_set_next_pid(tmp->id, pid->ns[i].virt, transport_fd)) {
+			unlock_last_pid();
 			pr_err("Can't set next pid using helper\n");
-			flock(lock_fd, LOCK_UN);
-			close(lock_fd);
 			goto err;
 		}
 	child = fork();
-	if (!child) {
-		close(lock_fd);
+	if (!child)
 		exit(pid_ns_helper(ns, sk));
-	}
-	flock(lock_fd, LOCK_UN);
-	close(lock_fd);
+	unlock_last_pid();
 	if (child < 0) {
 		pr_perror("Can't fork");
 		goto err;
