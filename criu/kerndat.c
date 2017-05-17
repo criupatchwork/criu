@@ -654,6 +654,26 @@ close:
 	return ret;
 }
 
+int kerndat_has_ns_get_userns(void)
+{
+	int pid_fd, user_fd;
+
+	pid_fd = open("/proc/self/ns/pid", O_RDONLY);
+	if (pid_fd < 0) {
+		perror("Can't open pid ns");
+		return -1;
+	}
+
+	user_fd = ioctl(pid_fd, NS_GET_USERNS);
+	if (user_fd >= 0) {
+		kdat.has_ns_get_userns = true;
+		close(user_fd);
+	}
+
+	close(pid_fd);
+	return 0;
+}
+
 #define KERNDAT_CACHE_FILE	KDAT_RUNDIR"/criu.kdat"
 #define KERNDAT_CACHE_FILE_TMP	KDAT_RUNDIR"/.criu.kdat"
 
@@ -775,6 +795,8 @@ int kerndat_init(void)
 		ret = kerndat_has_memfd_create();
 	if (!ret)
 		ret = kerndat_uffd();
+	if (!ret)
+		ret = kerndat_has_ns_get_userns();
 
 	kerndat_lsm();
 	kerndat_mmap_min_addr();
