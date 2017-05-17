@@ -1084,6 +1084,17 @@ static int check_ns_pid(void)
 	return 0;
 }
 
+static int check_ns_get_userns(void)
+{
+	if (kerndat_has_ns_get_userns() < 0)
+		return -1;
+
+	if (!kdat.has_ns_get_userns)
+		return -1;
+
+	return 0;
+}
+
 static int (*chk_feature)(void);
 
 /*
@@ -1190,6 +1201,7 @@ int cr_check(void)
 		ret |= check_can_map_vdso();
 		ret |= check_sk_netns();
 		ret |= check_ns_pid();
+		ret |= check_ns_get_userns();
 	}
 
 	/*
@@ -1272,6 +1284,7 @@ static struct feature_list feature_list[] = {
 	{ "nsid", check_nsid },
 	{ "link_nsid", check_link_nsid},
 	{ "ns_pid", check_ns_pid},
+	{ "ns_get_userns", check_ns_get_userns },
 	{ NULL, NULL },
 };
 
