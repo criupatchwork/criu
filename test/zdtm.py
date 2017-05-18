@@ -1714,12 +1714,16 @@ def run_tests(opts):
 
 			feat = tdesc.get('feature', None)
 			if feat:
-				if feat not in features:
-					print "Checking feature %s" % feat
-					features[feat] = criu.check(feat)
+				for f in feat.split():
+					if f not in features:
+						print "Checking feature %s" % f
+						features[f] = criu.check(f)
 
-				if not features[feat]:
-					l.skip(t, "no %s feature" % feat)
+					if not features[f]:
+						l.skip(t, "no %s feature" % f)
+						feat = None
+						break
+				if feat is None:
 					continue
 
 			if self_checkskip(t):
