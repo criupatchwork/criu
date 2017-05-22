@@ -1712,15 +1712,16 @@ def run_tests(opts):
 				l.skip(t, "manual run only")
 				continue
 
-			feat = tdesc.get('feature', None)
-			if feat:
-				if feat not in features:
-					print "Checking feature %s" % feat
-					features[feat] = criu.check(feat)
+			feats = tdesc.get('feature', None)
+			if feats:
+				for feat in feats.split():
+					if feat not in features:
+						print "Checking feature %s" % feat
+						features[feat] = criu.check(feat)
 
-				if not features[feat]:
-					l.skip(t, "no %s feature" % feat)
-					continue
+					if not features[feat]:
+						l.skip(t, "no %s feature" % feat)
+						continue
 
 			if self_checkskip(t):
 				l.skip(t, "checkskip failed")
