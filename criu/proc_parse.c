@@ -2355,8 +2355,13 @@ int parse_cgroup_file(FILE *f, struct list_head *retl, unsigned int *n)
 		 * 2:name=systemd:/user.slice/user-1000.slice/session-1.scope
 		 */
 		name = strchr(buf, ':');
-		if (name)
+		if (name) {
 			path = strchr(++name, ':');
+			if (*name == ':') { /* unified hier */
+				xfree(ncc);
+				continue;
+			}
+		}
 		if (!name || !path) {
 			pr_err("Failed parsing cgroup %s\n", buf);
 			xfree(ncc);
@@ -2519,6 +2524,9 @@ int collect_controllers(struct list_head *cgroups, unsigned int *n_cgroups)
 			goto err;
 		}
 		controllers++;
+
+		if (*controllers == ':') /* unified hier */
+			continue;
 
 		off = strchr(controllers, ':');
 		if (!off) {
