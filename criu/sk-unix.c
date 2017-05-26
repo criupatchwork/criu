@@ -1375,7 +1375,10 @@ static void unlink_stale(struct unix_sk_info *ui)
 	revert_unix_sk_cwd(&cwd_fd, &root_fd);
 }
 
-static int resolve_unix_peers(void *unused);
+static int resolve_unix_peers_cb(struct pprep_head *ph);
+static struct pprep_head resolve_unix_peers = {
+	.actor = resolve_unix_peers_cb,
+};
 
 static int collect_one_unixsk(void *o, ProtobufCMessage *base, struct cr_img *i)
 {
@@ -1389,8 +1392,7 @@ static int collect_one_unixsk(void *o, ProtobufCMessage *base, struct cr_img *i)
 
 	if (ui->ue->peer && !post_queued) {
 		post_queued = true;
-		if (add_post_prepare_cb(resolve_unix_peers, NULL))
-			return -1;
+		add_post_prepare_cb(&resolve_unix_peers);
 	}
 
 	if (ui->ue->name.len) {
@@ -1476,7 +1478,7 @@ static void interconnected_pair(struct unix_sk_info *ui, struct unix_sk_info *pe
 	}
 }
 
-static int resolve_unix_peers(void *unused)
+static int resolve_unix_peers_cb(struct pprep_head *ph)
 {
 	struct unix_sk_info *ui, *peer;
 
