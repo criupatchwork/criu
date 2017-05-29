@@ -452,6 +452,7 @@ int install_service_fd(enum sfd_type type, int fd)
 		return -1;
 	}
 
+	pr_debug("sfd install %d/%d\n", sfd, type);
 	if (dup3(fd, sfd, O_CLOEXEC) != sfd) {
 		pr_perror("Dup %d -> %d failed", fd, sfd);
 		return -1;
@@ -498,6 +499,7 @@ int clone_service_fd(int id)
 	if (service_fd_id == id)
 		return 0;
 
+	pr_debug("sfd cloning to id %d\n", id);
 	for (i = SERVICE_FD_MIN + 1; i < SERVICE_FD_MAX; i++) {
 		int old = get_service_fd(i);
 		int new = __get_service_fd(i, id);
