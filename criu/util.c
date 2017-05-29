@@ -45,6 +45,7 @@
 #include "vma.h"
 #include "mem.h"
 #include "namespaces.h"
+#include "pstree.h"
 #include "criu-log.h"
 
 #include "clone-noasan.h"
@@ -1412,6 +1413,15 @@ void print_stack_trace(pid_t pid)
 		pr_err("stack %d#%zu: %s\n", pid, i, strings[i]);
 
 	free(strings);
+}
+
+void print_stack_and_exit(int signum)
+{
+	pid_t pid = current ? vpid(current) : -1;
+
+	pr_err("OOPS: task with vpid=%d got SIGSEGV:\n", pid);
+	print_stack_trace(pid);
+	exit(-1);
 }
 #endif
 

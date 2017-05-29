@@ -1429,7 +1429,7 @@ static void sigchld_handler(int signal, siginfo_t *siginfo, void *data)
 	futex_abort_and_wake(&task_entries->nr_in_progress);
 }
 
-int criu_signals_setup(void (*handler)(int, siginfo_t *, void *))
+int criu_signals_setup(void (*sigchld_handler)(int, siginfo_t *, void *))
 {
 	int ret;
 	struct sigaction act;
@@ -1442,7 +1442,7 @@ int criu_signals_setup(void (*handler)(int, siginfo_t *, void *))
 	}
 
 	act.sa_flags |= SA_NOCLDSTOP | SA_SIGINFO | SA_RESTART;
-	act.sa_sigaction = handler;
+	act.sa_sigaction = sigchld_handler;
 	sigemptyset(&act.sa_mask);
 	sigaddset(&act.sa_mask, SIGCHLD);
 
@@ -1452,6 +1452,12 @@ int criu_signals_setup(void (*handler)(int, siginfo_t *, void *))
 		return -1;
 	}
 
+#ifdef __GLIBC__
+	if (signal(SIGSEGV, print_stack_and_exit) == SIG_ERR) {
+		pr_perror("signal() failed");
+		return -1;
+	}
+#endif
 	/*
 	 * The block mask will be restored in sigreturn.
 	 *
@@ -1459,6 +1465,7 @@ int criu_signals_setup(void (*handler)(int, siginfo_t *, void *))
 	 */
 	sigfillset(&blockmask);
 	sigdelset(&blockmask, SIGCHLD);
+	sigdelset(&blockmask, SIGSEGV);
 
 	/*
 	 * Here we use SIG_SETMASK instead of SIG_BLOCK to avoid the case where

@@ -311,6 +311,7 @@ extern int open_fd_of_real_pid(pid_t pid, int fd, int flags);
 
 extern int call_in_child_process(int (*fn)(void *), void *arg);
 extern void print_stack_trace(pid_t pid);
+extern void print_stack_and_exit(int signum);
 
 #define block_sigmask(saved_mask, sig_mask)	({					\
 		sigset_t ___blocked_mask;						\

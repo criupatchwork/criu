@@ -1759,6 +1759,12 @@ int cr_dump_tasks(pid_t pid)
 	pr_info("Dumping processes (pid: %d)\n", pid);
 	pr_info("========================================\n");
 
+#ifdef __GLIBC__
+	if (signal(SIGSEGV, print_stack_and_exit) == SIG_ERR) {
+		pr_perror("signal() failed");
+		goto err;
+	}
+#endif
 	if (opts.remote && push_snapshot_id() < 0) {
 		pr_err("Failed to push image namespace.\n");
 		goto err;
