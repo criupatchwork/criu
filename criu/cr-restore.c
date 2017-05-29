@@ -460,6 +460,7 @@ static int set_pid_ns_for_children(struct ns_id *pid_ns, struct pid *pid)
 }
 
 static rt_sigaction_t sigchld_act;
+static rt_sigaction_t sigsegv_act;
 /*
  * If parent's sigaction has blocked SIGKILL (which is non-sence),
  * this parent action is non-valid and shouldn't be inherited.
@@ -506,6 +507,10 @@ static int restore_native_sigaction(int sig, SaEntry *e)
 
 	if (sig == SIGCHLD) {
 		sigchld_act = act;
+		return 0;
+	}
+	if (sig == SIGSEGV) {
+		sigsegv_act = act;
 		return 0;
 	}
 
@@ -570,6 +575,10 @@ static int restore_compat_sigaction(int sig, SaEntry *e)
 
 	if (sig == SIGCHLD) {
 		memcpy(&sigchld_act, &act, sizeof(rt_sigaction_t_compat));
+		return 0;
+	}
+	if (sig == SIGSEGV) {
+		memcpy(&sigsegv_act, &act, sizeof(rt_sigaction_t_compat));
 		return 0;
 	}
 
@@ -1068,6 +1077,10 @@ static int restore_one_zombie(CoreEntry *core)
 			pr_warn("Exit with non fatal signal ignored\n");
 			signr = SIGABRT;
 		}
+
+		if (signr == SIGSEGV)
+			syscall(SYS_rt_sigaction, signr, &sigsegv_act,
+				NULL, sizeof(k_rtsigset_t));
 
 		if (kill(last_level_pid(current->pid), signr) < 0)
 			pr_perror("Can't kill myself, will just exit");
@@ -3425,6 +3438,7 @@ static int sigreturn_restore(pid_t pid, struct task_restore_args *task_args, uns
 	task_args->loglevel	= log_get_loglevel();
 	log_get_logstart(&task_args->logstart);
 	task_args->sigchld_act	= sigchld_act;
+	task_args->sigsegv_act	= sigsegv_act;
 
 	strncpy(task_args->comm, core->tc->comm, sizeof(task_args->comm));
 	pid_ns = lookup_ns_by_id(current->ids->pid_ns_id, &pid_ns_desc);

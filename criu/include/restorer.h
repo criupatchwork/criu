@@ -169,6 +169,7 @@ struct task_restore_args {
 	unsigned long			premmapped_addr;
 	unsigned long			premmapped_len;
 	rt_sigaction_t			sigchld_act;
+	rt_sigaction_t			sigsegv_act;
 
 	void				*bootstrap_start;
 	unsigned long			bootstrap_len;
