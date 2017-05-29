@@ -1312,6 +1312,7 @@ static int dump_one_task(struct pstree_item *item)
 			goto err_cure_imgset;
 		}
 
+		close_service_fd(CR_PROC_FD_OFF);
 		if (install_service_fd(CR_PROC_FD_OFF, pfd) < 0)
 			goto err_cure_imgset;
 
