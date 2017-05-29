@@ -3159,6 +3159,7 @@ int mntns_get_root_fd(struct ns_id *mntns)
 		if (fd < 0)
 			return -1;
 
+		close_service_fd(ROOT_FD_OFF);
 		return mntns_set_root_fd(mntns->ns_pid, fd);
 	}
 
