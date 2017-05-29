@@ -424,6 +424,13 @@ int service_fd_min_fd(void)
 
 static DECLARE_BITMAP(sfd_map, SERVICE_FD_MAX);
 
+static bool may_install_service_fd(int fd)
+{
+	static char path[] = "/proc/self/fd/4294967295";
+	snprintf(&path[14], sizeof(path) - 15, "%d", fd);
+	return access(path, F_OK) ? true : false;
+}
+
 int reserve_service_fd(enum sfd_type type)
 {
 	int sfd = __get_service_fd(type, service_fd_id);
@@ -439,6 +446,11 @@ int install_service_fd(enum sfd_type type, int fd)
 	int sfd = __get_service_fd(type, service_fd_id);
 
 	BUG_ON((int)type <= SERVICE_FD_MIN || (int)type >= SERVICE_FD_MAX);
+
+	if (!may_install_service_fd(sfd)) {
+		pr_err("sfd %d/%d is busy\n", sfd, type);
+		return -1;
+	}
 
 	if (dup3(fd, sfd, O_CLOEXEC) != sfd) {
 		pr_perror("Dup %d -> %d failed", fd, sfd);
@@ -492,6 +504,8 @@ int clone_service_fd(int id)
 
 		if (old < 0)
 			continue;
+		if (!may_install_service_fd(new))
+			pr_err("sfd %d/%d is busy\n", new, i);
 		ret = dup2(old, new);
 		if (ret == -1) {
 			if (errno == EBADF)
