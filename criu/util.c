@@ -504,13 +504,16 @@ int clone_service_fd(int id)
 
 		if (old < 0)
 			continue;
-		if (!may_install_service_fd(new))
-			pr_err("sfd %d/%d is busy\n", new, i);
+		if (!may_install_service_fd(new)) {
+			pr_err("sfd %d/%d is busy (cloning)\n", new, i);
+			return -1;
+		}
 		ret = dup2(old, new);
 		if (ret == -1) {
 			if (errno == EBADF)
 				continue;
 			pr_perror("Unable to clone %d->%d", old, new);
+			return -1;
 		}
 	}
 
