@@ -1837,4 +1837,4 @@ int new_cg_root_add(char *controller, char *newroot)
 	return 0;
 }
 
-struct ns_desc cgroup_ns_desc = NS_DESC_ENTRY(CLONE_NEWCGROUP, "cgroup");
+struct ns_desc cgroup_ns_desc = NS_DESC_ENTRY(CLONE_NEWCGROUP, "cgroup", NULL);
