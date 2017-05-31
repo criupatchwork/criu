@@ -835,7 +835,17 @@ class criu:
 		self.__lazy_pages_p = None
 		self.__page_server_p = None
 
-	def fini(self, opts):
+	def fini(self):
+		if self.__lazy_pages_p:
+			ret = self.__lazy_pages_p.wait()
+			self.__lazy_pages_p = None
+			if ret:
+				raise test_fail_exc("criu lazy-pages exited with %s" % ret)
+		if self.__page_server_p:
+			ret = self.__page_server_p.wait()
+			self.__page_server_p = None
+			if ret:
+				raise test_fail_exc("criu page-server exited with %s" % ret)
                 return
 
 	def logs(self):
@@ -1048,18 +1058,6 @@ class criu:
 			r_opts += ['--leave-stopped']
 
 		self.__criu_act("restore", opts = r_opts + ["--restore-detached"])
-
-		if self.__lazy_pages_p:
-			ret = self.__lazy_pages_p.wait()
-			self.__lazy_pages_p = None
-			if ret:
-				raise test_fail_exc("criu lazy-pages exited with %s" % ret)
-
-		if self.__page_server_p:
-			ret = self.__page_server_p.wait()
-			self.__page_server_p = None
-			if ret:
-				raise test_fail_exc("criu page-server exited with %s" % ret)
 
 		if self.__leave_stopped:
 			pstree_check_stopped(self.__test.getpid())
@@ -1420,7 +1418,7 @@ def do_run_test(tname, tdesc, flavs, opts):
 				if opts['join_ns']:
 					check_joinns_state(t)
 				t.stop()
-				cr_api.fini(opts)
+				cr_api.fini()
 				try_run_hook(t, ["--clean"])
 		except test_fail_exc as e:
 			print_sep("Test %s FAIL at %s" % (tname, e.step), '#')
