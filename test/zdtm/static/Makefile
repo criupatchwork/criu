@@ -182,6 +182,7 @@ TST_NOFILE	:=				\
 		pidns00				\
 		pidns01				\
 		pidns02				\
+		pidns03				\
 #		jobctl00			\
 
 include ../Makefile.inc
@@ -477,6 +478,8 @@ userns02:		CFLAGS += -D USERNS02
 proc-self01:		override CFLAGS += -D PROC_SELF01
 
 shm-unaligned:		CFLAGS += -DZDTM_SHM_UNALIGNED
+pidns03:		CFLAGS += -pthread
+pidns03:		LDFLAGS += -pthread
 
 s390x_regs_check:	LDFLAGS += -pthread
 
