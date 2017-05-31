@@ -179,6 +179,7 @@ TST_NOFILE	:=				\
 		pidns00				\
 		pidns01				\
 		pidns02				\
+		pidns03				\
 #		jobctl00			\
 
 ifneq ($(SRCARCH),arm)
@@ -463,6 +464,9 @@ socket-tcp6-unconn:	CFLAGS += -D ZDTM_IPV6
 pty-console:		CFLAGS += -D ZDTM_DEV_CONSOLE
 userns02:		CFLAGS += -D USERNS02
 proc-self01:		override CFLAGS += -D PROC_SELF01
+
+pidns03:		CFLAGS += -pthread
+pidns03:		LDFLAGS += -pthread
 
 $(LIB):	force
 	$(Q) $(MAKE) -C $(LIBDIR)
