@@ -1113,6 +1113,16 @@ static int check_ns_get_parent(void)
 	return 0;
 }
 
+static int check_pid_for_children_ns(void)
+{
+	if (kerndat_has_pid_for_children_ns() < 0)
+		return -1;
+
+	if (!kdat.has_pid_for_children_ns)
+		return -1;
+
+	return 0;
+}
 
 static int (*chk_feature)(void);
 
@@ -1221,6 +1231,7 @@ int cr_check(void)
 		ret |= check_ns_pid();
 		ret |= check_ns_get_userns();
 		ret |= check_ns_get_parent();
+		ret |= check_pid_for_children_ns();
 	}
 
 	/*
@@ -1304,6 +1315,7 @@ static struct feature_list feature_list[] = {
 	{ "ns_pid", check_ns_pid},
 	{ "ns_get_userns", check_ns_get_userns },
 	{ "ns_get_parent", check_ns_get_parent },
+	{ "pid_for_children_ns", check_pid_for_children_ns},
 	{ NULL, NULL },
 };
 
