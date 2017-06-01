@@ -463,6 +463,8 @@ pty-console:		CFLAGS += -D ZDTM_DEV_CONSOLE
 userns02:		CFLAGS += -D USERNS02
 proc-self01:		override CFLAGS += -D PROC_SELF01
 
+shm-unaligned:		CFLAGS += -DZDTM_SHM_UNALIGNED
+
 $(LIB):	force
 	$(Q) $(MAKE) -C $(LIBDIR)
 
