@@ -1677,7 +1677,7 @@ int collect_filemap(struct vma_area *vma, struct vma_file_ctx *ctx)
 		return -1;
 
 	vma->vmfd = fd;
-	if (ctx->vma && ctx->flags == vma->e->flags && ctx->fd == fd) {
+	if (ctx->vma && ctx->flags == vma->e->fdflags && ctx->fd == fd) {
 		vma->vm_open = borrow_filemap;
 		vma->fvma = ctx->vma;
 		ctx->vma->e->status |= VMA_NO_CLOSE;
