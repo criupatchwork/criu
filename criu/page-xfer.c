@@ -705,16 +705,18 @@ static int page_server_get_pages(int sk, struct page_server_iov *pi)
 	if (!can_send_pages(ppb, iov, pi))
 		return -1;
 
+	ret = tee(ppb->p[0], cxfer.p[1], iov->iov_len, 0);
+	if (ret != iov->iov_len)
+		return -1;
+
 	if (send_psi(sk, PS_IOV_ADD, pi->nr_pages, pi->vaddr, pi->dst_id))
 		return -1;
 
-	ret = splice(ppb->p[0], NULL, sk, NULL, iov->iov_len, SPLICE_F_MOVE);
+	ret = splice(cxfer.p[0], NULL, sk, NULL, iov->iov_len, SPLICE_F_MOVE);
 	if (ret != iov->iov_len)
 		return -1;
 
 	tcp_nodelay(sk, true);
-
-	page_pipe_destroy_ppb(ppb);
 
 	return 0;
 }
@@ -724,6 +726,12 @@ static int page_server_serve(int sk)
 	int ret = -1;
 	bool flushed = false;
 
+	if (pipe(cxfer.p)) {
+		pr_perror("Can't make pipe for xfer");
+		close(sk);
+		return -1;
+	}
+
 	if (!opts.lazy_pages) {
 		/*
 		 * This socket only accepts data except one thing -- it
@@ -731,18 +739,14 @@ static int page_server_serve(int sk)
 		 * make it NODELAY all the time.
 		 */
 		tcp_nodelay(sk, true);
-
-		if (pipe(cxfer.p)) {
-			pr_perror("Can't make pipe for xfer");
-			close(sk);
-			return -1;
-		}
-
-		cxfer.pipe_size = fcntl(cxfer.p[0], F_GETPIPE_SZ, 0);
-		pr_debug("Created xfer pipe size %u\n", cxfer.pipe_size);
 	} else {
+		if (fcntl(cxfer.p[0], F_SETPIPE_SZ, PIPE_MAX_SIZE * PAGE_SIZE) < 0)
+			return -1;
 		tcp_cork(sk, true);
 	}
+
+	cxfer.pipe_size = fcntl(cxfer.p[0], F_GETPIPE_SZ, 0);
+	pr_debug("Created xfer pipe size %u\n", cxfer.pipe_size);
 
 	while (1) {
 		struct page_server_iov pi;
