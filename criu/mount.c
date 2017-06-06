@@ -1020,8 +1020,8 @@ int mnt_is_dir(struct mount_info *pm)
  */
 int __open_mountpoint(struct mount_info *pm, int mnt_fd)
 {
-	dev_t dev;
 	struct stat st;
+	int dev;
 	int ret;
 
 	if (mnt_fd == -1) {
@@ -1050,7 +1050,7 @@ int __open_mountpoint(struct mount_info *pm, int mnt_fd)
 		goto err;
 	}
 
-	dev = phys_stat_resolve_dev(pm->nsid, st.st_dev, pm->ns_mountpoint + 1);
+	dev = MKKDEV(major(st.st_dev), minor(st.st_dev));
 	/*
 	 * Always check for @s_dev_rt here, because the @s_dev
 	 * from the image (in case of restore) has all rights
@@ -1059,7 +1059,7 @@ int __open_mountpoint(struct mount_info *pm, int mnt_fd)
 	 */
 	if (dev != pm->s_dev_rt) {
 		pr_err("The file system %#x %#x (%#x) %s %s is inaccessible\n",
-		       pm->s_dev, pm->s_dev_rt, (int)dev,
+		       pm->s_dev, pm->s_dev_rt, dev,
 		       pm->fstype->name, pm->ns_mountpoint);
 		goto err;
 	}
