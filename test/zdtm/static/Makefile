@@ -177,6 +177,7 @@ TST_NOFILE	:=				\
 		userns01			\
 		userns02			\
 		userns-leaked-sock		\
+		userns-denied-child-setns	\
 		netns_sub_veth			\
 		pidns00				\
 		pidns01				\
