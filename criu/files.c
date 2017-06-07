@@ -53,6 +53,8 @@
 
 #define FDESC_HASH_SIZE	64
 static struct hlist_head file_desc_hash[FDESC_HASH_SIZE];
+/* file_desc's, which fle is not owned by a process, that is able to open them */
+static LIST_HEAD(fake_master_head);
 
 int prepare_shared_fdinfo(void)
 {
@@ -67,6 +69,7 @@ int prepare_shared_fdinfo(void)
 void file_desc_init(struct file_desc *d, u32 id, struct file_desc_ops *ops)
 {
 	INIT_LIST_HEAD(&d->fd_info_head);
+	INIT_LIST_HEAD(&d->fake_master_list);
 	INIT_HLIST_NODE(&d->hash);
 
 	d->id	= id;

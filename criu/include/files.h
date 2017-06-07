@@ -118,6 +118,8 @@ struct file_desc {
 	struct list_head	fd_info_head;	/* Chain of fdinfo_list_entry-s with same ID and type but different pids */
 	struct file_desc_ops	*ops;		/* Associated operations */
 	struct ns_id		*setns_userns;	/* Minimal user_ns to be able to restore this file */
+	struct list_head	fake_master_list;/* To chain in the list of file_desc, which don't
+						    have a fle in a task, that having permissions */
 };
 
 struct fdtype_ops {
