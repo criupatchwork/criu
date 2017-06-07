@@ -1012,7 +1012,7 @@ static int restore_one_alive_task(int pid, CoreEntry *core)
 	if (restore_task_pfc_before_user_ns())
 		return -1;
 
-	if (current->ids->has_user_ns_id && set_user_ns(current->ids->user_ns_id) < 0)
+	if (current->ids->has_user_ns_id && set_userns_by_id(current->ids->user_ns_id))
 		return -1;
 
 	if (setup_uffd(pid, ta))

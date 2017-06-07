@@ -2545,7 +2545,7 @@ err_unds:
 	return -1;
 }
 
-int __set_user_ns(struct ns_id *ns)
+int set_userns(struct ns_id *ns)
 {
 	int fd;
 
@@ -2575,7 +2575,7 @@ int __set_user_ns(struct ns_id *ns)
 	return 0;
 }
 
-int set_user_ns(u32 id)
+int set_userns_by_id(u32 id)
 {
 	struct ns_id *ns;
 
@@ -2587,7 +2587,7 @@ int set_user_ns(u32 id)
 		pr_err("Can't find user_ns %u\n", id);
 		return -1;
 	}
-	return __set_user_ns(ns);
+	return set_userns(ns);
 }
 
 static int do_reserve_pid_ns_helpers(struct ns_id *ns, void *oarg)
