@@ -472,7 +472,7 @@ static int restore_task_pfc_before_user_ns(void)
 
 static int setup_child_task_namespaces(struct pstree_item *item, struct ns_id **ret_pid_ns)
 {
-	struct ns_id *pid_ns;
+	struct ns_id *pid_ns, *net_ns;
 
 	pid_ns = lookup_ns_by_id(item->ids->pid_ns_id, &pid_ns_desc);
 	BUG_ON(!pid_ns);
@@ -483,6 +483,16 @@ static int setup_child_task_namespaces(struct pstree_item *item, struct ns_id **
 			item->user_ns = pid_ns->user_ns;
 		else
 			item->user_ns = current->user_ns;
+
+		if (item->ids->net_ns_id != current->net_ns->id) {
+			/* Check, that child can set its net_ns */
+			net_ns = lookup_ns_by_id(item->ids->net_ns_id, &net_ns_desc);
+			if (!is_subns(net_ns->user_ns, item->user_ns) &&
+			    set_netns(net_ns) < 0) {
+				pr_err("Can't set net_ns\n");
+				return -1;
+			}
+		}
 		item->net_ns = current->net_ns;
 	} else {
 		item->user_ns = top_user_ns;
