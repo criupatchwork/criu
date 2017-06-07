@@ -117,6 +117,7 @@ struct file_desc {
 	struct hlist_node	hash;		/* Descriptor hashing and lookup */
 	struct list_head	fd_info_head;	/* Chain of fdinfo_list_entry-s with same ID and type but different pids */
 	struct file_desc_ops	*ops;		/* Associated operations */
+	struct ns_id		*setns_userns;	/* Minimal user_ns to be able to restore this file */
 };
 
 struct fdtype_ops {
