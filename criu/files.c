@@ -768,7 +768,7 @@ compare_pid:
 	list_add_tail(&new_le->desc_list, &le->desc_list);
 }
 
-int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info)
+int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info, bool fake)
 {
 	struct fdinfo_list_entry *new_le;
 	struct file_desc *fdesc;
@@ -779,6 +779,7 @@ int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info)
 	new_le = alloc_fle(pid, e);
 	if (!new_le)
 		return -1;
+	new_le->fake = (!!fake);
 
 	fdesc = find_file_desc(e);
 	if (fdesc == NULL) {
@@ -817,7 +818,7 @@ int dup_fle(struct pstree_item *task, struct fdinfo_list_entry *ple,
 	if (!e)
 		return -1;
 
-	return collect_fd(vpid(task), e, rsti(task));
+	return collect_fd(vpid(task), e, rsti(task), false);
 }
 
 int prepare_ctl_tty(int pid, struct rst_info *rst_info, u32 ctl_tty_id)
@@ -839,7 +840,7 @@ int prepare_ctl_tty(int pid, struct rst_info *rst_info, u32 ctl_tty_id)
 	e->fd		= reserve_service_fd(CTL_TTY_OFF);
 	e->type		= FD_TYPES__TTY;
 
-	if (collect_fd(pid, e, rst_info)) {
+	if (collect_fd(pid, e, rst_info, false)) {
 		xfree(e);
 		return -1;
 	}
@@ -879,7 +880,7 @@ int prepare_fd_pid(struct pstree_item *item)
 			break;
 		}
 
-		ret = collect_fd(pid, e, rst_info);
+		ret = collect_fd(pid, e, rst_info, false);
 		if (ret < 0) {
 			fdinfo_entry__free_unpacked(e, NULL);
 			break;
