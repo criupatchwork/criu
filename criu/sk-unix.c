@@ -1104,7 +1104,7 @@ static int open_unixsk_pair_master(struct unix_sk_info *ui, int *new_fd)
 	pr_info("Opening pair master (id %#x ino %#x peer %#x)\n",
 			ui->ue->id, ui->ue->ino, ui->ue->peer);
 
-	if (set_netns(ui->ue->ns_id))
+	if (set_netns_by_id(ui->ue->ns_id))
 		return -1;
 
 	if (socketpair(PF_UNIX, ui->ue->type, 0, sk) < 0) {
@@ -1162,7 +1162,7 @@ static int open_unixsk_standalone(struct unix_sk_info *ui, int *new_fd)
 	pr_info("Opening standalone socket (id %#x ino %#x peer %#x)\n",
 			ui->ue->id, ui->ue->ino, ui->ue->peer);
 
-	if (set_netns(ui->ue->ns_id))
+	if (set_netns_by_id(ui->ue->ns_id))
 		return -1;
 
 	/*

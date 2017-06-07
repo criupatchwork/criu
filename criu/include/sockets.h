@@ -84,7 +84,8 @@ static inline int sk_decode_shutdown(int val)
 #define NETLINK_SOCK_DIAG NETLINK_INET_DIAG
 #endif
 
-extern int set_netns(uint32_t ns_id);
+extern int set_netns(struct ns_id *ns);
+extern int set_netns_by_id(uint32_t ns_id);
 
 #ifndef SIOCGSKNS
 #define SIOCGSKNS      0x894C          /* get socket network namespace */

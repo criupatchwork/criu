@@ -179,7 +179,7 @@ static int open_netlink_sk(struct file_desc *d, int *new_fd)
 
 	pr_info("Opening netlink socket id %#x\n", nse->id);
 
-	if (set_netns(nse->ns_id))
+	if (set_netns_by_id(nse->ns_id))
 		return -1;
 
 	sk = socket(PF_NETLINK, SOCK_RAW, nse->protocol);

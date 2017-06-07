@@ -745,19 +745,14 @@ int collect_sockets(struct ns_id *ns)
 	return err;
 }
 
-int set_netns(uint32_t ns_id)
+int set_netns(struct ns_id *ns)
 {
-	struct ns_id *ns;
 	int nsfd;
 
-	if (ns_id == current->net_ns->id)
+	BUG_ON(ns->nd != &net_ns_desc);
+	if (ns == current->net_ns)
 		return 0;
 
-	ns = lookup_ns_by_id(ns_id, &net_ns_desc);
-	if (ns == NULL) {
-		pr_err("Unable to find a network namespace\n");
-		return -1;
-	}
 	nsfd = fdstore_get(ns->net.nsfd_id);
 	if (nsfd < 0)
 		return -1;
@@ -772,6 +767,21 @@ int set_netns(uint32_t ns_id)
 	close_pid_proc();
 
 	return 0;
+}
+
+int set_netns_by_id(uint32_t ns_id)
+{
+	struct ns_id *ns;
+
+	if (ns_id == current->net_ns->id)
+		return 0;
+
+	ns = lookup_ns_by_id(ns_id, &net_ns_desc);
+	if (ns == NULL) {
+		pr_err("Unable to find a network namespace\n");
+		return -1;
+	}
+	return set_netns(ns);
 }
 
 void fixup_sock_net_ns_id(uint32_t *ns_id, protobuf_c_boolean *has_ns_id)
