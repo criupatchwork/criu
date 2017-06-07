@@ -745,17 +745,12 @@ int collect_sockets(struct ns_id *ns)
 	return err;
 }
 
-static uint32_t last_ns_id = 0;
-
 int set_netns(uint32_t ns_id)
 {
 	struct ns_id *ns;
 	int nsfd;
 
-	if (!(root_ns_mask & CLONE_NEWNET))
-		return 0;
-
-	if (ns_id == last_ns_id)
+	if (ns_id == current->net_ns->id)
 		return 0;
 
 	ns = lookup_ns_by_id(ns_id, &net_ns_desc);
@@ -771,7 +766,7 @@ int set_netns(uint32_t ns_id)
 		close(nsfd);
 		return -1;
 	}
-	last_ns_id = ns_id;
+	current->net_ns = ns;
 	close(nsfd);
 
 	close_pid_proc();

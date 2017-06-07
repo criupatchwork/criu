@@ -483,8 +483,11 @@ static int setup_child_task_namespaces(struct pstree_item *item, struct ns_id **
 			item->user_ns = pid_ns->user_ns;
 		else
 			item->user_ns = current->user_ns;
-	} else
+		item->net_ns = current->net_ns;
+	} else {
 		item->user_ns = top_user_ns;
+		item->net_ns = top_net_ns;
+	}
 
 	wait_pid_ns_helper_prepared(pid_ns, item->pid);
 
@@ -1724,7 +1727,8 @@ static int restore_task_with_children(void *_arg)
 	if (current->parent == NULL) {
 		/*
 		 * The root task has to be in its namespaces before executing
-		 * ACT_SETUP_NS scripts, so the root netns has to be created here
+		 * ACT_SETUP_NS scripts, so the top_net_ns has to be created here
+		 * (current->net_ns is already set in setup_child_task_namespaces())
 		 */
 		if (root_ns_mask & CLONE_NEWNET) {
 			ret = unshare(CLONE_NEWNET);
