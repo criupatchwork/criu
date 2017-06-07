@@ -1725,7 +1725,14 @@ int open_transport_socket(void)
 	struct sockaddr_un saddr;
 	int sock, slen, ret = -1;
 
-	sock = socket(PF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC, 0);
+	if (current->user_ns != top_user_ns) {
+		sock = userns_call(uns_create_dgram_sock, UNS_FDOUT,
+				   &top_net_ns, sizeof(top_net_ns), -1);
+	} else {
+		if (set_netns(top_net_ns))
+			goto out;
+		sock = socket(PF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC, 0);
+	}
 	if (sock < 0) {
 		pr_perror("Can't create socket");
 		goto out;
@@ -1745,6 +1752,8 @@ int open_transport_socket(void)
 	close(sock);
 	ret = 0;
 out:
+	if (ret)
+		pr_err("Can't create transport socket\n");
 	return ret;
 }
 

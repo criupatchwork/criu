@@ -1647,6 +1647,33 @@ int prep_usernsd_transport()
 	return ret;
 }
 
+static struct ns_id *last_net_ns = NULL;
+
+int uns_create_dgram_sock(void *arg, int fd, pid_t pid)
+{
+	struct ns_id *ns = *(struct ns_id **)arg;
+
+	if (last_net_ns != ns) {
+		fd = fdstore_get(ns->net.nsfd_id);
+		if (fd < 0) {
+			pr_err("Can't get net_ns\n");
+			return -1;
+		}
+		if (setns(fd, CLONE_NEWNET) < 0) {
+			pr_perror("Can't setns");
+			close(fd);
+			return -1;
+		}
+		close(fd);
+		last_net_ns = ns;
+	}
+
+	fd = socket(PF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC, 0);
+	if (fd < 0)
+		pr_perror("Can't create sock");
+	return fd;
+}
+
 static int usernsd(int sk)
 {
 	pr_info("uns: Daemon started\n");

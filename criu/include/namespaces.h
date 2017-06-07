@@ -216,6 +216,7 @@ extern int set_userns(struct ns_id *ns);
 extern int set_userns_by_id(u32 id);
 extern int stop_usernsd(void);
 extern int prep_usernsd_transport(void);
+extern int uns_create_dgram_sock(void *arg, int fd, pid_t pid);
 
 extern uid_t userns_uid(uid_t uid);
 extern gid_t userns_gid(gid_t gid);
