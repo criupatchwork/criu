@@ -1411,6 +1411,7 @@ static int collect_one_unixsk(void *o, ProtobufCMessage *base, struct cr_img *i)
 	INIT_LIST_HEAD(&ui->connected);
 	INIT_LIST_HEAD(&ui->node);
 	ui->flags = 0;
+	fixup_sock_net_ns_id(&ui->ue->ns_id, &ui->ue->has_ns_id);
 
 	uname = ui->name;
 	ulen = ui->ue->name.len;
