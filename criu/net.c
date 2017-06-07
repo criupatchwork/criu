@@ -2175,7 +2175,7 @@ static int do_restore_task_net_ns(struct ns_id *nsid, struct pstree_item *curren
 {
 	int fd;
 
-	if (!(root_ns_mask & CLONE_NEWNET))
+	if (current->net_ns == nsid)
 		return 0;
 
 	fd = fdstore_get(nsid->net.nsfd_id);
