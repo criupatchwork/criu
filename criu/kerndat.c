@@ -33,6 +33,7 @@
 #include <compel/compel.h>
 #include "netfilter.h"
 #include "linux/userfaultfd.h"
+#include "vdso.h"
 
 struct kerndat_s kdat = {
 };
@@ -979,6 +980,9 @@ int kerndat_init(void)
 		ret = kerndat_has_ns_get_parent();
 	if (!ret)
 		ret = kerndat_has_pid_for_children_ns();
+	/* Needs kdat.compat_cr filled before */
+	if (!ret)
+		ret = kerndat_vdso_fill_symtable();
 
 	kerndat_lsm();
 	kerndat_mmap_min_addr();
