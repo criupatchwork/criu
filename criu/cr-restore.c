@@ -1812,7 +1812,8 @@ static int restore_task_with_children(void *_arg)
 
 	timing_stop(TIME_FORK);
 
-	if (unmap_guard_pages(current))
+	if (kdat.mm_guard_page_maps &&
+	    unmap_guard_pages(current))
 		goto err;
 
 	restore_pgid();

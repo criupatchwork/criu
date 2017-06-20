@@ -638,8 +638,10 @@ static int vma_list_add(struct vma_area *vma_area,
 
 	/* Add a guard page only if here is enough space for it */
 	if ((vma_area->e->flags & MAP_GROWSDOWN) &&
-	    *prev_end < vma_area->e->start)
-		vma_area->e->start -= PAGE_SIZE; /* Guard page */
+	    *prev_end < vma_area->e->start) {
+		if (kdat.mm_guard_page_maps)
+			vma_area->e->start -= PAGE_SIZE; /* Guard page */
+	}
 	*prev_end = vma_area->e->end;
 
 	list_add_tail(&vma_area->list, &vma_area_list->h);
