@@ -39,6 +39,7 @@ struct kerndat_s {
 	bool has_memfd;
 	bool has_fdinfo_lock;
 	unsigned long task_size;
+	bool mm_guard_page_maps;
 	bool ipv6;
 	enum loginuid_func luid;
 	bool compat_cr;

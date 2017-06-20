@@ -464,6 +464,56 @@ static int get_task_size(void)
 	return 0;
 }
 
+static int kerndat_mm_guard_page_maps(void)
+{
+	int num, ret = -1, detected = 0;
+	unsigned long start, end;
+	char r, w, x, s;
+	char buf[1024];
+	FILE *maps;
+
+	void *mem = mmap(NULL, 4096, PROT_READ | PROT_WRITE,
+			 MAP_PRIVATE | MAP_ANONYMOUS | MAP_GROWSDOWN,
+			 -1, 0);
+	if (mem == MAP_FAILED) {
+		pr_perror("Can't mmap stack area");
+		return -1;
+	}
+
+	maps = fopen("/proc/self/maps", "r");
+	if (maps == NULL) {
+		munmap(mem, 4096);
+		return -1;
+	}
+
+	while (fgets(buf, sizeof(buf), maps)) {
+		num = sscanf(buf, "%lx-%lx %c%c%c%c",
+			     &start, &end, &r, &w, &x, &s);
+		if (num < 6) {
+			pr_err("Can't parse: %s\n", buf);
+			goto err;
+		}
+
+		if (start == (unsigned long)mem) {
+			kdat.mm_guard_page_maps = false;
+			detected = 1;
+			break;
+		} else if (start == ((unsigned long)mem + PAGE_SIZE)) {
+			kdat.mm_guard_page_maps = true;
+			detected = 1;
+			break;
+		}
+	}
+
+	if (detected)
+		ret = 0;
+
+err:
+	munmap(mem, 4096);
+	fclose(maps);
+	return ret;
+}
+
 int kerndat_fdinfo_has_lock()
 {
 	int fd, pfd = -1, exit_code = -1, len;
@@ -904,6 +954,8 @@ int kerndat_init(void)
 		ret = kerndat_has_ns_get_parent();
 	if (!ret)
 		ret = kerndat_has_pid_for_children_ns();
+	if (!ret)
+		ret = kerndat_mm_guard_page_maps();
 
 	kerndat_lsm();
 	kerndat_mmap_min_addr();
