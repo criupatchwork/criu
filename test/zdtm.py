@@ -338,12 +338,6 @@ def test_flag(tdesc, flag):
 	return flag in tdesc.get('flags', '').split()
 
 
-def reset_pid(pid = 1):
-	fd = open('/proc/sys/kernel/ns_last_pid', 'w')
-	fd.write('%s' % pid)
-	fd.close()
-
-
 #
 # Exception thrown when something inside the test goes wrong,
 # e.g. test doesn't start, criu returns with non zero code or
@@ -941,6 +935,9 @@ class criu:
 			os.close(status_fds[0])
 			return ret
 
+		if '--check-only' in opts and action == "restore":
+			open("/proc/sys/kernel/ns_last_pid", "w+").write(ns_last_pid)
+
 		grep_errors(os.path.join(__ddir, log))
 		if ret != 0:
 			if self.__fault and int(self.__fault) < 128:
@@ -1080,8 +1077,6 @@ class criu:
 
 		if self.__check_only:
 			self.__criu_act("restore", opts = r_opts + ["--restore-detached"] + ['--check-only'])
-			# sometimes the real restore fails with PID conflicts without this
-			reset_pid()
 
 		self.__criu_act("restore", opts = r_opts + ["--restore-detached"])
 
