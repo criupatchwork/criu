@@ -62,6 +62,8 @@ struct rst_info {
 	 */
 	bool			has_seccomp;
 
+	bool			has_thp_enabled;
+
 	void			*breakpoint;
 };
 
