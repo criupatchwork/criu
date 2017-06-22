@@ -284,11 +284,14 @@ static int open_page_local_xfer(struct page_xfer *xfer, int fd_type, long id)
 	u32 pages_id;
 
 	xfer->pmi = open_image(fd_type, O_DUMP, id);
-	if (!xfer->pmi)
+	if (!xfer->pmi) {
+		pr_err("Failed to open image file\n");
 		return -1;
+	}
 
 	xfer->pi = open_pages_image(O_DUMP, xfer->pmi, &pages_id);
 	if (!xfer->pi) {
+		pr_err("Failed to open pages image file\n");
 		close_image(xfer->pmi);
 		return -1;
 	}
@@ -329,6 +332,7 @@ static int open_page_local_xfer(struct page_xfer *xfer, int fd_type, long id)
 		if (!xfer->parent) {
 			if (!opts.remote)
 				close(pfd);
+			pr_err("xmalloc() failed to allocate parent\n");
 			return -1;
 		}
 
@@ -468,9 +472,10 @@ int check_parent_local_xfer(int fd_type, int id)
 
 	if (opts.remote) {
 		pfd = get_curr_parent_snapshot_id_idx();
-		pr_err("Unable to get parent snapshot id\n");
-		if (pfd == -1)
+		if (pfd == -1) {
+			pr_err("Unable to get parent snapshot id\n");
 			return -1;
+		}
 	} else {
 		pfd = openat(get_service_fd(IMG_FD_OFF), CR_PARENT_LINK, O_RDONLY);
 		if (pfd < 0 && errno == ENOENT)
@@ -499,8 +504,10 @@ static int page_server_check_parent(int sk, struct page_server_iov *pi)
 	id = decode_pm_id(pi->dst_id);
 
 	ret = check_parent_local_xfer(type, id);
-	if (ret < 0)
+	if (ret < 0) {
+		pr_err("check_parent_local_xfer() failed: %d\n", ret);
 		return -1;
+	}
 
 	if (write(sk, &ret, sizeof(ret)) != sizeof(ret)) {
 		pr_perror("Unable to send response");
@@ -580,8 +587,10 @@ static int page_server_open(int sk, struct page_server_iov *pi)
 
 	page_server_close();
 
-	if (open_page_local_xfer(&cxfer.loc_xfer, type, id))
+	if (open_page_local_xfer(&cxfer.loc_xfer, type, id)) {
+		pr_err("open_page_local_xfer() failed\n");
 		return -1;
+	}
 
 	cxfer.dst_id = pi->dst_id;
 
@@ -619,8 +628,10 @@ static int page_server_add(int sk, struct page_server_iov *pi, u32 flags)
 		return -1;
 
 	psi2iovec(pi, &iov);
-	if (lxfer->write_pagemap(lxfer, &iov, flags))
+	if (lxfer->write_pagemap(lxfer, &iov, flags)) {
+		pr_err("Failed to write_pagemap()\n");
 		return -1;
+	}
 
 	if (!(flags & PE_PRESENT))
 		return 0;
@@ -653,8 +664,10 @@ static int page_server_add(int sk, struct page_server_iov *pi, u32 flags)
 			return -1;
 		}
 
-		if (lxfer->write_pages(lxfer, cxfer.p[0], chunk))
+		if (lxfer->write_pages(lxfer, cxfer.p[0], chunk)) {
+			pr_err("Failed to write_pages()\n");
 			return -1;
+		}
 
 		len -= chunk;
 	}
@@ -674,8 +687,10 @@ static int page_server_get_pages(int sk, struct page_server_iov *pi)
 
 	ret = page_pipe_read(pp, &pipe_read_dest, pi->vaddr,
 			     &pi->nr_pages, PPB_LAZY);
-	if (ret)
+	if (ret) {
+		pr_err("page_pipe_read() failed: %d\n", ret);
 		return ret;
+	}
 
 	if (pi->nr_pages == 0) {
 		/* no iovs found means we've hit a zero page */
@@ -689,8 +704,10 @@ static int page_server_get_pages(int sk, struct page_server_iov *pi)
 		return -1;
 
 	ret = splice(pipe_read_dest.p[0], NULL, sk, NULL, len, SPLICE_F_MOVE);
-	if (ret != len)
+	if (ret != len) {
+		pr_perror("Failed to splice()");
 		return -1;
+	}
 
 	tcp_nodelay(sk, true);
 
@@ -729,11 +746,13 @@ static int page_server_serve(int sk)
 		u32 cmd;
 
 		ret = recv(sk, &pi, sizeof(pi), MSG_WAITALL);
-		if (!ret)
+		if (!ret) {
+			pr_info("Other end of socket is closed, session end\n");
 			break;
+		}
 
 		if (ret != sizeof(pi)) {
-			pr_perror("Can't read pagemap from socket");
+			pr_perror("Can't read pageserver's command from socket, recv() = %d", ret);
 			ret = -1;
 			break;
 		}
@@ -788,8 +807,15 @@ static int page_server_serve(int sk)
 			break;
 		}
 
-		if (ret || (pi.cmd == PS_IOV_FLUSH_N_CLOSE))
+		if (ret) {
+			pr_err("Ending session due to ret code %d\n", ret);
 			break;
+		}
+
+		if (pi.cmd == PS_IOV_FLUSH_N_CLOSE) {
+			pr_info("Closing session with flush-close cmd\n");
+			break;
+		}
 	}
 
 	if (receiving_pages && !ret && !flushed) {
