@@ -461,16 +461,12 @@ int check_parent_local_xfer(int fd_type, int id)
 	struct stat st;
 	int ret, pfd;
 
-	if (opts.remote) {
-		pfd = get_curr_parent_snapshot_id_idx();
-		pr_err("Unable to get parent snapshot id\n");
-		if (pfd == -1)
-			return -1;
-	} else {
-		pfd = openat(get_service_fd(IMG_FD_OFF), CR_PARENT_LINK, O_RDONLY);
-		if (pfd < 0 && errno == ENOENT)
-			return 0;
-	}
+	if (opts.remote)
+		return get_curr_parent_snapshot_id_idx() == -1 ? 0 : 1;
+
+	pfd = openat(get_service_fd(IMG_FD_OFF), CR_PARENT_LINK, O_RDONLY);
+	if (pfd < 0 && errno == ENOENT)
+		return 0;
 
 	snprintf(path, sizeof(path), imgset_template[fd_type].fmt, id);
 	ret = fstatat(pfd, path, &st, 0);
@@ -530,8 +526,6 @@ int check_parent_page_xfer(int fd_type, long id)
 {
 	if (opts.use_page_server)
 		return check_parent_server_xfer(fd_type, id);
-	else if (opts.remote)
-		return get_curr_parent_snapshot_id_idx() == -1 ? 0 : 1;
 	else
 		return check_parent_local_xfer(fd_type, id);
 }
