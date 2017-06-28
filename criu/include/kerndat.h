@@ -69,6 +69,7 @@ struct kerndat_s {
 #endif
 	bool stack_guard_gap_hidden;
 	int lsm;
+	bool has_thp_disable;
 };
 
 extern struct kerndat_s kdat;
