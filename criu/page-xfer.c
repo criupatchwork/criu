@@ -405,6 +405,14 @@ static int dump_holes(struct page_xfer *xfer, struct page_pipe *pp,
 	return 0;
 }
 
+static inline u32 ppb_xfer_flags(struct page_xfer *xfer, struct page_pipe_buf *ppb)
+{
+	if (ppb->flags & PPB_LAZY)
+		return PE_LAZY | (xfer->transfer_lazy ? PE_PRESENT : 0);
+	else
+		return PE_PRESENT;
+}
+
 int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp)
 {
 	struct page_pipe_buf *ppb;
@@ -420,7 +428,7 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp)
 
 		for (i = 0; i < ppb->nr_segs; i++) {
 			struct iovec iov = ppb->iov[i];
-			u32 flags = PE_PRESENT;
+			u32 flags;
 
 			ret = dump_holes(xfer, pp, &cur_hole, iov.iov_base);
 			if (ret)
@@ -431,19 +439,12 @@ int page_xfer_dump_pages(struct page_xfer *xfer, struct page_pipe *pp)
 			pr_debug("\tp %p [%u]\n", iov.iov_base,
 					(unsigned int)(iov.iov_len / PAGE_SIZE));
 
-			if (ppb->flags & PPB_LAZY) {
-				if (!xfer->transfer_lazy) {
-					if (xfer->write_pagemap(xfer, &iov, PE_LAZY))
-						return -1;
-					continue;
-				} else {
-					flags |= PE_LAZY;
-				}
-			}
+			flags = ppb_xfer_flags(xfer, ppb);
 
 			if (xfer->write_pagemap(xfer, &iov, flags))
 				return -1;
-			if (xfer->write_pages(xfer, ppb->p[0], iov.iov_len))
+			if ((flags & PE_PRESENT) && xfer->write_pages(xfer,
+						ppb->p[0], iov.iov_len))
 				return -1;
 		}
 	}
