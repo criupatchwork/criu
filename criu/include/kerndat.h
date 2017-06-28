@@ -69,6 +69,7 @@ struct kerndat_s {
 	struct vdso_symtable	vdso_sym_compat;
 #endif
 #endif
+	bool has_thp_disable;
 };
 
 extern struct kerndat_s kdat;
