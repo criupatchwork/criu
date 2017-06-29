@@ -7,6 +7,13 @@ PLUGIN_ARCH_DIR		:= compel/arch/$(ARCH)/plugins
 #
 # CFLAGS, ASFLAGS, LDFLAGS
 
+# We assume that compel code does not change floating point registers.
+# On s390 gcc uses fprs to cache gprs. Therefore disable floating point
+# with -msoft-float.
+ifeq ($(filter s390x,$(ARCH)),)
+CFLAGS += -msoft-float
+endif
+
 #
 # UAPI inclusion, referred as <compel/...>
 ccflags-y		+= -I compel/include/uapi
