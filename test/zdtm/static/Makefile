@@ -185,6 +185,7 @@ TST_NOFILE	:=				\
 		pidns01				\
 		pidns02				\
 		pidns03				\
+		s390x_mmap_high			\
 #		jobctl00			\
 
 ifneq ($(SRCARCH),arm)
