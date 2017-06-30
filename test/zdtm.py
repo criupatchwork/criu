@@ -1501,6 +1501,11 @@ class launcher:
 			print >> self.__file_report, "# Timestamp: " + now.strftime("%Y-%m-%d %H:%M") + " (GMT+1)"
 			print >> self.__file_report, "# "
 			print >> self.__file_report, "1.." + str(nr_tests)
+		self.__taint = open("/proc/sys/kernel/tainted").read()
+		if int(self.__taint, 0) != 0:
+			print "The kernel is tainted: %r" % self.__taint
+			if not opts["ignore_taint"]:
+				raise Exception("The kernel is tainted: %r" % self.__taint)
 
 	def __show_progress(self, msg):
 		perc = self.__nr * 16 / self.__total
@@ -1519,6 +1524,10 @@ class launcher:
 
 		if len(self.__subs) >= self.__max:
 			self.wait()
+
+		taint = open("/proc/sys/kernel/tainted").read()
+		if self.__taint != taint:
+			raise Exception("The kernel is tainted: %r (%r)" % (taint, self.__taint))
 
 		if test_flag(desc, 'excl'):
 			self.wait_all()
@@ -2056,6 +2065,7 @@ rp.add_argument("--keep-going", help = "Keep running tests in spite of failures"
 rp.add_argument("--lazy-pages", help = "restore pages on demand", action = 'store_true')
 rp.add_argument("--remote-lazy-pages", help = "simulate lazy migration", action = 'store_true')
 rp.add_argument("--check-only", help = "Additionally try to dump/restore in --check-only mode", action = 'store_true')
+rp.add_argument("--ignore-taint", help = "Don't care about a non-zero kernel taint flag", action = 'store_true')
 
 lp = sp.add_parser("list", help = "List tests")
 lp.set_defaults(action = list_tests)
