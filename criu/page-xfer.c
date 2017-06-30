@@ -923,9 +923,10 @@ int cr_page_server(bool daemon_mode, bool lazy_dump, int cfd)
 	int sk = -1;
 	int ret;
 
-	if (!opts.lazy_pages)
-		up_page_ids_base();
-	else if (!lazy_dump)
+	if (images_init(!opts.lazy_pages))
+		return -1;
+
+	if (opts.lazy_pages && !lazy_dump)
 		if (page_server_init_send())
 			return -1;
 

@@ -1612,6 +1612,9 @@ int cr_pre_dump_tasks(pid_t pid)
 	struct pstree_item *item;
 	int ret = -1;
 
+	if (images_init(false))
+		goto err;
+
 	if (opts.remote && push_snapshot_id() < 0) {
 		pr_err("Failed to push image namespace.\n");
 		goto err;
@@ -1812,6 +1815,9 @@ int cr_dump_tasks(pid_t pid)
 	pr_info("========================================\n");
 	pr_info("Dumping processes (pid: %d)\n", pid);
 	pr_info("========================================\n");
+
+	if (images_init(false))
+		goto err;
 
 	if (opts.remote && push_snapshot_id() < 0) {
 		pr_err("Failed to push image namespace.\n");
