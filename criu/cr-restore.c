@@ -261,7 +261,6 @@ static int crtools_prepare_shared(void)
  */
 
 static struct collect_image_info *cinfos[] = {
-	&nsfile_cinfo,
 	&pipe_cinfo,
 	&fifo_cinfo,
 	&unix_sk_cinfo,
@@ -285,6 +284,7 @@ static struct collect_image_info *cinfos[] = {
 };
 
 static struct collect_image_info *cinfos_files[] = {
+	&nsfile_cinfo,
 };
 
 /* These images are requered to restore namespaces */
