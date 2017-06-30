@@ -1161,12 +1161,13 @@ static int receive_fd(struct fdinfo_list_entry *fle)
 	return 0;
 }
 
-static void close_fdinfos(struct list_head *list)
+static void close_fake_fdinfos(struct list_head *list)
 {
 	struct fdinfo_list_entry *fle;
 
 	list_for_each_entry(fle, list, ps_list)
-		close(fle->fe->fd);
+		if (fle->fake)
+			close(fle->fe->fd);
 }
 
 static int open_fdinfos(struct pstree_item *me)
@@ -1174,7 +1175,6 @@ static int open_fdinfos(struct pstree_item *me)
 	struct list_head *list = &rsti(me)->fds;
 	struct fdinfo_list_entry *fle, *tmp;
 	LIST_HEAD(completed);
-	LIST_HEAD(fake);
 	bool progress, again;
 	int st, ret = 0;
 
@@ -1197,10 +1197,7 @@ static int open_fdinfos(struct pstree_item *me)
 				 * and reduce number of fles in their checks.
 				 */
 				list_del(&fle->ps_list);
-				if (!fle->fake)
-					list_add_tail(&fle->ps_list, &completed);
-				else
-					list_add_tail(&fle->ps_list, &fake);
+				list_add_tail(&fle->ps_list, &completed);
 			}
 			if (ret == 1)
 			       again = true;
@@ -1214,9 +1211,8 @@ static int open_fdinfos(struct pstree_item *me)
 	 * Fake fles may be used for restore other
 	 * file types, so their closing is delayed.
 	 */
-	close_fdinfos(&fake);
+	close_fake_fdinfos(&completed);
 splice:
-	list_splice(&fake, list);
 	list_splice(&completed, list);
 
 	return ret;
