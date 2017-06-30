@@ -264,7 +264,6 @@ static struct collect_image_info *cinfos[] = {
 	&pipe_cinfo,
 	&fifo_cinfo,
 	&unix_sk_cinfo,
-	&signalfd_cinfo,
 	&inotify_cinfo,
 	&inotify_mark_cinfo,
 	&fanotify_cinfo,
@@ -285,6 +284,7 @@ static struct collect_image_info *cinfos_files[] = {
 	&eventfd_cinfo,
 	&epoll_cinfo,
 	&epoll_tfd_cinfo,
+	&signalfd_cinfo,
 };
 
 /* These images are requered to restore namespaces */
