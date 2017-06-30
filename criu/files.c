@@ -1198,9 +1198,9 @@ static int open_fdinfos(struct pstree_item *me)
 				 */
 				list_del(&fle->ps_list);
 				if (!fle->fake)
-					list_add(&fle->ps_list, &completed);
+					list_add_tail(&fle->ps_list, &completed);
 				else
-					list_add(&fle->ps_list, &fake);
+					list_add_tail(&fle->ps_list, &fake);
 			}
 			if (ret == 1)
 			       again = true;
