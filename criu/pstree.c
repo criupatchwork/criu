@@ -488,8 +488,10 @@ static int prepare_pstree_for_shell_job(void)
 		old_gid, current_gid, old_sid, current_sid);
 
 	for_each_pstree_item(pi) {
+		BUG_ON(vpgid(pi) == current_gid);
 		if (vpgid(pi) == old_gid)
 			vpgid(pi) = current_gid;
+		BUG_ON(vsid(pi) == current_sid);
 		if (vsid(pi) == old_sid)
 			vsid(pi) = current_sid;
 	}
