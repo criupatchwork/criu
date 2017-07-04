@@ -31,6 +31,8 @@ struct pstree_item {
 	};
 	struct ns_id		*user_ns;
 	struct ns_id		*pid_for_children_ns;
+
+	int			replaceable;
 };
 
 #define vpid(item)	(item->pid->ns[0].virt)
