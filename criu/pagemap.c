@@ -457,6 +457,8 @@ static int read_page_complete(int pid, unsigned long vaddr, int nr_pages, void *
 
 	if (pr->io_complete)
 		ret = pr->io_complete(pr, vaddr, nr_pages);
+	else
+		pr_warn_once("Remote page read w/o io_complete!\n");
 
 	return ret;
 }
