@@ -75,8 +75,6 @@ static int punch_hole(struct page_read *pr, unsigned long off,
 	return 0;
 }
 
-static int seek_pagemap_page(struct page_read *pr, unsigned long vaddr);
-
 int dedup_one_iovec(struct page_read *pr, unsigned long off, unsigned long len)
 {
 	unsigned long iov_end;
@@ -87,7 +85,7 @@ int dedup_one_iovec(struct page_read *pr, unsigned long off, unsigned long len)
 		unsigned long piov_end;
 		struct page_read * prp;
 
-		ret = seek_pagemap_page(pr, off);
+		ret = pr->seek_pagemap(pr, off);
 		if (ret == 0) {
 			pr_warn("Missing %lx in parent pagemap\n", off);
 			if (off < pr->cvaddr && pr->cvaddr < iov_end)
@@ -164,7 +162,7 @@ static int seek_pagemap(struct page_read *pr, unsigned long vaddr)
 			break;
 
 		if (vaddr >= start && vaddr < end) {
-			skip_pagemap_pages(pr, start > pr->cvaddr ? start - pr->cvaddr : 0);
+			skip_pagemap_pages(pr, vaddr > pr->cvaddr ? vaddr - pr->cvaddr : 0);
 			return 1;
 		}
 
@@ -173,16 +171,6 @@ static int seek_pagemap(struct page_read *pr, unsigned long vaddr)
 adv:
 		; /* otherwise "label at end of compound stmt" gcc error */
 	} while (advance(pr));
-
-	return 0;
-}
-
-static int seek_pagemap_page(struct page_read *pr, unsigned long vaddr)
-{
-	if (seek_pagemap(pr, vaddr)) {
-		skip_pagemap_pages(pr, vaddr > pr->cvaddr ? vaddr - pr->cvaddr : 0);
-		return 1;
-	}
 
 	return 0;
 }
@@ -219,7 +207,7 @@ static int read_parent_page(struct page_read *pr, unsigned long vaddr,
 		int p_nr;
 
 		pr_debug("\tpr%d-%u Read from parent\n", pr->pid, pr->id);
-		ret = seek_pagemap_page(ppr, vaddr);
+		ret = ppr->seek_pagemap(ppr, vaddr);
 		if (ret <= 0) {
 			pr_err("Missing %lx in parent pagemap\n", vaddr);
 			return -1;
