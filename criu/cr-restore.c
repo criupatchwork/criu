@@ -1658,7 +1658,7 @@ static void restore_pgid(void)
 	}
 
 	pr_info("\twill call setpgid, mine pgid is %d\n", pgid);
-	if (setpgid(0, my_pgid) != 0) {
+	if (set_pgid(current, vpgid(current))) {
 		pr_perror("Can't restore pgid (%d/%d->%d)", vpid(current), pgid, vpgid(current));
 		exit(1);
 	}
@@ -1762,6 +1762,8 @@ static int restore_task_with_children(void *_arg)
 	int ret;
 
 	current = ca->item;
+
+	rsti(current)->forked = 1;
 
 	current->pid->real = get_self_real_pid();
 	pr_debug("PID: real %d virt %d\n", current->pid->real, vpid(current));
