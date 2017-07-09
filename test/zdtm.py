@@ -1767,6 +1767,16 @@ def run_tests(opts):
 		if subprocess.Popen(["ip", "netns", "exec", "zdtm_netns", "ip", "link", "set", "up", "dev", "lo"]).wait():
 			raise Exception("ip link set up dev lo")
 
+	if opts['lazy_pages'] or opts['remote_lazy_pages']:
+		check = subprocess.Popen([criu_bin, "check", "--feature", "lazy_pages"], stderr = subprocess.PIPE)
+		ret = check.wait()
+		err = ''.join(check.stderr.readlines())
+		if ret:
+			if "UFFD is not supported" in err:
+				raise Exception("UFFD is not supported, cannot run with --lazy-pages")
+			# Most test will work with 4.3 - 4.10
+			print "WARNING: UFFD is missing essentail features"
+
 	l = launcher(opts, len(torun))
 	try:
 		for t in torun:
