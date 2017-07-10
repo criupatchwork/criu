@@ -194,7 +194,7 @@ extern pid_t get_self_real_pid(void);
 #define USEC_PER_SEC	1000000L
 #define NSEC_PER_SEC    1000000000L
 
-int vaddr_to_pfn(unsigned long vaddr, u64 *pfn);
+int vaddr_to_pfn(int fd, unsigned long vaddr, u64 *pfn);
 
 /*
  * Check whether @str starts with @sub and report the
