@@ -87,4 +87,5 @@ message tty_file_entry {
 	required fown_entry		fown		= 4;
 
 	// optional sint32		mnt_id		= 5 [default = 0];
+	optional uint32			regf_id		= 6;
 }
