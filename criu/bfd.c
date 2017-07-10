@@ -15,6 +15,7 @@
 #include "util.h"
 #include "xmalloc.h"
 #include "page.h"
+#include "cr_options.h"
 
 #undef	LOG_PREFIX
 #define LOG_PREFIX "bfd: "
@@ -298,9 +299,29 @@ int bread(struct bfd *bfd, void *buf, int size)
 {
 	struct xbuf *b = &bfd->b;
 	int more = 1, filled = 0;
+	int ret;
+	size_t curr = 0;
 
-	if (!bfd_buffered(bfd))
-		return read(bfd->fd, buf, size);
+	if (!bfd_buffered(bfd)) {
+		if(!opts.remote)
+			return read(bfd->fd, buf, size);
+		/*
+		 * Required to keep reading,
+		 * for succesfully Reading all the data
+		 * from the socket, when on remote option.
+		 */
+		while (1) {
+			ret = read(bfd->fd, buf + curr, size - curr);
+			if (ret < 0) {
+				pr_perror("Can't read from buffer\n");
+				return -1;
+			}
+
+			curr += ret;
+			if (curr == size || ret == 0)
+				return curr;
+		}
+	}
 
 	while (more > 0) {
 		int chunk;
