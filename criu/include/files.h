@@ -109,6 +109,8 @@ struct file_desc_ops {
 };
 
 int collect_fd(int pid, FdinfoEntry *e, struct rst_info *rst_info, bool ghost);
+struct fdinfo_list_entry *collect_fd_to(int pid, FdinfoEntry *e,
+		struct rst_info *rst_info, struct file_desc *fdesc, bool fake);
 
 unsigned int find_unused_fd(struct pstree_item *, int hint_fd);
 struct fdinfo_list_entry *find_used_fd(struct pstree_item *, int fd);
