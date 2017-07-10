@@ -157,6 +157,7 @@ TST_NOFILE	:=				\
 		scm00				\
 		scm01				\
 		scm02				\
+		scm03				\
 		aio00				\
 		aio01				\
 		fd				\
