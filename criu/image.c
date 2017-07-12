@@ -370,11 +370,12 @@ int do_open_remote_image(int dfd, char *path, int flags)
 
 static int do_open_image(struct cr_img *img, int dfd, int type, unsigned long oflags, char *path)
 {
-	int ret, flags;
+	int ret, flags, remote;
 
 	flags = oflags & ~(O_NOBUF | O_SERVICE | O_FORCE_LOCAL);
+	remote = (opts.remote && !(oflags & O_FORCE_LOCAL));
 
-	if (opts.remote && !(oflags & O_FORCE_LOCAL))
+	if (remote)
 		ret = do_open_remote_image(dfd, path, flags);
 	else
 		ret = openat(dfd, path, flags, CR_FD_PERM);
@@ -390,6 +391,19 @@ static int do_open_image(struct cr_img *img, int dfd, int type, unsigned long of
 	}
 
 	img->_x.fd = ret;
+
+	if (flags == O_RDONLY && !remote) {
+		/*
+		 * Do not keep image pages in page cache after we read them,
+		 * as we read every block only once.
+		 */
+		errno = posix_fadvise(img->_x.fd, 0, 0, POSIX_FADV_NOREUSE);
+		if (errno) {
+			pr_perror("Can't fadvice image %s", path);
+			goto err;
+		}
+	}
+
 	if (oflags & O_NOBUF)
 		bfd_setraw(&img->_x);
 	else {
