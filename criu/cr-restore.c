@@ -359,6 +359,29 @@ static int root_prepare_shared(void)
 	if (ret)
 		goto err;
 
+	/*
+	 * This should be called with all packets collected AND all
+	 * fdescs and fles prepared BUT post-prep-s not run.
+	 *
+	 * Also, add_fake_fds_masters() should go afterwards
+	 *
+	 * 1)It may add a master file there, and this master must be
+	 * resolved in add_fake_fds_masters(). Otherwise the task,
+	 * which is the owner of this just added master, may not have
+	 * rights to create the master (imagine, scm file is a socket 
+	 * of a net_ns, which can't be assigned by the task);
+	 * 
+	 * 2)Another case -- there was not a task, which has
+	 * permittions to create a socket, and you added it in
+	 * prepare_scms(). In this case, we mustn't add one more fle 
+	 * in add_fake_fds_masters() -- and if this function is 
+	 * called after prepare_scms(), it won't add anything. This 
+	 * will reduce number of fake files, we add.
+	 */
+	ret = prepare_scms();
+	if (ret)
+		goto err;
+
 	/* This func may add new files, so it must be called before post prepare */
 	ret = add_fake_fds_masters();
 	if (ret)
