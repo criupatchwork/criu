@@ -57,11 +57,11 @@ static void psi2iovec(struct page_server_iov *ps, struct iovec *iov)
 #define PS_TYPE_PID	(1)
 #define PS_TYPE_SHMEM	(2)
 /*
- * XXX: When adding new types here check decode_pm_type for legacy
+ * XXX: When adding new types here check decode_pm for legacy
  * numbers that can be met from older CRIUs
  */
 
-static inline u64 encode_pm_id(int type, long id)
+static inline u64 encode_pm(int type, long id)
 {
 	if (type == CR_FD_PAGEMAP)
 		type = PS_TYPE_PID;
@@ -75,7 +75,7 @@ static inline u64 encode_pm_id(int type, long id)
 	return ((u64)id) << PS_TYPE_BITS | type;
 }
 
-static int decode_pm_type(u64 dst_id)
+static int decode_pm(u64 dst_id, long *id)
 {
 	int type;
 
@@ -92,6 +92,7 @@ static int decode_pm_type(u64 dst_id)
 	case 16: /* 1.2 */
 	case 17: /* 1.0 1.1 */
 	case PS_TYPE_PID:
+		*id = dst_id >> PS_TYPE_BITS;
 		type = CR_FD_PAGEMAP;
 		break;
 	case 27: /* 1.3 */
@@ -101,6 +102,7 @@ static int decode_pm_type(u64 dst_id)
 	case 33: /* 1.0 1.1 3.1 3.2 */
 	case 34: /* 2.* 3.0 */
 	case PS_TYPE_SHMEM:
+		*id = dst_id >> PS_TYPE_BITS;
 		type = CR_FD_SHMEM_PAGEMAP;
 		break;
 	default:
@@ -109,11 +111,6 @@ static int decode_pm_type(u64 dst_id)
 	}
 
 	return type;
-}
-
-static long decode_pm_id(u64 dst_id)
-{
-	return (long)(dst_id >> PS_TYPE_BITS);
 }
 
 static inline u32 encode_ps_cmd(u32 cmd, u32 flags)
@@ -188,7 +185,7 @@ static int open_page_server_xfer(struct page_xfer *xfer, int fd_type, long id)
 	xfer->write_pagemap = write_pagemap_to_server;
 	xfer->write_pages = write_pages_to_server;
 	xfer->close = close_server_xfer;
-	xfer->dst_id = encode_pm_id(fd_type, id);
+	xfer->dst_id = encode_pm(fd_type, id);
 	xfer->parent = NULL;
 
 	pi.dst_id = xfer->dst_id;
@@ -541,9 +538,7 @@ static int page_server_check_parent(int sk, struct page_server_iov *pi)
 	int type, ret;
 	long id;
 
-	type = decode_pm_type(pi->dst_id);
-	id = decode_pm_id(pi->dst_id);
-
+	type = decode_pm(pi->dst_id, &id);
 	if (type == -1) {
 		pr_err("Unknown pagemap type received\n");
 		return -1;
@@ -567,7 +562,7 @@ static int check_parent_server_xfer(int fd_type, long id)
 	int has_parent;
 
 	pi.cmd = PS_IOV_PARENT;
-	pi.dst_id = encode_pm_id(fd_type, id);
+	pi.dst_id = encode_pm(fd_type, id);
 
 	if (send_psi(page_server_sk, &pi))
 		return -1;
@@ -621,8 +616,7 @@ static int page_server_open(int sk, struct page_server_iov *pi)
 	int type;
 	long id;
 
-	type = decode_pm_type(pi->dst_id);
-	id = decode_pm_id(pi->dst_id);
+	type = decode_pm(pi->dst_id, &id);
 	if (type == -1) {
 		pr_err("Unknown pagemap type received\n");
 		return -1;
