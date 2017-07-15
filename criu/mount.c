@@ -1194,7 +1194,6 @@ out:
 static __maybe_unused int add_cr_time_mount(struct mount_info *root, char *fsname, const char *path, unsigned int s_dev)
 {
 	struct mount_info *mi, *t, *parent;
-	bool add_slash = false;
 	int len;
 
 	if (!root->nsid) {
@@ -1210,25 +1209,20 @@ static __maybe_unused int add_cr_time_mount(struct mount_info *root, char *fsnam
 		}
 	}
 
+	len = strlen(root->mountpoint);
+	if (root->mountpoint[len-1] != '/') {
+		pr_err("Wrong root: %s\n", root->mountpoint);
+		return -1;
+	}
+
 	mi = mnt_entry_alloc();
 	if (!mi)
 		return -1;
-
-	len = strlen(root->mountpoint);
-	/* It may be "./" or "./path/to/dir" */
-	if (root->mountpoint[len - 1] != '/') {
-		add_slash = true;
-		len++;
-	}
-
 	mi->mountpoint = xmalloc(len + strlen(path) + 1);
 	if (!mi->mountpoint)
 		return -1;
 	mi->ns_mountpoint = mi->mountpoint;
-	if (!add_slash)
-		sprintf(mi->mountpoint, "%s%s", root->mountpoint, path);
-	else
-		sprintf(mi->mountpoint, "%s/%s", root->mountpoint, path);
+	sprintf(mi->mountpoint, "%s%s", root->mountpoint, path);
 	mi->mnt_id = CRTIME_MNT_ID;
 	mi->flags = mi->sb_flags = 0;
 	mi->root = xstrdup("/");
