@@ -1262,10 +1262,10 @@ static __maybe_unused int add_cr_time_mount(struct mount_info *root, char *fsnam
 static __maybe_unused int mount_cr_time_mount(struct ns_id *ns, unsigned int *s_dev, const char *source,
 			       const char *target, const char *type)
 {
-	int mnt_fd, ret, exit_code = 0;
+	int ret, exit_code = 0;
 	struct stat st;
 
-	ret = switch_ns(ns->ns_pid, &mnt_ns_desc, &mnt_fd);
+	ret = switch_ns(ns->ns_pid, &mnt_ns_desc, NULL);
 	if (ret < 0) {
 		pr_err("Can't switch mnt_ns\n");
 		goto out;
@@ -1274,7 +1274,7 @@ static __maybe_unused int mount_cr_time_mount(struct ns_id *ns, unsigned int *s_
 	ret = mount(source, target, type, 0, NULL);
 	if (ret < 0) {
 		exit_code = -errno;
-		goto restore_ns;
+		goto out;
 	} else {
 		if (stat(target, &st) < 0) {
 			 pr_perror("Can't stat %s", target);
@@ -1284,14 +1284,11 @@ static __maybe_unused int mount_cr_time_mount(struct ns_id *ns, unsigned int *s_
 			exit_code = 1;
 		}
 	}
-
-restore_ns:
-	ret = restore_ns(mnt_fd, &mnt_ns_desc);
 out:
 	return ret < 0 ? 0 : exit_code;
 }
 
-static __maybe_unused int mount_and_collect_binfmt_misc(void)
+static __maybe_unused int mount_and_collect_binfmt_misc(void *unused)
 {
 	unsigned int s_dev = 0;
 	struct ns_id *ns;
@@ -3286,7 +3283,7 @@ int collect_mnt_namespaces(bool for_dump)
 
 #ifdef CONFIG_BINFMT_MISC_VIRTUALIZED
 	if (for_dump && !opts.has_binfmt_misc) {
-		ret = mount_and_collect_binfmt_misc();
+		ret = call_in_child_process(mount_and_collect_binfmt_misc, NULL);
 		if (ret)
 			goto err;
 	}
