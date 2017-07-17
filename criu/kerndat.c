@@ -1059,6 +1059,9 @@ int kerndat_init(void)
 	/* Needs kdat.compat_cr filled before */
 	if (!ret)
 		ret = kerndat_vdso_fill_symtable();
+	/* Depends on kerndat_vdso_fill_symtable() */
+	if (!ret)
+		ret = kerndat_vdso_preserves_hint();
 	if (!ret)
 		ret = kerndat_detect_stack_guard_gap();
 	if (!ret)
