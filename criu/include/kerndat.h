@@ -64,6 +64,7 @@ struct kerndat_s {
 	unsigned long files_stat_max_files;
 	bool has_pid_for_children_ns;
 	bool can_map_vdso;
+	bool vdso_hint_reliable;
 #ifdef CONFIG_VDSO
 	struct vdso_symtable	vdso_sym;
 #ifdef CONFIG_COMPAT
