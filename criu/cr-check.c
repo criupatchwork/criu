@@ -1124,6 +1124,14 @@ static int check_pid_for_children_ns(void)
 	return 0;
 }
 
+static int check_can_map_vdso(void)
+{
+	if (kdat_can_map_vdso() == 1)
+		return 0;
+	pr_warn("Do not have API to map vDSO - will use mremap() to restore vDSO\n");
+	return -1;
+}
+
 static int (*chk_feature)(void);
 
 /*
@@ -1232,6 +1240,7 @@ int cr_check(void)
 		ret |= check_ns_get_userns();
 		ret |= check_ns_get_parent();
 		ret |= check_pid_for_children_ns();
+		ret |= check_can_map_vdso();
 	}
 
 	/*
@@ -1316,6 +1325,7 @@ static struct feature_list feature_list[] = {
 	{ "ns_get_userns", check_ns_get_userns },
 	{ "ns_get_parent", check_ns_get_parent },
 	{ "pid_for_children_ns", check_pid_for_children_ns},
+	{ "can_map_vdso", check_can_map_vdso},
 	{ NULL, NULL },
 };
 
