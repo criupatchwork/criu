@@ -338,7 +338,7 @@ int do_open_remote_image(int dfd, char *path, int flags)
 		return -1;
 	}
 
-	if (fchdir(get_service_fd(IMG_FD_OFF)) < 0) {
+	if (fchdir(get_service_fd(WRK_FD_OFF)) < 0) {
 		pr_perror("fchdir to dfd failed!");
 		close(save);
 		return -1;
@@ -465,6 +465,32 @@ struct cr_img *img_from_fd(int fd)
 	return img;
 }
 
+static void close_work_dir(void)
+{
+	close_service_fd(WRK_FD_OFF);
+}
+
+static int open_work_dir(char *dir)
+{
+	int fd;
+
+	fd = open(dir, O_RDONLY);
+	if (fd < 0) {
+		pr_perror("Can't open dir %s", dir);
+		return -1;
+	}
+
+	if (install_service_fd(WRK_FD_OFF, fd) < 0) {
+		pr_perror("Can't install work_fd\n");
+		close(fd);
+		return -1;
+	}
+
+	close(fd);
+	
+	return 0;
+}
+
 int open_image_dir(char *dir)
 {
 	int fd, ret;
@@ -481,6 +507,8 @@ int open_image_dir(char *dir)
 
 	if (opts.remote) {
 		init_snapshot_id(dir);
+		if (open_work_dir(opts.work_dir) < 0)
+			goto err;
 	} else if (opts.img_parent) {
 		ret = symlinkat(opts.img_parent, fd, CR_PARENT_LINK);
 		if (ret < 0 && errno != EEXIST) {
@@ -503,6 +531,8 @@ err:
 void close_image_dir(void)
 {
 	close_service_fd(IMG_FD_OFF);
+	if(opts.remote)
+		close_work_dir();
 }
 
 static unsigned long page_ids = 1;
