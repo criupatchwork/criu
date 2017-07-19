@@ -77,6 +77,6 @@ compel-install-targets	+= $(compel-plugins)
 # commit "S/390: Fix 64 bit sibcall".
 #
 ifeq ($(ARCH),s390)
-CFLAGS += -msoft-float -fno-optimize-sibling-calls
-HOSTCFLAGS += -msoft-float -fno-optimize-sibling-calls
+CFLAGS += -fno-optimize-sibling-calls
+HOSTCFLAGS += -fno-optimize-sibling-calls
 endif
