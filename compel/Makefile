@@ -34,6 +34,20 @@ CFLAGS			+= -DNO_RELOCS
 HOSTCFLAGS		+= -DNO_RELOCS
 endif
 
+#
+# We assume that compel code does not change floating point registers.
+# On s390 gcc uses fprs to cache gprs. Therefore disable floating point
+# with -msoft-float.
+#
+# Also ensure with -fno-optimize-sibling-calls that we don't create GOT
+# (Global Offset Table) relocations with gcc compilers that don't have
+# commit "S/390: Fix 64 bit sibcall".
+#
+ifeq ($(ARCH),s390)
+CFLAGS += -msoft-float -fno-optimize-sibling-calls
+HOSTCFLAGS += -msoft-float -fno-optimize-sibling-calls
+endif
+
 obj-y			+= src/main.o
 obj-y			+= arch/$(ARCH)/src/lib/handle-elf.o
 obj-y			+= src/lib/handle-elf.o
