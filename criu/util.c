@@ -1310,8 +1310,6 @@ int epoll_run_rfds(int epollfd, struct epoll_event *evs, int nr_fds, int timeout
 		if (ret <= 0) {
 			if (ret < 0)
 				pr_perror("polling failed");
-			else
-				pr_debug("polling timeout\n");
 			break;
 		}
 
