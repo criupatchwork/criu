@@ -85,8 +85,8 @@ struct fdinfo_list_entry {
 	struct file_desc	*desc;		/* Associated file descriptor */
 	struct list_head	ps_list;	/* To chain  per-task files */
 	struct pstree_item	*task;
-	int			pid;
 	FdinfoEntry		*fe;
+	int			pid;
 	u8			received:1;
 	u8			stage:3;
 	u8			fake:1;
