@@ -2249,7 +2249,6 @@ static int do_umount_one(struct mount_info *mi)
  * moved to the right places after restoring all mounts.
  */
 
-static inline int print_ns_root(struct ns_id *ns, int remap_id, char *buf, int bs);
 static int get_mp_mountpoint(char *mountpoint, struct mount_info *mi, char *root, int root_len);
 
 static LIST_HEAD(mnt_remap_list);
@@ -2455,7 +2454,7 @@ void mnt_entry_free(struct mount_info *mi)
  * Helper for getting a path to where the namespace's root
  * is re-constructed.
  */
-static inline int print_ns_root(struct ns_id *ns, int remap_id, char *buf, int bs)
+int print_ns_root(struct ns_id *ns, int remap_id, char *buf, int bs)
 {
 	return snprintf(buf, bs, "%s/%d-%010d", mnt_roots, ns->id, remap_id);
 }
