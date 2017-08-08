@@ -1249,6 +1249,8 @@ int cr_check(void)
 		ret |= check_ns_get_parent();
 		ret |= check_pid_for_children_ns();
 		ret |= check_can_map_vdso();
+		ret |= check_uffd();
+		ret |= check_uffd_noncoop();
 	}
 
 	/*
@@ -1257,8 +1259,6 @@ int cr_check(void)
 	if (opts.check_experimental_features) {
 		ret |= check_autofs();
 		ret |= check_compat_cr();
-		ret |= check_uffd();
-		ret |= check_uffd_noncoop();
 	}
 
 	print_on_level(DEFAULT_LOGLEVEL, "%s\n", ret ? CHECK_MAYBE : CHECK_GOOD);
