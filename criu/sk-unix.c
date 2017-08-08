@@ -86,6 +86,10 @@ struct unix_sk_desc {
 	struct list_head	peer_node;
 
 	UnixSkEntry		*ue;
+
+	/* To handle bindmounts over socks */
+	struct unix_diag_vfs	uv;		/* FIXME merge with rel_name_desc_t */
+	int			mnt_id;
 };
 
 static LIST_HEAD(unix_sockets);
@@ -314,6 +318,11 @@ static int dump_one_unix_fd(int lfd, u32 id, const struct fd_parms *p)
 	ue->opts	= skopts;
 	ue->uflags	= 0;
 
+	if (sk->mnt_id) {
+		ue->has_mnt_id	= true;
+		ue->mnt_id	= sk->mnt_id;
+	}
+
 	if (sk->rel_name) {
 		if (resolve_rel_name(sk, p))
 			goto err;
@@ -533,6 +542,8 @@ static int unix_process_name(struct unix_sk_desc *d, const struct unix_diag_msg 
 		}
 
 		uv = RTA_DATA(tb[UNIX_DIAG_VFS]);
+		memcpy(&d->uv, uv, sizeof(d->uv));
+
 		if (name[0] != '/') {
 			/*
 			 * Relative names are be resolved later at first
@@ -785,6 +796,64 @@ int fix_external_unix_sockets(void)
 	return 0;
 err:
 	return -1;
+}
+
+int collect_unix_bindmounts(void)
+{
+	int mntns_fd, old_ns = -1;
+	struct mount_info *mi;
+	struct stat st = {};
+	int ret = 0;
+
+	for (mi = mntinfo; mi; mi = mi->next) {
+		if (list_empty(&mi->mnt_bind))
+			continue;
+
+		mntns_fd = open_proc(mi->nsid->ns_pid, "ns/mnt");
+		if (mntns_fd < 0) {
+			pr_err("Can't open %d/ns/mnt\n", mi->nsid->ns_pid);
+			return -1;
+		}
+
+		if (switch_ns_by_fd(mntns_fd, &mnt_ns_desc, &old_ns)) {
+			pr_err("Can't switch mount ns for %d\n", mi->nsid->ns_pid);
+			return -1;
+		}
+
+		if (stat(mi->mountpoint, &st)) {
+			pr_perror("Can't stat on %s", mi->mountpoint);
+			return switch_ns_by_fd(old_ns, &mnt_ns_desc, NULL);
+		}
+
+		if (S_ISSOCK(st.st_mode)) {
+			struct unix_sk_desc *sk;
+
+			list_for_each_entry(sk, &unix_sockets, list) {
+				if (sk->uv.udiag_vfs_ino == (int)st.st_ino &&
+				    sk->uv.udiag_vfs_dev == (int)st.st_dev) {
+					pr_debug("Found sock s_dev %#x ino %#x bindmounted mnt_id %d %s\n",
+						 (int)st.st_dev, (int)st.st_ino, mi->mnt_id, mi->mountpoint);
+					sk->mnt_id = mi->mnt_id;
+					if (sk->type != SOCK_DGRAM && sk->state != TCP_CLOSE) {
+						pr_err("Unsupported bindmounted socket ino %#x at %s\n",
+						       (int)st.st_ino, mi->mountpoint);
+						ret = -1;
+						break;
+					}
+				}
+			}
+		}
+
+		if (switch_ns_by_fd(old_ns, &mnt_ns_desc, NULL)) {
+			pr_err("Can't switch mount ns back from %d\n", mi->nsid->ns_pid);
+			return -1;
+		}
+
+		if (ret)
+			break;
+	}
+
+	return ret;
 }
 
 struct unix_sk_info {

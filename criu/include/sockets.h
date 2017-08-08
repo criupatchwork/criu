@@ -37,6 +37,7 @@ extern int collect_sockets(struct ns_id *);
 extern struct collect_image_info inet_sk_cinfo;
 extern struct collect_image_info unix_sk_cinfo;
 extern int fix_external_unix_sockets(void);
+extern int collect_unix_bindmounts(void);
 
 extern struct collect_image_info netlink_sk_cinfo;
 
