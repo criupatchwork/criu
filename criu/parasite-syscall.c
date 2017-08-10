@@ -198,6 +198,11 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, const struct pstree_it
 
 	tc->has_blk_sigset = true;
 	memcpy(&tc->blk_sigset, compel_thread_sigmask(tctl), sizeof(k_rtsigset_t));
+	ret = compel_get_thread_regs(tctl, save_task_regs, core);
+	if (ret) {
+		pr_err("Can't obtain regs for thread %d\n", pid);
+		goto err_rth;
+	}
 
 	ret = compel_run_in_thread(tctl, PARASITE_CMD_DUMP_THREAD);
 	if (ret) {
@@ -208,12 +213,6 @@ int parasite_dump_thread_seized(struct parasite_ctl *ctl, const struct pstree_it
 	ret = alloc_groups_copy_creds(item, creds, pc);
 	if (ret) {
 		pr_err("Can't copy creds for thread %d\n", pid);
-		goto err_rth;
-	}
-
-	ret = compel_get_thread_regs(tctl, save_task_regs, core);
-	if (ret) {
-		pr_err("Can't obtain regs for thread %d\n", pid);
 		goto err_rth;
 	}
 
