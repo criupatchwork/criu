@@ -93,6 +93,7 @@ struct unix_sk_desc {
 };
 
 static LIST_HEAD(unix_sockets);
+static LIST_HEAD(unix_mnt_sockets);
 
 struct unix_sk_listen_icon {
 	unsigned int			peer_ino;
@@ -858,6 +859,7 @@ int collect_unix_bindmounts(void)
 struct unix_sk_info {
 	UnixSkEntry *ue;
 	struct list_head list;
+	struct list_head mnt_list;
 	char *name;
 	char *name_dir;
 	unsigned flags;
@@ -866,6 +868,7 @@ struct unix_sk_info {
 	struct file_desc d;
 	struct list_head connected; /* List of sockets, connected to me */
 	struct list_head node; /* To link in peer's connected list  */
+	int fdstore_id;
 
 	/*
 	 * For DGRAM sockets with queues, we should only restore the queue
@@ -1240,6 +1243,12 @@ static int open_unixsk_standalone(struct unix_sk_info *ui, int *new_fd)
 	pr_info("Opening standalone socket (id %#x ino %#x peer %#x)\n",
 			ui->ue->id, ui->ue->ino, ui->ue->peer);
 
+	if (ui->fdstore_id >= 0) {
+		pr_debug("\tObtaining from fdstore id %#x\n", ui->fdstore_id);
+		*new_fd = fdstore_get(ui->fdstore_id);
+		return 0;
+	}
+
 	if (set_netns(ui->ue->ns_id))
 		return -1;
 
@@ -1452,6 +1461,9 @@ static void unlink_stale(struct unix_sk_info *ui)
 {
 	int ret, cwd_fd = -1, root_fd = -1;
 
+	if (ui->fdstore_id >= 0)
+		return;
+
 	if (ui->name[0] == '\0' || (ui->ue->uflags & USK_EXTERN))
 		return;
 
@@ -1508,6 +1520,7 @@ static int collect_one_unixsk(void *o, ProtobufCMessage *base, struct cr_img *i)
 	INIT_LIST_HEAD(&ui->connected);
 	INIT_LIST_HEAD(&ui->node);
 	ui->flags = 0;
+	ui->fdstore_id = -1;
 	fixup_sock_net_ns_id(&ui->ue->ns_id, &ui->ue->has_ns_id);
 
 	uname = ui->name;
@@ -1540,6 +1553,11 @@ static int collect_one_unixsk(void *o, ProtobufCMessage *base, struct cr_img *i)
 		add_post_prepare_cb(&ui->peer_resolve);
 	}
 
+	if (ui->ue->has_mnt_id)
+		list_add_tail(&ui->mnt_list, &unix_mnt_sockets);
+	else
+		INIT_LIST_HEAD(&ui->mnt_list);
+
 	list_add_tail(&ui->list, &unix_sockets);
 	return file_desc_add(&ui->d, ui->ue->id, &unix_desc_ops);
 }
@@ -1551,6 +1569,48 @@ struct collect_image_info unix_sk_cinfo = {
 	.collect = collect_one_unixsk,
 	.flags = COLLECT_SHARED,
 };
+
+int unix_prepare_bindmount(struct mount_info *mi)
+{
+	char name_dir[PATH_MAX], ns_root[PATH_MAX];
+	struct unix_sk_info *ui, *t = NULL;
+	char *old_name_dir = NULL;
+	int ret, sk;
+
+	list_for_each_entry(ui, &unix_mnt_sockets, mnt_list) {
+		if (ui->ue->mnt_id != mi->mnt_id)
+			continue;
+		t = ui;
+		break;
+	}
+
+	if (!t)
+		return 0;
+
+	print_ns_root(mi->nsid, 0, ns_root, sizeof(ns_root));
+	if (ui->name_dir) {
+		old_name_dir = ui->name_dir;
+		snprintf(name_dir, sizeof(name_dir), "%s/%s", ns_root, ui->name_dir);
+		ui->name_dir = name_dir;
+	}
+
+	ret = open_unixsk_standalone(ui, &sk);
+	if (ui->name_dir)
+		ui->name_dir = old_name_dir;
+	BUG_ON(ret > 0);
+
+	if (ret)
+		return -1;
+
+	ui->fdstore_id = fdstore_add(sk);
+	if (ui->fdstore_id < 0)
+		return -1;
+	close(sk);
+
+	pr_debug("Standalone socket moved into fdstore (id %#x ino %#x peer %#x)\n",
+		 ui->ue->id, ui->ue->ino, ui->ue->peer);
+	return 0;
+}
 
 static void set_peer(struct unix_sk_info *ui, struct unix_sk_info *peer)
 {
