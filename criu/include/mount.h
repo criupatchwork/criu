@@ -79,6 +79,7 @@ static inline int collect_binfmt_misc(void) { return 0; }
 
 extern struct mount_info *mnt_entry_alloc();
 extern void mnt_entry_free(struct mount_info *mi);
+extern int print_ns_root(struct ns_id *ns, int remap_id, char *buf, int bs);
 
 extern int __mntns_get_root_fd(pid_t pid);
 extern int mntns_get_root_fd(struct ns_id *ns);
