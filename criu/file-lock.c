@@ -292,6 +292,9 @@ int note_file_lock(struct pid *pid, int fd, int lfd, struct fd_parms *p)
 			 */
 			if (fl->fl_owner != pid->real)
 				continue;
+		} else if (fl->fl_kind == FL_LEASE) {
+			pr_err("Leases are not supported for kernel <= v4.0");
+			return -1;
 		} else /* fl->fl_kind == FL_FLOCK || fl->fl_kind == FL_OFD */ {
 			int ret;
 
@@ -393,6 +396,12 @@ static int restore_file_lock(FileLockEntry *fle)
 		ret = fcntl(fle->fd, F_OFD_SETLK, &flk);
 		if (ret < 0) {
 			pr_err("Can not set ofd lock!\n");
+			goto err;
+		}
+	} else if (fle->flag & FL_LEASE) {
+		ret = fcntl(fle->fd, F_SETLEASE, fle->type);
+		if (ret < 0) {
+			pr_perror("Can't set lease!\n");
 			goto err;
 		}
 	} else {
