@@ -68,6 +68,7 @@ extern struct collect_image_info file_locks_cinfo;
 
 struct pid;
 struct fd_parms;
+extern int correct_file_leases(struct pid *, int fd, int lfd);
 extern int note_file_lock(struct pid *, int fd, int lfd, struct fd_parms *);
 extern int dump_file_locks(void);
 

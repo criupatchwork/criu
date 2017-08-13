@@ -334,6 +334,30 @@ int note_file_lock(struct pid *pid, int fd, int lfd, struct fd_parms *p)
 	return 0;
 }
 
+int correct_file_leases(struct pid *pid, int fd, int lfd)
+{
+	struct file_lock *fl;
+	int target_type;
+
+	list_for_each_entry(fl, &file_lock_list, list) {
+		if (fl->fl_owner != pid->real || fl->owners_fd != fd)
+			continue;
+
+		if (fl->fl_kind == FL_LEASE && fl->fl_ltype & LEASE_BREAKING) {
+			target_type = fcntl(lfd, F_GETLEASE);
+			if (target_type < 0) {
+				perror("Can't get lease type\n");
+				return -1;
+			}
+
+			fl->fl_ltype &= ~O_ACCMODE;
+			fl->fl_ltype |= target_type;
+			break;
+		}
+	}
+	return 0;
+}
+
 static int open_break_cb(int ns_root_fd, struct reg_file_info *rfi, void *arg)
 {
 	int fd, flags = *(int *)arg | O_NONBLOCK;
