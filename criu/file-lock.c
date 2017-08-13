@@ -18,6 +18,8 @@
 #include "proc_parse.h"
 #include "servicefd.h"
 #include "file-lock.h"
+#include "pstree.h"
+#include "files-reg.h"
 
 struct file_lock_rst {
 	FileLockEntry *fle;
@@ -332,6 +334,91 @@ int note_file_lock(struct pid *pid, int fd, int lfd, struct fd_parms *p)
 	return 0;
 }
 
+static int open_break_cb(int ns_root_fd, struct reg_file_info *rfi, void *arg)
+{
+	int fd, flags = *(int *)arg | O_NONBLOCK;
+
+	fd = openat(ns_root_fd, rfi->path, flags);
+	if (fd >= 0) {
+		pr_err("Conflicting lease wasn't found\n");
+		close(fd);
+		return -1;
+	}
+	if (errno != EWOULDBLOCK) {
+		pr_perror("Can't open file to break lease\n");
+		return -1;
+	}
+	return 0;
+}
+
+static int set_lease_for_breaking(int fd, int fd_type)
+{
+	int lease_type;
+
+	if (fd_type == O_RDONLY) {
+		lease_type = F_RDLCK;
+	} else if (fd_type == O_WRONLY) {
+		lease_type = F_WRLCK;
+	} else {
+		pr_err("Incompatible with lease file type (%i)\n", fd_type);
+		return -1;
+	}
+
+	if (fcntl(fd, F_SETLEASE, lease_type) < 0) {
+		pr_perror("Can't set lease to fd %#x\n", fd);
+		return -1;
+	}
+	return 0;
+}
+
+static struct fdinfo_list_entry *find_fd(struct pstree_item *task, int fd)
+{
+	struct list_head *head = &rsti(task)->fds;
+	struct fdinfo_list_entry *fle;
+
+	list_for_each_entry_reverse(fle, head, ps_list) {
+		if (fle->fe->fd == fd)
+			return fle;
+	}
+	return NULL;
+}
+
+static int restore_breaking_file_lease(FileLockEntry *fle)
+{
+	struct fdinfo_list_entry *fdle;
+	int break_flags;
+	int lease_break_type = fle->type & (~LEASE_BREAKING);
+
+	fdle = find_fd(current, fle->fd);
+	if (fdle == NULL) {
+		pr_err("Can't get file description\n");
+		return -1;
+	}
+
+	if (set_lease_for_breaking(fle->fd, fdle->desc->ops->type))
+		return -1;
+
+	if (lease_break_type == F_UNLCK) {
+		break_flags = O_WRONLY;
+	} else if (lease_break_type == F_RDLCK) {
+		break_flags = O_RDONLY;
+	} else {
+		pr_err("Incorrect breaking type of lease\n");
+		return -1;
+	}
+	if (open_path(fdle->desc, open_break_cb, (void *)&break_flags) < 0)
+		return -1;
+	return 0;
+}
+
+static int restore_file_lease(FileLockEntry *fle)
+{
+	if (fle->type & LEASE_BREAKING)
+		return restore_breaking_file_lease(fle);
+	else
+		return fcntl(fle->fd, F_SETLEASE, fle->type);
+}
+
 static int restore_file_lock(FileLockEntry *fle)
 {
 	int ret = -1;
@@ -399,7 +486,7 @@ static int restore_file_lock(FileLockEntry *fle)
 			goto err;
 		}
 	} else if (fle->flag & FL_LEASE) {
-		ret = fcntl(fle->fd, F_SETLEASE, fle->type);
+		ret = restore_file_lease(fle);
 		if (ret < 0) {
 			pr_perror("Can't set lease!\n");
 			goto err;

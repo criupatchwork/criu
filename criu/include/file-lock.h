@@ -38,6 +38,9 @@
 #define LOCK_WRITE	128	/* which allows concurrent write operations */
 #define LOCK_RW		192	/* which allows concurrent read & write ops */
 
+/* for leases */
+#define LEASE_BREAKING	4
+
 struct file_lock {
 	long long	fl_id;
 	int		fl_kind;
