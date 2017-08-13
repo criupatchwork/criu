@@ -14,6 +14,7 @@
 #include <stdlib.h>
 
 #include "types.h"
+#include "kerndat.h"
 #include "files.h"
 #include "file-ids.h"
 #include "files-reg.h"
