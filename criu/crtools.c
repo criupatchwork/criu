@@ -289,7 +289,7 @@ int main(int argc, char *argv[], char *envp[])
 		{ "cgroup-dump-controller",	required_argument,	0, 1082	},
 		BOOL_OPT(SK_INFLIGHT_PARAM, &opts.tcp_skip_in_flight),
 		BOOL_OPT("deprecated", &opts.deprecated_ok),
-		{ "check-only",			no_argument,		0, 1085 },
+		BOOL_OPT("check-only", &opts.check_only),
 		BOOL_OPT("display-stats", &opts.display_stats),
 		BOOL_OPT("weak-sysctls", &opts.weak_sysctls),
 		{ "status-fd",			required_argument,	0, 1088 },
@@ -571,11 +571,6 @@ int main(int argc, char *argv[], char *envp[])
 			if (!cgp_add_dump_controller(optarg))
 				return 1;
 			break;
-		case 1085:
-			pr_msg("Only checking if requested operation will succeed\n");
-			opts.check_only = true;
-			opts.final_state = TASK_ALIVE;
-			break;
 		case 1088:
 			if (sscanf(optarg, "%d", &opts.status_fd) != 1) {
 				pr_err("Unable to parse a value of --status-fd\n");
@@ -608,6 +603,10 @@ int main(int argc, char *argv[], char *envp[])
 		pr_info("Will allow link remaps on FS\n");
 	if (opts.weak_sysctls)
 		pr_msg("Will skip non-existant sysctls on restore\n");
+	if (opts.check_only) {
+		pr_msg("Only checking if requested operation will succeed\n");
+		opts.final_state = TASK_ALIVE;
+	}
 
 	if (getenv("CRIU_DEPRECATED")) {
 		pr_msg("Turn deprecated stuff ON via env\n");
