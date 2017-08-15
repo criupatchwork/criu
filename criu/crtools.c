@@ -536,6 +536,9 @@ int main(int argc, char *argv[], char *envp[])
 	if (init_service_fd())
 		return 1;
 
+	if (kerndat_init())
+		return 1;
+
 	if (!strcmp(argv[1], "swrk")) {
 		if (argc < 3)
 			goto usage;

@@ -2481,9 +2481,6 @@ int cr_restore_tasks(void)
 	if (init_stats(RESTORE_STATS))
 		goto err;
 
-	if (kerndat_init())
-		goto err;
-
 	if (lsm_check_opts())
 		goto err;
 
