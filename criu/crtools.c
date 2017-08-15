@@ -295,7 +295,7 @@ int main(int argc, char *argv[], char *envp[])
 		{ "status-fd",			required_argument,	0, 1088 },
 		BOOL_OPT(SK_CLOSE_PARAM, &opts.tcp_close),
 		{ "verbosity",			optional_argument,	0, 'v'	},
-		{ "remote",			no_argument,		0, 1089 },
+		BOOL_OPT("remote", &opts.remote),
 		{ },
 	};
 
@@ -576,9 +576,6 @@ int main(int argc, char *argv[], char *envp[])
 				pr_err("Unable to parse a value of --status-fd\n");
 				return 1;
 			}
-			break;
-		case 1089:
-			opts.remote = true;
 			break;
 		case 'V':
 			pr_msg("Version: %s\n", CRIU_VERSION);
