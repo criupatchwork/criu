@@ -13,4 +13,6 @@ message reg_file_entry {
 	optional uint64		size	= 8;
 	optional bool		ext	= 9;
 	optional uint32         mode    = 10;
+	// For NFS sake
+	// optional bool unreachable	= 11;
 }
