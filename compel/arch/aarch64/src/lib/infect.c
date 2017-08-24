@@ -165,9 +165,8 @@ unsigned long compel_task_size(void)
 {
 	unsigned long task_size;
 
-	for (task_size = TASK_SIZE_MIN; task_size < TASK_SIZE_MAX; task_size <<= 1)
+	for (task_size = TASK_SIZE_MIN; task_size <= TASK_SIZE_MAX; task_size <<= 1)
 		if (munmap((void *)task_size, page_size()))
 			break;
 	return task_size;
 }
-
