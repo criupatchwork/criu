@@ -785,9 +785,15 @@ static int uffd_zero(struct lazy_pages_info *lpi, __u64 address, int nr_pages)
 	lp_debug(lpi, "zero page at 0x%llx\n", address);
 	rc = ioctl(lpi->lpfd.fd, UFFDIO_ZEROPAGE, &uffdio_zeropage);
 	if (rc) {
-		lp_perror(lpi, "zero page failed: %Ld",
-			  uffdio_zeropage.zeropage);
-		return -1;
+		if (errno == ENOSPC) {
+			handle_exit(lpi);
+			return 0;
+		}
+		if (uffdio_zeropage.zeropage != -EEXIST) {
+			lp_perror(lpi, "zero page failed: %Ld",
+				  uffdio_zeropage.zeropage);
+			return -1;
+		}
 	}
 
 	return 0;
