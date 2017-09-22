@@ -816,6 +816,9 @@ static int premap_priv_vmas(struct pstree_item *t, struct vm_area_list *vmas,
 		if (!vma_area_is_private(vma, kdat.task_size))
 			continue;
 
+		if (opts.check_only)
+			continue;
+
 		if (vma->pvma == NULL && pr->pieok && !vma_force_premap(vma, &vmas->h)) {
 			/*
 			 * VMA in question is not shared with anyone. We'll
@@ -860,7 +863,7 @@ static int restore_priv_vma_content(struct pstree_item *t, struct page_read *pr)
 	unsigned long va;
 
 	if (opts.check_only) {
-		pr->close(pr);
+	//	pr->close(pr);
 		return 0;
 	}
 
@@ -1108,19 +1111,21 @@ int prepare_mappings(struct pstree_item *t)
 	rsti(t)->premmapped_len = vmas->priv_size;
 
 	ret = open_page_read(vpid(t), &pr, PR_TASK);
-	if (ret <= 0)
+	if (ret < 0)
 		return -1;
 
 	if (maybe_disable_thp(t, &pr))
 		return -1;
 
-	pr.advance(&pr); /* shift to the 1st iovec */
+	if (!opts.check_only)
+		pr.advance(&pr); /* shift to the 1st iovec */
 
 	ret = premap_priv_vmas(t, vmas, &addr, &pr);
 	if (ret < 0)
 		goto out;
 
-	pr.reset(&pr);
+	if (!opts.check_only)
+		pr.reset(&pr);
 
 	ret = restore_priv_vma_content(t, &pr);
 	if (ret < 0)

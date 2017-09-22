@@ -460,6 +460,9 @@ static int do_restore_shmem_content(void *addr, unsigned long size, unsigned lon
 	int ret = 0;
 	struct page_read pr;
 
+	if (opts.check_only)
+		return 0;
+
 	ret = open_page_read(shmid, &pr, PR_SHMEM);
 	if (ret <= 0)
 		return -1;
