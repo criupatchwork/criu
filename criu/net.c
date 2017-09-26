@@ -1973,7 +1973,7 @@ static inline int restore_iptables(int pid)
 
 	img = open_image(CR_FD_IPTABLES, O_RSTR, pid);
 	if (img) {
-		ret = run_iptables_tool("iptables-restore", img_raw_fd(img), -1);
+		ret = run_iptables_tool("iptables-restore -w", img_raw_fd(img), -1);
 		close_image(img);
 	}
 	if (ret)
@@ -1985,7 +1985,7 @@ static inline int restore_iptables(int pid)
 	if (empty_image(img))
 		goto out;
 
-	ret = run_iptables_tool("ip6tables-restore", img_raw_fd(img), -1);
+	ret = run_iptables_tool("ip6tables-restore -w", img_raw_fd(img), -1);
 out:
 	close_image(img);
 
