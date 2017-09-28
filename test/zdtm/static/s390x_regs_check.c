@@ -183,12 +183,89 @@ struct reg_set reg_set_vxrs_high = {
 };
 
 /*
+ * s390 guarded-storage registers
+ */
+#define NT_S390_GS_CB		0x30b
+#define NT_S390_GS_BC		0x30c
+
+struct gs_cb {
+	uint64_t regs[4];
+};
+
+struct gs_cb gs_cb_data = {
+	.regs = {
+		0x0000000000000000,
+		0x000000123400001a,
+		0x5555555555555555,
+		0x000000014b58a010,
+	}
+};
+
+struct reg_set reg_set_gs_cb = {
+	.name		= "GS_CB",
+	.nr		= NT_S390_GS_CB,
+	.data		= &gs_cb_data,
+	.len		= sizeof(gs_cb_data),
+	.optional	= true,
+};
+
+struct gs_cb gs_bc_data = {
+	.regs = {
+		0x0000000000000000,
+		0x000000123400001a,
+		0xffffffffffffffff,
+		0x0000000aaaaaaaaa,
+	}
+};
+
+struct reg_set reg_set_gs_bc = {
+	.name		= "GS_BC_CB",
+	.nr		= NT_S390_GS_BC,
+	.data		= &gs_bc_data,
+	.len		= sizeof(gs_bc_data),
+	.optional	= true,
+};
+
+/*
+ * s390 runtime-instrumentation control block
+ */
+#define NT_S390_RI_CB		0x30d
+
+struct ri_cb {
+	uint64_t regs[8];
+};
+
+struct ri_cb ri_cb_data = {
+	.regs = {
+			0x000002aa13aae000,
+			0x000002aa13aad000,
+			0x000002aa13aadfff,
+			0xe0a1000400000000,
+			0x0000000000000000,
+			0x0000000000004e20,
+			0x0000000000003479,
+			0x0000000000000000,
+	}
+};
+
+struct reg_set reg_set_ri_cb = {
+	.name		= "RI_CB",
+	.nr		= NT_S390_RI_CB,
+	.data		= &ri_cb_data,
+	.len		= sizeof(ri_cb_data),
+	.optional	= true,
+};
+
+/*
  * Vector with all regsets
  */
 struct reg_set *reg_set_vec[] = {
 	&reg_set_prfpreg,
 	&reg_set_vxrs_low,
 	&reg_set_vxrs_high,
+	&reg_set_gs_cb,
+	&reg_set_gs_bc,
+	&reg_set_ri_cb,
 	NULL,
 };
 
@@ -246,6 +323,7 @@ static int set_regset(pid_t pid, struct reg_set *reg_set)
 	}
 	if (reg_set->optional) {
 		switch (errno) {
+		case EOPNOTSUPP:
 		case ENODEV:
 			test_msg(" REGSET: %12s -> not supported by machine\n",
 				 reg_set->name);
