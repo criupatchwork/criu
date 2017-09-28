@@ -1973,7 +1973,7 @@ static inline int restore_iptables(int pid)
 
 	img = open_image(CR_FD_IPTABLES, O_RSTR, pid);
 	if (img) {
-		ret = run_iptables_tool("iptables-restore", img_raw_fd(img), -1);
+		ret = run_iptables_tool("iptables-restore -w", img_raw_fd(img), -1);
 		close_image(img);
 	}
 	if (ret)
@@ -1985,7 +1985,7 @@ static inline int restore_iptables(int pid)
 	if (empty_image(img))
 		goto out;
 
-	ret = run_iptables_tool("ip6tables-restore", img_raw_fd(img), -1);
+	ret = run_iptables_tool("ip6tables-restore -w", img_raw_fd(img), -1);
 out:
 	close_image(img);
 
@@ -2457,8 +2457,8 @@ int netns_keep_nsfd(void)
 static int iptables_restore(bool ipv6, char *buf, int size)
 {
 	int pfd[2], ret = -1;
-	char *cmd4[] = {"iptables-restore",  "--noflush", NULL};
-	char *cmd6[] = {"ip6tables-restore", "--noflush", NULL};
+	char *cmd4[] = {"iptables-restore", "-w", "--noflush", NULL};
+	char *cmd6[] = {"ip6tables-restore", "-w", "--noflush", NULL};
 	char **cmd = ipv6 ? cmd6 : cmd4;;
 
 	if (pipe(pfd) < 0) {
