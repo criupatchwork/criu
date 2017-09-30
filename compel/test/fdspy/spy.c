@@ -101,8 +101,10 @@ static int check_pipe_ends(int wfd, int rfd)
 	}
 
 	printf("Check pipe ends are connected\n");
-	write(wfd, "1", 2);
-	read(rfd, aux, sizeof(aux));
+	if (write(wfd, "1", 2) != 2)
+		return 1;
+	if (read(rfd, aux, sizeof(aux)) != sizeof(aux))
+		return 1;
 	if (aux[0] != '1' || aux[1] != '\0') {
 		fprintf(stderr, "Pipe connectivity lost\n");
 		return 0;

@@ -63,7 +63,8 @@ static inline int chk(int fd, int val)
 {
 	int v = 0;
 
-	read(fd, &v, sizeof(v));
+	if (read(fd, &v, sizeof(v)) != sizeof(v))
+		return -1;
 	printf("%d, want %d\n", v, val);
 	return v == val;
 }
@@ -77,7 +78,7 @@ int main(int argc, char **argv)
 	 */
 	if (pipe(p_in) || pipe(p_out) || pipe(p_err)) {
 		perror("Can't make pipe");
-		return -1;
+		return 1;
 	}
 
 	pid = vfork();
@@ -96,7 +97,8 @@ int main(int argc, char **argv)
 	 * Kick the victim once
 	 */
 	i = 0;
-	write(p_in[1], &i, sizeof(i));
+	if (write(p_in[1], &i, sizeof(i)) != sizeof(i))
+		return 1;
 
 	printf("Checking the victim session to be %d\n", sid);
 	pass = chk(p_out[0], sid);
@@ -114,7 +116,8 @@ int main(int argc, char **argv)
 	/*
 	 * Kick the victim again so it tells new session
 	 */
-	write(p_in[1], &i, sizeof(i));
+	if (write(p_in[1], &i, sizeof(i)) != sizeof(i))
+		return 1;
 
 	/*
 	 * Stop the victim and check the intrusion went well
