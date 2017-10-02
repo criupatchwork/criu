@@ -193,6 +193,7 @@ TST_NOFILE	:=				\
 		pidns02				\
 		pidns03				\
 		config_inotify_irmap		\
+		thread_different_uid_gid	\
 #		jobctl00			\
 
 include ../Makefile.inc
@@ -496,6 +497,8 @@ pidns03:		CFLAGS += -pthread
 pidns03:		LDFLAGS += -pthread
 
 s390x_regs_check:	LDFLAGS += -pthread
+
+thread_different_uid_gid:	LDLIBS += -pthread -lcap
 
 $(LIB):	force
 	$(Q) $(MAKE) -C $(LIBDIR)
