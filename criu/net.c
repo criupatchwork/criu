@@ -1972,13 +1972,18 @@ static inline int restore_iptables(int pid)
 	struct cr_img *img;
 
 	img = open_image(CR_FD_IPTABLES, O_RSTR, pid);
-	if (img) {
-		ret = run_iptables_tool("iptables-restore -w", img_raw_fd(img), -1);
-		close_image(img);
+	if (img == NULL)
+		return -1;
+	if (empty_image(img)) {
+		ret = 0;
+		goto ipt6;
 	}
+
+	ret = run_iptables_tool("iptables-restore -w", img_raw_fd(img), -1);
+	close_image(img);
 	if (ret)
 		return ret;
-
+ipt6:
 	img = open_image(CR_FD_IP6TABLES, O_RSTR, pid);
 	if (img == NULL)
 		return -1;
@@ -2187,6 +2192,9 @@ static int net_set_nsid(int rtsk, int fd, int nsid);
 static int restore_netns_ids(struct ns_id *ns)
 {
 	int i, sk, exit_code = -1;
+
+	if (!ns->net.netns)
+		return 0;
 
 	sk = socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
 	if (sk < 0) {
