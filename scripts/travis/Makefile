@@ -22,5 +22,8 @@ $(TARGETS):
 	$(MAKE) -C ../build $@$(target-suffix)
 	docker run --rm -it --privileged -v /lib/modules:/lib/modules --tmpfs /run criu-$@ ./scripts/travis/asan.sh $(ZDTM_OPTIONS)
 
+docker-test:
+	./docker-test.sh
+
 %:
 	$(MAKE) -C ../build $@$(target-suffix)
