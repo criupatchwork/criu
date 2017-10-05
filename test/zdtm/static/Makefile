@@ -205,7 +205,8 @@ endif
 endif
 
 ifeq ($(SRCARCH),s390)
-        TST_NOFILE += s390x_regs_check
+        TST_NOFILE +=	s390x_regs_check	\
+			s390x_gs_threads
 endif
 
 TST_FILE	=				\
@@ -497,6 +498,7 @@ pidns03:		CFLAGS += -pthread
 pidns03:		LDFLAGS += -pthread
 
 s390x_regs_check:	LDFLAGS += -pthread
+s390x_gs_threads:	LDFLAGS += -pthread
 
 thread_different_uid_gid:	LDLIBS += -pthread -lcap
 
