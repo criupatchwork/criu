@@ -301,6 +301,7 @@ TST_DIR		=				\
 		mntns_open			\
 		mntns_link_remap		\
 		mntns_ghost			\
+		mntns_ghost2			\
 		mntns_ro_root			\
 		mntns_link_ghost		\
 		mntns_shared_bind		\
