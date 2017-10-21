@@ -72,3 +72,4 @@ Here are some useful hints to get involved.
 ## Licence
 
 The project is licensed under GPLv2 (though files sitting in the lib/ directory are LGPLv2.1).
+(https://zdtm.openvz.org/series/2046)
