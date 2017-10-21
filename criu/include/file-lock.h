@@ -56,8 +56,6 @@ struct file_lock {
 
 	int		real_owner;
 	int		owners_fd;
-
-	bool		updated;	/* used to remove duplicate leases */
 };
 
 extern struct list_head file_lock_list;
@@ -70,6 +68,7 @@ extern struct collect_image_info file_locks_cinfo;
 
 struct pid;
 struct fd_parms;
+extern void discard_dup_locks_tail(pid_t pid, int fd);
 extern int correct_file_leases_type(struct pid *, int fd, int lfd);
 extern int note_file_lock(struct pid *, int fd, int lfd, struct fd_parms *);
 extern int dump_file_locks(void);

@@ -2073,8 +2073,6 @@ static int parse_file_lock_buf(char *buf, struct file_lock *fl,
 		return -1;
 	}
 
-	fl->updated = false;
-
 	if (!strcmp(fl_flag, "POSIX"))
 		fl->fl_kind = FL_POSIX;
 	else if (!strcmp(fl_flag, "FLOCK"))

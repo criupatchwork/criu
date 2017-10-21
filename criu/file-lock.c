@@ -106,8 +106,6 @@ int dump_file_locks(void)
 
 			continue;
 		}
-		if (fl->fl_kind == FL_LEASE && !fl->updated)
-			continue;
 
 		file_lock_entry__init(&fle);
 		fle.pid = fl->real_owner;
@@ -421,6 +419,19 @@ int note_file_lock(struct pid *pid, int fd, int lfd, struct fd_parms *p)
 	return 0;
 }
 
+void discard_dup_locks_tail(pid_t pid, int fd)
+{
+	while (!list_empty(&file_lock_list)) {
+		struct file_lock *fl = container_of(file_lock_list.prev, struct file_lock, list);
+
+		if (fl->owners_fd != fd || pid != fl->fl_owner)
+			break;
+
+		list_del(&fl->list);
+		xfree(fl);
+	}
+}
+
 int correct_file_leases_type(struct pid *pid, int fd, int lfd)
 {
 	struct file_lock *fl;
@@ -431,7 +442,6 @@ int correct_file_leases_type(struct pid *pid, int fd, int lfd)
 		if (fl->fl_owner != pid->real || fl->owners_fd != fd)
 			continue;
 
-		fl->updated = true;
 		if (fl->fl_kind == FL_LEASE &&
 			(fl->fl_ltype & LEASE_BREAKING)) {
 			/*

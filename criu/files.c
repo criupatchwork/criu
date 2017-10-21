@@ -321,6 +321,8 @@ int do_dump_gen_file(struct fd_parms *p, int lfd,
 	ret = fd_id_generate(p->pid, e, p);
 	if (ret == 1) /* new ID generated */
 		ret = ops->dump(lfd, e->id, p);
+	else if (S_ISREG(p->stat.st_mode))
+		discard_dup_locks_tail(p->pid, e->fd);
 
 	return ret;
 }
