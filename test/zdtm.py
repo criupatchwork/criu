@@ -178,8 +178,9 @@ class ns_flavor:
 			# run in parallel
 			try:
 				os.makedirs(self.root + os.path.dirname(fname))
-			except:
-				pass
+			except OSError, e:
+				if e.errno != errno.EEXIST:
+					raise
 			dst = tempfile.mktemp(".tso", "", self.root + os.path.dirname(fname))
 			shutil.copy2(fname, dst)
 			os.rename(dst, tfname)
@@ -299,10 +300,7 @@ def encode_flav(f):
 
 
 def decode_flav(i):
-	try:
-		return flavors.keys()[i - 128]
-	except:
-		return "unknown"
+	return flavors.keys().get([i - 128], "unknown")
 
 
 def tail(path):
@@ -322,7 +320,8 @@ def wait_pid_die(pid, who, tmo = 30):
 	while stime < tmo:
 		try:
 			os.kill(int(pid), 0)
-		except:  # Died
+		except Exception, e:
+			print "Unable to kill %d: %s" % (pid, e)
 			break
 
 		print "Wait for %s(%d) to die for %f" % (who, pid, stime)
@@ -442,8 +441,8 @@ class zdtm_test:
 
 		try:
 			os.kill(int(self.getpid()), 0)
-		except:
-			raise test_fail_exc("start")
+		except Exception, e:
+			raise test_fail_exc("start: %s" % e)
 
 		if not self.static():
 			# Wait less than a second to give the test chance to
@@ -570,7 +569,8 @@ class inhfd_test:
 			os.close(start_pipe[1])
 			try:
 				data = peer_file.read(16)
-			except:
+			except Exception, e:
+				print "Unable to read a peer file: %s" % e
 				sys.exit(1)
 
 			sys.exit(data == self.__message and 42 or 2)
@@ -1366,7 +1366,8 @@ def pstree_each_pid(root_pid):
 			pid_line = f_children.readline().strip(" \n")
 			if pid_line:
 				child_pids += pid_line.split(" ")
-	except:
+	except Exception, e:
+		print "Unable to read /proc/*/children: %s" % e
 		return  # process is dead
 
 	yield root_pid
@@ -1382,7 +1383,8 @@ def is_proc_stopped(pid):
 				for line in f_status.readlines():
 					if line.startswith("State:"):
 						return line.split(":", 1)[1].strip().split(" ")[0]
-		except:
+		except Exception, e:
+			print "Unable to read a thread status: %s" % e
 			pass  # process is dead
 		return None
 
@@ -1393,7 +1395,8 @@ def is_proc_stopped(pid):
 	thread_dirs = []
 	try:
 		thread_dirs = os.listdir(tasks_dir)
-	except:
+	except Exception, e:
+		print "Unable to read threads: %s" % e
 		pass  # process is dead
 
 	for thread_dir in thread_dirs:
@@ -1417,7 +1420,8 @@ def pstree_signal(root_pid, signal):
 	for pid in pstree_each_pid(root_pid):
 		try:
 			os.kill(int(pid), signal)
-		except:
+		except Exception, e:
+			print "Unable to kill %d: %s" % (pid, e)
 			pass  # process is dead
 
 
@@ -1479,7 +1483,7 @@ def do_run_test(tname, tdesc, flavs, opts):
 			print_sep("Test %s PASS" % tname)
 
 
-class launcher:
+class Launcher:
 	def __init__(self, opts, nr_tests):
 		self.__opts = opts
 		self.__total = nr_tests
@@ -1817,26 +1821,26 @@ def run_tests(opts):
 			# Most tests will work with 4.3 - 4.11
 			print "[WARNING] Non-cooperative UFFD is missing, some tests might spuriously fail"
 
-	l = launcher(opts, len(torun))
+	launcher = Launcher(opts, len(torun))
 	try:
 		for t in torun:
 			global arch
 
 			if excl and excl.match(t):
-				l.skip(t, "exclude")
+				launcher.skip(t, "exclude")
 				continue
 
 			tdesc = get_test_desc(t)
 			if tdesc.get('arch', arch) != arch:
-				l.skip(t, "arch %s" % tdesc['arch'])
+				launcher.skip(t, "arch %s" % tdesc['arch'])
 				continue
 
 			if test_flag(tdesc, 'reqrst') and opts['norst']:
-				l.skip(t, "restore stage is required")
+				launcher.skip(t, "restore stage is required")
 				continue
 
 			if run_all and test_flag(tdesc, 'noauto'):
-				l.skip(t, "manual run only")
+				launcher.skip(t, "manual run only")
 				continue
 
 			feat_list = tdesc.get('feature', "")
@@ -1846,37 +1850,37 @@ def run_tests(opts):
 					features[feat] = criu.check(feat)
 
 				if not features[feat]:
-					l.skip(t, "no %s feature" % feat)
+					launcher.skip(t, "no %s feature" % feat)
 					feat_list = None
 					break
 			if feat_list is None:
 				continue
 
 			if self_checkskip(t):
-				l.skip(t, "checkskip failed")
+				launcher.skip(t, "checkskip failed")
 				continue
 
 			if opts['user']:
 				if test_flag(tdesc, 'suid'):
-					l.skip(t, "suid test in user mode")
+					launcher.skip(t, "suid test in user mode")
 					continue
 				if test_flag(tdesc, 'nouser'):
-					l.skip(t, "criu root prio needed")
+					launcher.skip(t, "criu root prio needed")
 					continue
 
 			if opts['join_ns']:
 				if test_flag(tdesc, 'samens'):
-					l.skip(t, "samens test in the same namespace")
+					launcher.skip(t, "samens test in the same namespace")
 					continue
 
 			if opts['lazy_pages'] or opts['remote_lazy_pages']:
 				if test_flag(tdesc, 'nolazy'):
-					l.skip(t, "lazy pages are not supported")
+					launcher.skip(t, "lazy pages are not supported")
 					continue
 
 			if opts['remote_lazy_pages']:
 				if test_flag(tdesc, 'noremotelazy'):
-					l.skip(t, "remote lazy pages are not supported")
+					launcher.skip(t, "remote lazy pages are not supported")
 					continue
 
 			test_flavs = tdesc.get('flavor', 'h ns uns').split()
@@ -1898,11 +1902,11 @@ def run_tests(opts):
 				run_flavs -= set(['h'])
 
 			if run_flavs:
-				l.run_test(t, tdesc, run_flavs)
+				launcher.run_test(t, tdesc, run_flavs)
 			else:
-				l.skip(t, "no flavors")
+				launcher.skip(t, "no flavors")
 	finally:
-		l.finish()
+		launcher.finish()
 		if opts['join_ns']:
 			subprocess.Popen(["ip", "netns", "delete", "zdtm_netns"]).wait()
 
