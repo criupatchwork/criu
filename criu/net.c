@@ -1532,7 +1532,8 @@ static int __restore_link(struct ns_id *ns, struct net_link *link, int nlsk)
 
 static int read_links(struct ns_id *ns)
 {
-	int ret = -1, id = ns->id;
+	int ret = -1;
+	unsigned int id = ns->id;
 	struct cr_img *img;
 	NetDeviceEntry *nde;
 
