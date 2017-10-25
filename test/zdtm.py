@@ -300,7 +300,7 @@ def encode_flav(f):
 
 
 def decode_flav(i):
-	return flavors.keys().get([i - 128], "unknown")
+	return flavors.get(i - 128, "unknown")
 
 
 def tail(path):
