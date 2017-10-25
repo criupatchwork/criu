@@ -98,6 +98,12 @@ struct net_link {
 	struct list_head	node;
 };
 
+/*
+ * While kernel uses long numbers for ns
+ * enumeration, we don't plan to support
+ * that many namespaces, thus int numbers
+ * are used.
+ */
 struct ns_id {
 	unsigned int kid;
 	unsigned int id;

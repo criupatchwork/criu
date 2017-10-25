@@ -484,6 +484,7 @@ static unsigned int __get_ns_id(int pid, struct ns_desc *nd, bool alternative,
 		return 0;
 	}
 	kid = st.st_ino;
+	BUG_ON((unsigned long)st.st_ino > (unsigned long)(UINT_MAX));
 	BUG_ON(!kid);
 
 out:
