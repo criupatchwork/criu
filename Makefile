@@ -347,6 +347,11 @@ docker-test:
 	docker run --rm -it --privileged criu-x86_64 ./test/zdtm.py run -a -x tcp6 -x tcpbuf6 -x static/rtc -x cgroup
 .PHONY: docker-test
 
+dev-dep:
+	$(Q) test ! -f /etc/redhat-release || \
+		yum install gcc protobuf-devel protobuf-c-devel libnet-devel libnl3-devel libcap-devel asciidoc xmlto
+.PHONY: dev-dep
+
 help:
 	@echo '    Targets:'
 	@echo '      all             - Build all [*] targets'
