@@ -55,6 +55,8 @@ void libsoccr_set_log(unsigned int level, void (*fn)(unsigned int level, const c
 #define SOCCR_LOG_ERR	1
 #define SOCCR_LOG_DBG	2
 
+extern void libsoccr_set_log_level_map(unsigned int *map);
+
 /*
  * An opaque handler for C/R-ing a TCP socket.
  */

@@ -67,6 +67,12 @@ enum {
 static void (*log)(unsigned int loglevel, const char *format, ...)
 	__attribute__ ((__format__ (__printf__, 2, 3)));
 static unsigned int log_level = 0;
+static unsigned int *log_level_map;
+
+void libsoccr_set_log_level_map(unsigned int *map)
+{
+	log_level_map = map;
+}
 
 void libsoccr_set_log(unsigned int level, void (*fn)(unsigned int level, const char *fmt, ...))
 {
@@ -74,9 +80,27 @@ void libsoccr_set_log(unsigned int level, void (*fn)(unsigned int level, const c
 	log = fn;
 }
 
-#define loge(msg, ...) do { if (log && (log_level >= SOCCR_LOG_ERR)) log(SOCCR_LOG_ERR, "Error (%s:%d): " msg, __FILE__, __LINE__, ##__VA_ARGS__); } while (0)
-#define logerr(msg, ...) loge(msg ": %s\n", ##__VA_ARGS__, strerror(errno))
-#define logd(msg, ...) do { if (log && (log_level >= SOCCR_LOG_DBG)) log(SOCCR_LOG_DBG, "Debug: " msg, ##__VA_ARGS__); } while (0)
+#define loge(msg, ...)							\
+	do {								\
+		if (log && (log_level >= SOCCR_LOG_ERR))		\
+			log(log_level_map ?				\
+			    log_level_map[SOCCR_LOG_ERR] :		\
+			    SOCCR_LOG_ERR,				\
+			    "Error (%s:%d): " msg,			\
+			    __FILE__, __LINE__, ##__VA_ARGS__);		\
+	} while (0)
+
+#define logerr(msg, ...)						\
+	loge(msg ": %s\n", ##__VA_ARGS__, strerror(errno))		\
+
+#define logd(msg, ...)							\
+	do {								\
+		if (log && (log_level >= SOCCR_LOG_DBG))		\
+			log(log_level_map ?				\
+			    log_level_map[SOCCR_LOG_DBG] :		\
+			    SOCCR_LOG_DBG,				\
+			    "Debug: " msg, ##__VA_ARGS__);		\
+	} while (0)
 
 static int tcp_repair_on(int fd)
 {
