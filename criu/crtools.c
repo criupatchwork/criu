@@ -416,6 +416,11 @@ int main(int argc, char *argv[], char *envp[])
 	int log_level = DEFAULT_LOGLEVEL;
 	char *imgs_dir = ".";
 
+	unsigned int libsoccr_log_level_map[] = {
+		[SOCCR_LOG_ERR] = LOG_DEBUG,
+		[SOCCR_LOG_DBG] = LOG_ERROR,
+	};
+
 #define BOOL_OPT(OPT_NAME, SAVE_TO) \
 		{OPT_NAME, no_argument, SAVE_TO, true},\
 		{"no-" OPT_NAME, no_argument, SAVE_TO, false}
@@ -941,7 +946,12 @@ int main(int argc, char *argv[], char *envp[])
 
 	if (log_init(opts.output))
 		return 1;
-	libsoccr_set_log(log_level, print_on_level);
+
+	libsoccr_set_log_level_map(libsoccr_log_level_map);
+	libsoccr_set_log((log_get_loglevel() > LOG_ERROR) ?
+			 SOCCR_LOG_DBG : SOCCR_LOG_ERR,
+			 print_on_level);
+
 	compel_log_init(vprint_on_level, log_get_loglevel());
 
 	pr_debug("Version: %s (gitid %s)\n", CRIU_VERSION, CRIU_GITID);
