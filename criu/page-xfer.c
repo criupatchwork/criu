@@ -21,6 +21,7 @@
 #include "parasite-syscall.h"
 #include "rst_info.h"
 #include "img-remote.h"
+#include "stats.h"
 
 static int page_server_sk = -1;
 
@@ -987,6 +988,9 @@ int cr_page_server(bool daemon_mode, bool lazy_dump, int cfd)
 	int ask = -1;
 	int sk = -1;
 	int ret;
+
+	if (init_stats(DUMP_STATS))
+		return -1;
 
 	if (!opts.lazy_pages)
 		up_page_ids_base();
