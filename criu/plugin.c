@@ -192,7 +192,6 @@ void cr_plugin_fini(int stage, int ret)
 int cr_plugin_init(int stage)
 {
 	int exit_code = -1;
-	char *path;
 	size_t i;
 	DIR *d;
 
@@ -201,6 +200,8 @@ int cr_plugin_init(int stage)
 		INIT_LIST_HEAD(&cr_plugin_ctl.hook_chain[i]);
 
 	if (opts.libdir == NULL) {
+		char *path;
+
 		path = getenv("CRIU_LIBS_DIR");
 		if (path)
 			opts.libdir = path;
