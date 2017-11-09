@@ -495,8 +495,8 @@ int kerndat_fdinfo_has_lock()
 
 	exit_code = 0;
 out:
-	close(pfd);
-	close(fd);
+	close_safe(&pfd);
+	close_safe(&fd);
 
 	return exit_code;
 }
@@ -770,7 +770,7 @@ int kerndat_has_ns_get_parent(void)
 	p_ns = ioctl(ns, NS_GET_PARENT);
 	if (p_ns >= 0 || errno == EPERM) {
 		kdat.has_ns_get_parent = true;
-		close(p_ns);
+		close_safe(&p_ns);
 	}
 
 	close(ns);
