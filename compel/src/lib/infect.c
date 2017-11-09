@@ -1175,7 +1175,11 @@ struct parasite_ctl *compel_prepare(int pid)
 	ictx->open_proc = simple_open_proc;
 	ictx->syscall_ip = find_executable_area(pid);
 	ictx->child_handler = handle_sigchld;
-	sigaction(SIGCHLD, NULL, &ictx->orig_handler);
+
+	if (sigaction(SIGCHLD, NULL, &ictx->orig_handler)) {
+		pr_perror("Unable to get a signal action");
+		goto err;
+	}
 
 	ictx->save_regs = save_regs_plain;
 	ictx->make_sigframe = make_sigframe_plain;
