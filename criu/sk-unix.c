@@ -938,6 +938,7 @@ int unix_note_scm_rights(int id_for, uint32_t *file_ids, int *fds, int n_ids)
 
 		sfle->fle = get_fle_for_scm(tgt, owner);
 		if (!sfle->fle) {
+			xfree(sfle);
 			pr_err("Can't request new fle for scm\n");
 			return -1;
 		}
