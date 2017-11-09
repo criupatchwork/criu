@@ -629,7 +629,6 @@ void *accept_local_image_connections(void *port)
 		if (cli_fd < 0) {
 			if (!finished)
 				pr_perror("Unable to accept local image connection");
-			close(cli_fd);
 			return NULL;
 		}
 
