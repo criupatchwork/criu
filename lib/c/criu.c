@@ -778,13 +778,13 @@ int criu_local_add_cg_dump_controller(criu_opts *opts, char *name)
 	new = realloc(opts->rpc->cgroup_dump_controller, nr * sizeof(char *));
 	if (!new)
 		return -ENOMEM;
+	opts->rpc->cgroup_dump_controller = new;
 
 	new[opts->rpc->n_cgroup_dump_controller] = strdup(name);
 	if (!new[opts->rpc->n_cgroup_dump_controller])
 		return -ENOMEM;
 
 	opts->rpc->n_cgroup_dump_controller = nr;
-	opts->rpc->cgroup_dump_controller = new;
 
 	return 0;
 }
