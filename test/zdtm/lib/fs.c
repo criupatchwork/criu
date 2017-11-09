@@ -34,7 +34,7 @@ mnt_info_t *get_cwd_mnt_info(void)
 
 	mnt_info_t *m = NULL;
 
-	char mountpoint[PATH_MAX];
+	char mountpoint[64];
 	char root[PATH_MAX];
 
 	char *fsname = NULL;
