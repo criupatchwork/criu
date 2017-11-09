@@ -2487,7 +2487,8 @@ static int create_mnt_roots(void)
 		mnt_roots = NULL;
 		goto out;
 	}
-	chmod(mnt_roots, 0777);
+	if (chmod(mnt_roots, 0777))
+		pr_perror("Unable to change permissions of %s", mnt_roots);
 
 	exit_code = 0;
 out:
