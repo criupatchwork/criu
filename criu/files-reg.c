@@ -153,7 +153,7 @@ static int trim_last_parent(char *path)
 static int copy_chunk_from_file(int fd, int img, off_t off, size_t len)
 {
 	char *buf = NULL;
-	int ret;
+	int ret, exit_code = -1;
 
 	if (opts.remote) {
 		buf = xmalloc(BUFSIZE);
@@ -166,27 +166,29 @@ static int copy_chunk_from_file(int fd, int img, off_t off, size_t len)
 			ret = pread(fd, buf, min_t(size_t, BUFSIZE, len), off);
 			if (ret <= 0) {
 				pr_perror("Can't read from ghost file");
-				return -1;
+				goto err;
 			}
 			if (write(img, buf, ret) != ret) {
 				pr_perror("Can't write to image");
-				return -1;
+				goto err;
 			}
 			off += ret;
 		} else {
 			ret = sendfile(img, fd, &off, len);
 			if (ret <= 0) {
 				pr_perror("Can't send ghost to image");
-				return -1;
+				goto err;
 			}
 		}
 
 		len -= ret;
 	}
 
+	exit_code = 0;
+err:
 	xfree(buf);
 
-	return 0;
+	return exit_code;
 }
 
 static int copy_file_to_chunks(int fd, struct cr_img *img, size_t file_size)
@@ -232,7 +234,7 @@ static int copy_file_to_chunks(int fd, struct cr_img *img, size_t file_size)
 static int copy_chunk_to_file(int img, int fd, off_t off, size_t len)
 {
 	char *buf = NULL;
-	int ret;
+	int ret, exit_code = -1;;
 
 	if (opts.remote) {
 		buf = xmalloc(BUFSIZE);
@@ -245,21 +247,21 @@ static int copy_chunk_to_file(int img, int fd, off_t off, size_t len)
 			ret = read(img, buf, min_t(size_t, BUFSIZE, len));
 			if (ret <= 0) {
 				pr_perror("Can't read from image");
-				return -1;
+				goto err;
 			}
 			if (pwrite(fd, buf, ret, off) != ret) {
 				pr_perror("Can't write to file");
-				return -1;
+				goto err;
 			}
 		} else {
 			if (lseek(fd, off, SEEK_SET) < 0) {
 				pr_perror("Can't seek file");
-				return -1;
+				goto err;
 			}
 			ret = sendfile(fd, img, NULL, len);
 			if (ret < 0) {
 				pr_perror("Can't send data");
-				return -1;
+				goto err;
 			}
 		}
 
@@ -267,9 +269,11 @@ static int copy_chunk_to_file(int img, int fd, off_t off, size_t len)
 		len -= ret;
 	}
 
+	exit_code = 0;
+err:
 	xfree(buf);
 
-	return 0;
+	return exit_code;
 }
 
 static int copy_file_from_chunks(struct cr_img *img, int fd, size_t file_size)
