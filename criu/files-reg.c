@@ -305,6 +305,7 @@ static int mkreg_ghost(char *path, GhostFileEntry *gfe, struct cr_img *img)
 	if (gfe->chunks) {
 		if (!gfe->has_size) {
 			pr_err("Corrupted ghost image -> no size\n");
+			close(gfd);
 			return -1;
 		}
 
