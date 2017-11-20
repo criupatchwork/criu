@@ -1007,6 +1007,7 @@ int mnt_is_dir(struct mount_info *pm)
 	return 0;
 }
 
+#define MNT_UNREACHABLE INT_MIN
 /*
  * mnt_fd is a file descriptor on the mountpoint, which is closed in an error case.
  * If mnt_fd is -1, the mountpoint will be opened by this function.
@@ -1026,8 +1027,8 @@ int __open_mountpoint(struct mount_info *pm, int mnt_fd)
 
 		mnt_fd = openat(mntns_root, pm->ns_mountpoint, O_RDONLY);
 		if (mnt_fd < 0) {
-			pr_perror("Can't open %s", pm->ns_mountpoint);
-			return -1;
+			pr_warn("Can't open %s", pm->ns_mountpoint);
+			return MNT_UNREACHABLE;
 		}
 	}
 
@@ -1097,7 +1098,6 @@ static char *get_clean_mnt(struct mount_info *mi, char *mnt_path_tmp, char *mnt_
 	return mnt_path;
 }
 
-#define MNT_UNREACHABLE INT_MIN
 int open_mountpoint(struct mount_info *pm)
 {
 	struct mount_info *c;
