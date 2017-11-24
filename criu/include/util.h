@@ -190,6 +190,7 @@ extern int is_empty_dir(int dirfd);
  * path. Since fd is an integer, we can easily estimate one :)
  */
 #define PSFDS	(sizeof("/proc/self/fd/2147483647"))
+#define PPFDS	(sizeof("/proc/2147483647/fd/2147483647"))
 
 extern int read_fd_link(int lfd, char *buf, size_t size);
 extern pid_t get_self_real_pid(void);

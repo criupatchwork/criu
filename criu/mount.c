@@ -1106,7 +1106,7 @@ static char *get_clean_mnt(struct mount_info *mi, char *mnt_path_tmp, char *mnt_
  * root of our mount namespace as it is covered by other mount.
  * mnt_is_overmounted() checks if mount is not visible.
  */
-static __maybe_unused bool mnt_is_overmounted(struct mount_info *mi)
+static bool mnt_is_overmounted(struct mount_info *mi)
 {
 	struct mount_info *t, *c, *m = mi;
 
@@ -1223,7 +1223,7 @@ next:
 }
 
 /* Make our mountpoint fully visible */
-static __maybe_unused int umount_overmounts(struct mount_info *m)
+static int umount_overmounts(struct mount_info *m)
 {
 	if (__umount_overmounts(m))
 		return -1;
@@ -1234,90 +1234,116 @@ static __maybe_unused int umount_overmounts(struct mount_info *m)
 	return 0;
 }
 
-#define MNT_UNREACHABLE INT_MIN
-int open_mountpoint(struct mount_info *pm)
+enum {
+	FUTEX_FD_OK,
+	FUTEX_FD_ERR,
+	FUTEX_FD_SHIFT,
+};
+
+/* Open mountpoint clean from children and overmounts */
+int ns_open_mountpoint(struct mount_info *pm, futex_t *futex)
 {
-	struct mount_info *c;
-	int fd = -1, ns_old = -1;
 	char mnt_path_tmp[] = "/tmp/cr-tmpfs.XXXXXX";
 	char mnt_path_root[] = "/cr-tmpfs.XXXXXX";
-	char *mnt_path = mnt_path_tmp;
-	int cwd_fd;
+	char *mnt_path = NULL;
+	int fd;
 
-	/*
-	 * If a mount doesn't have children, we can open a mount point,
-	 * otherwise we need to create a "private" copy.
-	 */
-	if (list_empty(&pm->children))
-		return __open_mountpoint(pm, -1);
+	if (switch_ns(pm->nsid->ns_pid, &mnt_ns_desc, NULL) < 0)
+		goto err;
+	/* Need user namespace so that mounts will be unmounable */
+	if (pm->nsid->user_ns &&
+	    switch_ns(pm->nsid->user_ns->ns_pid, &user_ns_desc, NULL) < 0)
+		goto err;
 
-	pr_info("Something is mounted on top of %s\n", pm->mountpoint);
-
-	list_for_each_entry(c, &pm->children, siblings) {
-		if (!strcmp(c->mountpoint, pm->mountpoint)) {
-			pr_debug("%d:%s is overmounted\n", pm->mnt_id, pm->mountpoint);
-			return MNT_UNREACHABLE;
-		}
-	}
-
-	/*
-	 * To create a "private" copy, the target mount is bind-mounted
-	 * in a temporary place w/o MS_REC (non-recursively).
-	 * A mount point can't be bind-mounted in criu's namespace, it will be
-	 * mounted in a target namespace. The sequence of actions is
-	 * mkdtemp, setns(tgt), mount, open, detach, setns(old).
-	 */
-
-	cwd_fd = open(".", O_DIRECTORY);
-	if (cwd_fd < 0) {
-		pr_perror("Unable to open cwd");
-		return -1;
-	}
-
-	if (switch_ns(pm->nsid->ns_pid, &mnt_ns_desc, &ns_old) < 0)
-		goto out;
-
-	mnt_path = get_clean_mnt(pm, mnt_path_tmp, mnt_path_root);
-	if (mnt_path == NULL) {
-		/*
-		 * We probably can't create a temporary direcotry,
-		 * so we can try to clone the mount namespace, open
-		 * the required mount and destroy this mount namespace
-		 * by calling restore_ns() below in this function.
-		 */
+	if (!mnt_is_overmounted(pm)) {
+		mnt_path = get_clean_mnt(pm, mnt_path_tmp, mnt_path_root);
+		if (!mnt_path)
+			goto err;
+	} else {
+		/* Create helper mount namespace so we can unmount in it */
 		if (unshare(CLONE_NEWNS)) {
 			pr_perror("Unable to clone a mount namespace");
-			goto out;
+			goto err;
 		}
+		if (mount("none", "/", NULL, MS_REC|MS_PRIVATE, NULL))
+			goto err;
 
-		fd = open(pm->mountpoint, O_RDONLY | O_DIRECTORY, 0);
-		if (fd < 0)
-			pr_perror("Can't open directory %s: %d", pm->mountpoint, fd);
-	} else
-		fd = open_detach_mount(mnt_path);
+		if (umount_overmounts(pm))
+			goto err;
+
+		mnt_path = get_clean_mnt(pm, mnt_path_tmp, mnt_path_root);
+		if (!mnt_path)
+			goto err;
+	}
+
+	fd = open_detach_mount(mnt_path);
 	if (fd < 0)
-		goto out;
+		goto err;
 
-	if (restore_ns(ns_old, &mnt_ns_desc)) {
-		ns_old = -1;
-		goto out;
-	}
-	if (fchdir(cwd_fd)) {
-		pr_perror("Unable to restore cwd");
-		close(cwd_fd);
-		close(fd);
-		return -1;
-	}
-	close(cwd_fd);
+	/* Report fd to parent and wait until he he is done */
+	futex_set_and_wake(futex, fd + FUTEX_FD_SHIFT);
+	futex_wait_until(futex, FUTEX_FD_OK);
+	close(fd);
+	return 0;
+err:
+	futex_set_and_wake(futex, FUTEX_FD_ERR);
+	return -1;
+}
 
+int open_mountpoint(struct mount_info *pm)
+{
+	int fd = -1, pid = -1;
+	char mnt_path[PPFDS];
+	futex_t *futex = NULL;
+
+	/* No overmounts and children - the entire mount is visible */
+	if (list_empty(&pm->children) && !mnt_is_overmounted(pm))
+		return __open_mountpoint(pm, -1);
+
+	pr_info("Mount is not fully visible %s\n", pm->mountpoint);
+
+	futex = mmap(NULL, sizeof(*futex), PROT_WRITE | PROT_READ, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	if (futex == MAP_FAILED) {
+		pr_perror("Failed to mmap futex");
+		return 1;
+	}
+	futex_init(futex);
+
+	pid = fork();
+	if (pid == -1) {
+		pr_perror("Failed to fork a helper");
+		goto err;
+	} else if (pid == 0) {
+		exit(ns_open_mountpoint(pm, futex));
+	}
+
+	/* Wait mount fd from child */
+	futex_wait_while(futex, FUTEX_FD_OK);
+	fd = futex_get(futex) - FUTEX_FD_SHIFT;
+	if (fd == -1)
+		goto err;
+
+	/* Open child's fd */
+	snprintf(mnt_path, PPFDS,"/proc/%d/fd/%d", pid, fd);
+	fd = open(mnt_path, O_RDONLY | O_DIRECTORY);
+	if (fd == -1) {
+		pr_perror("Failed to open child fd");
+		goto err;
+	}
+
+	/* Release the child */
+	futex_set_and_wake(futex, 0);
+	waitpid(pid, NULL, 0);
+
+	munmap(futex, sizeof(*futex));
 	return __open_mountpoint(pm, fd);
-out:
-	if (ns_old >= 0)
-		 restore_ns(ns_old, &mnt_ns_desc);
-	close_safe(&fd);
-	if (fchdir(cwd_fd))
-		pr_perror("Unable to restore cwd");
-	close(cwd_fd);
+err:
+	if (pid > 0) {
+		kill(pid, SIGKILL);
+		waitpid(pid, NULL, 0);
+	}
+	if (futex)
+		munmap(futex, sizeof(*futex));
 	return -1;
 }
 
