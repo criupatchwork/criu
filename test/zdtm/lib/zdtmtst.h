@@ -57,6 +57,8 @@ extern int set_nonblock(int fd, int on);
 extern int pipe_in2out(int infd, int outfd, uint8_t *buffer, int length);
 extern int read_data(int fd, unsigned char *buf, int len);
 extern int write_data(int fd, const unsigned char *buf, int len);
+extern int fill_sock_buf(int fd);
+extern int clean_sk_buf(int fd, int limit);
 
 /* command line args */
 struct long_opt {
@@ -109,7 +111,7 @@ extern int write_pidfile(int pid);
 #define __stringify(x)          __stringify_1(x)
 
 /*
- * Macro to define stack alignment. 
+ * Macro to define stack alignment.
  * aarch64 requires stack to be aligned to 16 bytes.
  */
 #define __stack_aligned__	__attribute__((aligned(16)))

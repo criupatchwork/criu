@@ -28,70 +28,6 @@ const char *test_author = "Andrey Vagin <avagin@parallels.com";
 static int port = 8880;
 
 #define BUF_SIZE 4096
-
-int fill_sock_buf(int fd)
-{
-	int flags;
-	int size;
-	int ret;
-
-	flags = fcntl(fd, F_GETFL, 0);
-	if (flags == -1) {
-		pr_err("Can't get flags");
-		return -1;
-	}
-	if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
-		pr_err("Can't set flags");
-		return -1;
-	}
-
-	size = 0;
-	while (1) {
-		char zdtm[] = "zdtm test packet";
-		ret = write(fd, zdtm, sizeof(zdtm));
-		if (ret == -1) {
-			if (errno == EAGAIN)
-				break;
-			pr_err("write");
-			return -1;
-		}
-		size += ret;
-	}
-
-	if (fcntl(fd, F_SETFL, flags) == -1) {
-		pr_err("Can't set flags");
-		return -1;
-	}
-
-	test_msg("snd_size = %d\n", size);
-
-	return size;
-}
-
-static int clean_sk_buf(int fd)
-{
-	int size, ret;
-	char buf[BUF_SIZE];
-
-	size = 0;
-	while (1) {
-		ret = read(fd, buf, sizeof(buf));
-		if (ret == -1) {
-			pr_err("read");
-			return -11;
-		}
-
-		if (ret == 0)
-			break;
-
-		size += ret;
-	}
-
-	test_msg("rcv_size = %d\n", size);
-
-	return size;
-}
-
 #define TEST_MSG "Hello World!"
 
 int main(int argc, char **argv)
@@ -165,7 +101,7 @@ int main(int argc, char **argv)
 		}
 
 #ifdef ZDTM_TCP_LAST_ACK
-		size = clean_sk_buf(fd);
+		size = clean_sk_buf(fd, 0);
 		if (size < 0)
 			return 1;
 #else
@@ -264,7 +200,7 @@ int main(int argc, char **argv)
 	}
 #endif
 
-	rcv_size = clean_sk_buf(fd);
+	rcv_size = clean_sk_buf(fd, 0);
 
 	if (ret != rcv_size) {
 		fail("The child sent %d bytes, but the parent received %d bytes\n", ret, rcv_size);

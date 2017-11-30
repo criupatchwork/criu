@@ -41,68 +41,6 @@ static void write_safe(int fd, void *buf, size_t size)
 	}
 }
 
-static int fill_sock_buf(int fd)
-{
-	int flags;
-	int size;
-	int ret;
-
-	flags = fcntl(fd, F_GETFL, 0);
-	if (flags == -1) {
-		pr_perror("Can't get flags");
-		return -1;
-	}
-	if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
-		pr_perror("Can't set flags");
-		return -1;
-	}
-
-	size = 0;
-	while (1) {
-		char zdtm[] = "zdtm test packet";
-		ret = write(fd, zdtm, sizeof(zdtm));
-		if (ret == -1) {
-			if (errno == EAGAIN)
-				break;
-			pr_perror("write");
-			return -1;
-		}
-		size += ret;
-	}
-
-	if (fcntl(fd, F_SETFL, flags) == -1) {
-		pr_perror("Can't set flags");
-		return -1;
-	}
-
-	return size;
-}
-
-static int clean_sk_buf(int fd, int limit)
-{
-	int size, ret;
-	char buf[BUF_SIZE];
-
-	size = 0;
-	while (1) {
-		ret = read(fd, buf, sizeof(buf));
-		if (ret == -1) {
-			pr_perror("read");
-			return -11;
-		}
-
-		if (ret == 0)
-			break;
-
-		size += ret;
-
-		if (limit && size >= limit)
-			break;
-	}
-
-	return size;
-}
-
 int main(int argc, char **argv)
 {
 	int fd, fd_s, ctl_fd;
