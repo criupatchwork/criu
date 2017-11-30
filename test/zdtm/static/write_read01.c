@@ -28,7 +28,7 @@ int main(int argc, char ** argv)
 
 	crc = ~0;
 	datagen(buf, sizeof(buf), &crc);
-	if (write(fd, buf, sizeof(buf)) != sizeof(buf)) {
+	if (write_data(fd, buf, sizeof(buf))) {
 		pr_perror("can't write %s", filename);
 		exit(1);
 	}
@@ -42,7 +42,7 @@ int main(int argc, char ** argv)
 	}
 
 	len = sizeof(buf) / 2;
-	if (read(fd, buf, len) != len) {
+	if (read_data(fd, buf, len)) {
 		pr_perror("can't read %s", filename);
 		exit(1);
 	}
@@ -51,7 +51,7 @@ int main(int argc, char ** argv)
 	test_waitsig();
 
 	/* recover reading */
-	if (read(fd, buf + len, sizeof(buf) - len) != (sizeof(buf) - len)) {
+	if (read_data(fd, buf + len, sizeof(buf) - len)) {
 		fail("can't read %s: %m\n", filename);
 		goto out;
 	}

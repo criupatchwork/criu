@@ -70,7 +70,7 @@ int main(int argc, char ** argv)
 
 	crc = ~0;
 	datagen(buf, sizeof(buf), &crc);
-	if (write(fd, buf, sizeof(buf)) != sizeof(buf)) {
+	if (write_data(fd, buf, sizeof(buf))) {
 		pr_perror("can't write %s", filename);
 		goto failed;
 	}
@@ -137,7 +137,7 @@ int main(int argc, char ** argv)
 		pr_perror("can't reposition to 0");
 		goto failed;
 	}
-	if (read(fd, buf, sizeof(buf)) != sizeof(buf)) {
+	if (read_data(fd, buf, sizeof(buf))) {
 		fail("can't read %s: %m\n", filename);
 		goto failed;
 	}

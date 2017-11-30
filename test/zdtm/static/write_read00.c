@@ -27,7 +27,7 @@ int main(int argc, char ** argv)
 
 	crc = ~0;
 	datagen(buf, sizeof(buf), &crc);
-	if (write(fd, buf, sizeof(buf)) != sizeof(buf)) {
+	if (write_data(fd, buf, sizeof(buf))) {
 		pr_perror("can't write %s", filename);
 		exit(1);
 	}
@@ -43,7 +43,7 @@ int main(int argc, char ** argv)
 		exit(1);
 	}
 
-	if (read(fd, buf, sizeof(buf)) != sizeof(buf)) {
+	if (read_data(fd, buf, sizeof(buf))) {
 		fail("can't read %s: %m\n", filename);
 		goto out;
 	}

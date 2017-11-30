@@ -34,14 +34,14 @@ int main(int argc, char ** argv)
 	// create standard file
 	sprintf(str, "standard_%s", filename);
 	fd1 = open(str, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-	if (write(fd1, buf, full_len) != full_len) {
+	if (write_data(fd1, buf, full_len)) {
 		pr_perror("can't write %s", str);
 		exit(1);
 	}
 	close(fd1);
 
 	len = sizeof(buf) / 2;
-	if (write(fd, buf, len) != len) {
+	if (write_data(fd, buf, len)) {
 		pr_perror("can't write %s", filename);
 		exit(1);
 	}
@@ -49,7 +49,7 @@ int main(int argc, char ** argv)
 	test_daemon();
 	test_waitsig();
 
-	if (write(fd, buf + len, sizeof(buf) - len) != (sizeof(buf) - len)) {
+	if (write_data(fd, buf + len, sizeof(buf) - len)) {
 		fail("can't write %s: %m\n", filename);
 		goto out;
 	}
@@ -62,7 +62,7 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	if (read(fd, buf, full_len) != full_len) {
+	if (read_data(fd, buf, full_len)) {
 		fail("can't read %s: %m\n", filename);
 		return 1;
 	}

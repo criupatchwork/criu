@@ -113,7 +113,7 @@ int main(int argc, char ** argv)
 
 		crc = ~0;
 		datagen(buf, sizeof(buf), &crc);
-		if (write(sock, buf, sizeof(buf)) != sizeof(buf)) {
+		if (write_data(sock, buf, sizeof(buf))) {
 			pr_perror("can't write to socket");
 			exit(errno);
 		}
@@ -161,7 +161,7 @@ int main(int argc, char ** argv)
 		goto out;
 	}
 
-	if (read(sock, buf, sizeof(buf)) != sizeof(buf)) {
+	if (read_data(sock, buf, sizeof(buf))) {
 		fail("can't read %s: %m\n", filename);
 		goto out;
 	}

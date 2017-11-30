@@ -58,7 +58,7 @@ int main(int argc, char ** argv)
 
 		crc = ~0;
 		datagen(buf, sizeof(buf), &crc);
-		if (write(child_fd, buf, sizeof(buf)) != sizeof(buf))
+		if (write_data(child_fd, buf, sizeof(buf)))
 			_exit(errno);
 
 		close(child_fd);
@@ -98,7 +98,7 @@ int main(int argc, char ** argv)
 		goto out;
 	}
 
-	if (read(fd, buf, sizeof(buf)) != sizeof(buf)) {
+	if (read_data(fd, buf, sizeof(buf))) {
 		fail("can't read %s: %m\n", filename);
 		goto out;
 	}
