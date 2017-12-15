@@ -1357,7 +1357,7 @@ long __export_restore_task(struct task_restore_args *args)
 					(unsigned long)iovs->iov_base,
 					(int)iovs->iov_len, nr);
 			r = sys_preadv(args->vma_ios_fd, iovs, nr, rio->off);
-			if (r < 0) {
+			if (r <= 0) {
 				pr_err("Can't read pages data (%d)\n", (int)r);
 				goto core_restore_end;
 			}
