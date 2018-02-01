@@ -100,6 +100,7 @@ struct thread_restore_args {
 
 	bool				check_only;
 	struct thread_creds_args	*creds_args;
+	char				comm[TASK_COMM_LEN];
 } __aligned(64);
 
 typedef long (*thread_restore_fcall_t) (struct thread_restore_args *args);

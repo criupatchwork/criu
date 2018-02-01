@@ -87,6 +87,7 @@ message thread_core_entry {
 
 	optional signal_queue_entry	signals_p	= 9;
 	optional creds_entry		creds		= 10;
+	optional string			comm		= 11;
 }
 
 message task_rlimits_entry {

@@ -732,6 +732,9 @@ int dump_thread_core(int pid, CoreEntry *core, const struct parasite_dump_thread
 			tc->has_pdeath_sig = true;
 			tc->pdeath_sig = ti->pdeath_sig;
 		}
+		tc->comm = xstrdup(ti->comm);
+		if (tc->comm == NULL)
+			return -1;
 	}
 
 	return ret;
