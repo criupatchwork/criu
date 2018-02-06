@@ -135,6 +135,7 @@ int criu_check(void);
 int criu_dump(void);
 int criu_restore(void);
 int criu_restore_child(void);
+int criu_start_page_server(char *address, int port);
 
 /*
  * Perform dumping but with preliminary iterations. Each
@@ -214,6 +215,7 @@ int criu_local_dump(criu_opts *opts);
 int criu_local_restore(criu_opts *opts);
 int criu_local_restore_child(criu_opts *opts);
 int criu_local_dump_iters(criu_opts *opts, int (*more)(criu_predump_info pi));
+int criu_local_start_page_server(criu_opts *opts, char *address, int port);
 
 #ifdef __GNUG__
 }

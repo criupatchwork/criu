@@ -1396,3 +1396,50 @@ int criu_restore_child(void)
 {
 	return criu_local_restore_child(global_opts);
 }
+
+int criu_local_start_page_server(criu_opts *opts, char *address, int port)
+{
+	int ret = -1;
+	CriuReq req = CRIU_REQ__INIT;
+	CriuResp *resp = NULL;
+
+	req.type = CRIU_REQ_TYPE__PAGE_SERVER;
+	req.opts = opts->rpc;
+
+	req.opts->ps = malloc(sizeof(CriuPageServerInfo));
+	if (req.opts->ps == NULL) {
+		perror("Can't allocate memory for criu RPC page-server opts");
+		goto exit;
+	}
+	criu_page_server_info__init(req.opts->ps);
+
+	req.opts->ps->has_port = true;
+	req.opts->ps->port = port;
+	req.opts->ps->address = strdup(address);
+
+	ret = send_req_and_recv_resp(opts, &req, &resp);
+	if (ret)
+		goto exit;
+
+	if (resp->type != req.type)
+		ret = -EBADMSG;
+	else if (resp->success)
+		ret = resp->ps->pid;
+	else
+		ret = -EBADE;
+
+exit:
+	if (resp)
+		criu_resp__free_unpacked(resp, NULL);
+
+	swrk_wait(opts);
+
+	errno = saved_errno;
+
+	return ret;
+}
+
+int criu_start_page_server(char *address, int port)
+{
+	return criu_local_start_page_server(global_opts, address, port);
+}
