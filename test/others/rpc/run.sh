@@ -76,6 +76,31 @@ function test_errno {
 	setsid ./errno.py build/criu_service.socket build/imgs_errno < /dev/null &>> build/output_errno
 }
 
+function test_remote {
+	mkdir -p build/imgs_remote
+
+	title_print "Run image-cache"
+	${CRIU} image-cache -v4 -o dump-loop.log -D build/imgs_remote --port 9996 &
+	CACHE_PID=${!}
+
+	title_print "Run image-proxy"
+	${CRIU} image-proxy -v4 -o dump-loop.log -D build/imgs_remote --address localhost --port 9996 &
+	PROXY_PID=${!}
+
+	title_print "Run loop.sh"
+	setsid ./loop.sh < /dev/null &> build/loop.log &
+	LOOP_PID=${!}
+	echo "Start loop with pid ${P}"
+
+	title_print "Run dump/restore with --remote test"
+	./remote.py build/criu_service.socket build/imgs_remote $P < /dev/null &>> build/output_remote
+
+	# Clean up on failure
+	kill -SIGTERM ${LOOP_PID}
+	kill -SIGTERM ${CACHE_PID}
+	kill -SIGTERM ${PROXT_PID}
+}
+
 trap 'echo "FAIL"; stop_server' EXIT
 
 start_server
@@ -85,6 +110,7 @@ test_py
 test_restore_loop
 test_ps
 test_errno
+test_remote
 
 stop_server
 
