@@ -299,6 +299,18 @@ int criu_add_unix_sk(unsigned int inode)
 	return criu_local_add_unix_sk(global_opts, inode);
 }
 
+void criu_local_set_remote(criu_opts *opts, bool remote)
+{
+	opts->rpc->has_remote = true;
+	opts->rpc->remote = remote;
+}
+
+void criu_set_remote(bool remote)
+{
+	criu_local_set_remote(global_opts, remote);
+}
+
+
 void criu_local_set_tcp_established(criu_opts *opts, bool tcp_established)
 {
 	opts->rpc->has_tcp_established	= true;
