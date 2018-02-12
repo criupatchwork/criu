@@ -260,17 +260,20 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	/* open images_dir */
 	sprintf(images_dir_path, "/proc/%d/fd/%d", ids.pid, req->images_dir_fd);
 
+	if (req->remote)
+		opts.remote = true;
+
 	if (req->parent_img)
 		opts.img_parent = req->parent_img;
-
-	if (open_image_dir(images_dir_path) < 0) {
-		pr_perror("Can't open images directory");
-		goto err;
-	}
 
 	/* get full path to images_dir to use in process title */
 	if (readlink(images_dir_path, images_dir, PATH_MAX) == -1) {
 		pr_perror("Can't readlink %s", images_dir_path);
+		goto err;
+	}
+
+	if (open_image_dir(images_dir) < 0) {
+		pr_perror("Can't open images directory");
 		goto err;
 	}
 
