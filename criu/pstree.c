@@ -180,6 +180,7 @@ void free_pstree_item(struct pstree_item *item)
 {
 	pstree_free_cores(item);
 	xfree(item->threads);
+	xfree(dmpi(item)->seccomp_entry);
 	xfree(item->pid);
 	xfree(item->pgid);
 	xfree(item->sid);
