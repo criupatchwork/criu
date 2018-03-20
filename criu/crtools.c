@@ -59,6 +59,7 @@
 #include "../soccr/soccr.h"
 
 struct cr_options opts;
+struct cr_options opt_changed_by_config;
 char **global_conf = NULL;
 char **user_conf = NULL;
 
@@ -439,8 +440,10 @@ int main(int argc, char *argv[], char *envp[])
 	char *imgs_dir = ".";
 
 #define BOOL_OPT(OPT_NAME, SAVE_TO) \
-		{OPT_NAME, no_argument, SAVE_TO, true},\
-		{"no-" OPT_NAME, no_argument, SAVE_TO, false}
+		{OPT_NAME, no_argument, &opts.SAVE_TO, true},\
+		{OPT_NAME, no_argument, &opt_changed_by_config.SAVE_TO, false},\
+		{"no-" OPT_NAME, no_argument, &opts.SAVE_TO, false}, \
+		{"no-" OPT_NAME, no_argument, &opt_changed_by_config.SAVE_TO, false}
 
 	static const char short_opts[] = "dSsRf:F:t:p:hcD:o:v::x::Vr:jJ:lW:L:M:";
 	static struct option long_opts[] = {
@@ -448,9 +451,9 @@ int main(int argc, char *argv[], char *envp[])
 		{ "pid",			required_argument,	0, 'p'	},
 		{ "leave-stopped",		no_argument,		0, 's'	},
 		{ "leave-running",		no_argument,		0, 'R'	},
-		BOOL_OPT("restore-detached", &opts.restore_detach),
-		BOOL_OPT("restore-sibling", &opts.restore_sibling),
-		BOOL_OPT("daemon", &opts.restore_detach),
+		BOOL_OPT("restore-detached", restore_detach),
+		BOOL_OPT("restore-sibling", restore_sibling),
+		BOOL_OPT("daemon", restore_detach),
 		{ "contents",			no_argument,		0, 'c'	},
 		{ "file",			required_argument,	0, 'f'	},
 		{ "fields",			required_argument,	0, 'F'	},
@@ -461,27 +464,28 @@ int main(int argc, char *argv[], char *envp[])
 		{ "root",			required_argument,	0, 'r'	},
 		{ USK_EXT_PARAM,		optional_argument,	0, 'x'	},
 		{ "help",			no_argument,		0, 'h'	},
-		BOOL_OPT(SK_EST_PARAM, &opts.tcp_established_ok),
+		BOOL_OPT(SK_EST_PARAM, tcp_established_ok),
+		BOOL_OPT(SK_EST_PARAM, tcp_established_ok),
 		{ "close",			required_argument,	0, 1043	},
-		BOOL_OPT("log-pid", &opts.log_file_per_pid),
+		BOOL_OPT("log-pid", log_file_per_pid),
 		{ "version",			no_argument,		0, 'V'	},
-		BOOL_OPT("evasive-devices", &opts.evasive_devices),
+		BOOL_OPT("evasive-devices", evasive_devices),
 		{ "pidfile",			required_argument,	0, 1046	},
 		{ "veth-pair",			required_argument,	0, 1047	},
 		{ "action-script",		required_argument,	0, 1049	},
-		BOOL_OPT(LREMAP_PARAM, &opts.link_remap_ok),
-		BOOL_OPT(OPT_SHELL_JOB, &opts.shell_job),
-		BOOL_OPT(OPT_FILE_LOCKS, &opts.handle_file_locks),
-		BOOL_OPT("page-server", &opts.use_page_server),
+		BOOL_OPT(LREMAP_PARAM, link_remap_ok),
+		BOOL_OPT(OPT_SHELL_JOB, shell_job),
+		BOOL_OPT(OPT_FILE_LOCKS, handle_file_locks),
+		BOOL_OPT("page-server", use_page_server),
 		{ "address",			required_argument,	0, 1051	},
 		{ "port",			required_argument,	0, 1052	},
 		{ "prev-images-dir",		required_argument,	0, 1053	},
 		{ "ms",				no_argument,		0, 1054	},
-		BOOL_OPT("track-mem", &opts.track_mem),
-		BOOL_OPT("auto-dedup", &opts.auto_dedup),
+		BOOL_OPT("track-mem", track_mem),
+		BOOL_OPT("auto-dedup", auto_dedup),
 		{ "libdir",			required_argument,	0, 'L'	},
 		{ "cpu-cap",			optional_argument,	0, 1057	},
-		BOOL_OPT("force-irmap", &opts.force_irmap),
+		BOOL_OPT("force-irmap", force_irmap),
 		{ "ext-mount-map",		required_argument,	0, 'M'	},
 		{ "exec-cmd",			no_argument,		0, 1059	},
 		{ "manage-cgroups",		optional_argument,	0, 1060	},
@@ -490,8 +494,8 @@ int main(int argc, char *argv[], char *envp[])
 		{ "feature",			required_argument,	0, 1063	},
 		{ "skip-mnt",			required_argument,	0, 1064 },
 		{ "enable-fs",			required_argument,	0, 1065 },
-		{ "enable-external-sharing", 	no_argument, 		&opts.enable_external_sharing, true	},
-		{ "enable-external-masters", 	no_argument, 		&opts.enable_external_masters, true	},
+		BOOL_OPT("enable-external-sharing", enable_external_sharing),
+		BOOL_OPT("enable-external-masters", enable_external_masters),
 		{ "freeze-cgroup",		required_argument,	0, 1068 },
 		{ "ghost-limit",		required_argument,	0, 1069 },
 		{ "irmap-scan-path",		required_argument,	0, 1070 },
@@ -500,21 +504,21 @@ int main(int argc, char *argv[], char *envp[])
 		{ "external",			required_argument,	0, 1073	},
 		{ "empty-ns",			required_argument,	0, 1074	},
 		{ "lazy-pages",			no_argument,		0, 1076 },
-		BOOL_OPT("extra", &opts.check_extra_features),
-		BOOL_OPT("experimental", &opts.check_experimental_features),
+		BOOL_OPT("extra", check_extra_features),
+		BOOL_OPT("experimental", check_experimental_features),
 		{ "all",			no_argument,		0, 1079	},
 		{ "cgroup-props",		required_argument,	0, 1080	},
 		{ "cgroup-props-file",		required_argument,	0, 1081	},
 		{ "cgroup-dump-controller",	required_argument,	0, 1082	},
-		BOOL_OPT(SK_INFLIGHT_PARAM, &opts.tcp_skip_in_flight),
-		BOOL_OPT("deprecated", &opts.deprecated_ok),
-		BOOL_OPT("check-only", &opts.check_only),
-		BOOL_OPT("display-stats", &opts.display_stats),
-		BOOL_OPT("weak-sysctls", &opts.weak_sysctls),
+		BOOL_OPT(SK_INFLIGHT_PARAM, tcp_skip_in_flight),
+		BOOL_OPT("deprecated", deprecated_ok),
+		BOOL_OPT("check-only", check_only),
+		BOOL_OPT("display-stats", display_stats),
+		BOOL_OPT("weak-sysctls", weak_sysctls),
 		{ "status-fd",			required_argument,	0, 1088 },
-		BOOL_OPT(SK_CLOSE_PARAM, &opts.tcp_close),
+		BOOL_OPT(SK_CLOSE_PARAM, tcp_close),
 		{ "verbosity",			optional_argument,	0, 'v'	},
-		BOOL_OPT("remote", &opts.remote),
+		BOOL_OPT("remote", remote),
 		{ "config",			required_argument,	0, 1089},
 		{ "no-default-config",		no_argument,		0, 1090},
 		{ },
@@ -606,20 +610,54 @@ int main(int argc, char *argv[], char *envp[])
 				break;
 			}
 		}
-		if (!opt)
+
+		/* opt == 0 means getopt is directly writing the value to the destination */
+		if (opt == 0) {
+			/*
+			 * Right now all bool options have a negated variant
+			 * created automatically:
+			 * --tcp-established and --no-tcp-established
+			 * For the RPC code path to detect if the default value
+			 * comes from the configuration file or because it is
+			 * the default value, there is a second structure which
+			 * is only used to check if an option has been changed via
+			 * the getopt parser: opt_changed_by_config
+			 * The following is the code to set those options in that
+			 * structure.
+			 */
+
+			/*
+			 * The macro BOOL_OPT() always adds the corresponding
+			 * opt_changed_by_config at idx + 1. So by writing true
+			 * to long_opts[idx + 1].flag we are telling the RPC
+			 * code path that the user set a value (it might or might
+			 * not be different from the default).
+			 */
+
+			/* Do no write beyond the long_opts array */
+			if (idx + 1 > sizeof(long_opts)/sizeof(long_opts[0]))
+				continue;
+
+			*long_opts[idx + 1].flag = true;
+
+			/* No need for further option analysis if opt == 0 */
 			continue;
+		}
 
 		switch (opt) {
 		case 's':
 			opts.final_state = TASK_STOPPED;
+			opt_changed_by_config.final_state = 1;
 			break;
 		case 'R':
 			opts.final_state = TASK_ALIVE;
+			opt_changed_by_config.final_state = 1;
 			break;
 		case 'x':
 			if (optarg && unix_sk_ids_parse(optarg) < 0)
 				return 1;
 			opts.ext_unix_sk = true;
+			opt_changed_by_config.ext_unix_sk = true;
 			break;
 		case 'p':
 			pid = atoi(optarg);
@@ -648,6 +686,7 @@ int main(int argc, char *argv[], char *envp[])
 			break;
 		case 'S':
 			opts.restore_sibling = true;
+			opt_changed_by_config.restore_sibling = true;
 			break;
 		case 'D':
 			imgs_dir = optarg;
@@ -671,6 +710,7 @@ int main(int argc, char *argv[], char *envp[])
 					opts.log_level = atoi(optarg);
 			} else
 				opts.log_level++;
+			opt_changed_by_config.log_level = 1;
 			break;
 		case 1043: {
 			int fd;
@@ -736,6 +776,7 @@ int main(int argc, char *argv[], char *envp[])
 		case 1060:
 			if (parse_manage_cgroups(&opts, optarg))
 				goto usage;
+			opt_changed_by_config.manage_cgroups = 1;
 			break;
 		case 1061:
 			{
@@ -779,6 +820,7 @@ int main(int argc, char *argv[], char *envp[])
 			break;
 		case 1069:
 			opts.ghost_limit = parse_size(optarg);
+			opt_changed_by_config.ghost_limit = 1;
 			break;
 		case 1070:
 			if (irmap_scan_path_add(optarg))
@@ -817,9 +859,10 @@ int main(int argc, char *argv[], char *envp[])
 				return 1;
 			break;
 		case 1074:
-			if (!strcmp("net", optarg))
+			if (!strcmp("net", optarg)) {
 				opts.empty_ns |= CLONE_NEWNET;
-			else {
+				opt_changed_by_config.empty_ns = 1;
+			} else {
 				pr_err("Unsupported empty namespace: %s\n",
 						optarg);
 				return 1;
@@ -844,6 +887,7 @@ int main(int argc, char *argv[], char *envp[])
 				pr_err("Unable to parse a value of --status-fd\n");
 				return 1;
 			}
+			opt_changed_by_config.status_fd = 1;
 			break;
 		case 1089:
 			break;
