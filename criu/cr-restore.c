@@ -1519,12 +1519,15 @@ static inline int fork_with_pid(struct pstree_item *item)
 		item->pid->state = ca.core->tc->task_state;
 		rsti(item)->cg_set = ca.core->tc->cg_set;
 
-		rsti(item)->has_seccomp = ca.core->thread_core->seccomp_mode != SECCOMP_MODE_DISABLED;
-
 		if (item->pid->state != TASK_DEAD && !task_alive(item)) {
 			pr_err("Unknown task state %d\n", item->pid->state);
 			return -1;
 		}
+
+		if (item->pid->state != TASK_DEAD)
+			rsti(item)->has_seccomp = ca.core->thread_core->seccomp_mode != SECCOMP_MODE_DISABLED;
+		else
+			rsti(item)->has_seccomp = false;
 
 		if (unlikely(item == root_item))
 			maybe_clone_parent(item, &ca);
