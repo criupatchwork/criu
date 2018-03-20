@@ -82,6 +82,7 @@ void init_opts(void)
 	opts.timeout = DEFAULT_TIMEOUT;
 	opts.empty_ns = 0;
 	opts.status_fd = -1;
+	opts.log_level = DEFAULT_LOGLEVEL;
 }
 
 static int parse_join_ns(const char *ptr)
@@ -435,7 +436,6 @@ int main(int argc, char *argv[], char *envp[])
 	int opt = 0, idx, help_or_configs;
 	int first_count = 1, second_count = 1;
 	int state = PARSING_GLOBAL_CONF;
-	int log_level = DEFAULT_LOGLEVEL;
 	char *imgs_dir = ".";
 
 #define BOOL_OPT(OPT_NAME, SAVE_TO) \
@@ -666,11 +666,11 @@ int main(int argc, char *argv[], char *envp[])
 			if (optarg) {
 				if (optarg[0] == 'v')
 					/* handle -vvvvv */
-					log_level += strlen(optarg) + 1;
+					opts.log_level += strlen(optarg) + 1;
 				else
-					log_level = atoi(optarg);
+					opts.log_level = atoi(optarg);
 			} else
-				log_level++;
+				opts.log_level++;
 			break;
 		case 1043: {
 			int fd;
@@ -959,11 +959,11 @@ int main(int argc, char *argv[], char *envp[])
 		return 1;
 	}
 
-	log_set_loglevel(log_level);
+	log_set_loglevel(opts.log_level);
 
 	if (log_init(opts.output))
 		return 1;
-	libsoccr_set_log(log_level, soccr_print_on_level);
+	libsoccr_set_log(opts.log_level, soccr_print_on_level);
 	compel_log_init(vprint_on_level, log_get_loglevel());
 
 	print_versions();

@@ -123,6 +123,7 @@ struct cr_options {
 	bool			orphan_pts_master;
 	int			check_only;
 	int			remote;
+	int			log_level;
 };
 
 extern struct cr_options opts;
