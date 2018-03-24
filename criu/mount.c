@@ -1671,7 +1671,7 @@ err:
 
 /*
  * _fn_f  - pre-order traversal function
- * _fn_f  - post-order traversal function
+ * _fn_r  - post-order traversal function
  * _plist - a postpone list. _el is added to this list, if _fn_f returns
  *	    a positive value, and all lower elements are not enumerated.
  */
