@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/time.h>
+#include <sys/stat.h>
 #include "int.h"
 #include "atomic.h"
 #include "cr_options.h"
@@ -157,6 +158,53 @@ static void display_stats(int what, StatsEntry *stats)
 		return;
 }
 
+static int fd_to_path(int fd, char *buf, int size) {
+	char proc_self_fd_path[PATH_MAX];
+	int ret;
+
+	if (snprintf(proc_self_fd_path, PATH_MAX, "/proc/self/fd/%d", fd) < 0) {
+		pr_perror("Failed to format /proc/self/fd/* path");
+		return -1;
+	}
+
+	ret = readlink(proc_self_fd_path, buf, size-1);
+	if (ret < 0) {
+		pr_perror("Failed to readlink %s path", proc_self_fd_path);
+		return -1;
+	}
+	buf[ret] = '\0';
+
+	return 0;
+}
+
+static void symlink_stats(char *target, char *name)
+{
+	char link_path[PATH_MAX];
+	struct stat st;
+	int ret;
+
+	if (snprintf(link_path, PATH_MAX, imgset_template[CR_FD_STATS].fmt, name) < 0)
+		goto exit;
+
+	ret = lstat(link_path, &st);
+	if (ret == -1 && errno != ENOENT)
+		goto exit;
+	else if (ret == 0) {
+		/* Real image occupies these location, no symlink needed */
+		if (!S_ISLNK(st.st_mode))
+			return;
+
+		/* Unlink symlink of previous iteration */
+		if (unlink(link_path) == -1)
+			goto exit;
+	}
+
+	if(!symlink(target, link_path))
+		return;
+exit:
+	pr_warn("Error when trying to create stats symlink");
+}
+
 void write_stats(int what)
 {
 	StatsEntry stats = STATS_ENTRY__INIT;
@@ -203,9 +251,20 @@ void write_stats(int what)
 	} else
 		return;
 
-	img = open_image_at(AT_FDCWD, CR_FD_STATS, O_DUMP, name);
+	img = open_image(CR_FD_STATS, O_DUMP, name);
 	if (img) {
+		char image_path[PATH_MAX];
+
 		pb_write_one(img, &stats, PB_STATS);
+
+		/*
+		 * Backward compatibility: old p.haul whants to read stats
+		 * from working directory, but not from images directory, so
+		 * create a symlink for it.
+		 */
+		if (!fd_to_path(img->fd, image_path, PATH_MAX))
+			symlink_stats(image_path, name);
+
 		close_image(img);
 	}
 
