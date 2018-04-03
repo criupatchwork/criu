@@ -840,6 +840,7 @@ static int kerndat_x86_has_ptrace_fpu_xsave_bug(void)
 
 static int kerndat_try_load_cache(void)
 {
+	struct statfs s;
 	int fd, ret;
 
 	fd = open(KERNDAT_CACHE_FILE, O_RDONLY);
@@ -851,6 +852,12 @@ static int kerndat_try_load_cache(void)
 	ret = read(fd, &kdat, sizeof(kdat));
 	if (ret < 0) {
 		pr_perror("Can't read kdat cache");
+		close(fd);
+		return -1;
+	}
+
+	if (fstatfs(fd, &s) < 0 || s.f_type != TMPFS_MAGIC) {
+		pr_warn("Can't read kdat cache from non-tempfs\n");
 		close(fd);
 		return -1;
 	}
