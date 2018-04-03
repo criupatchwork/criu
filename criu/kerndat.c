@@ -13,7 +13,7 @@
 #include <arpa/inet.h>  /* for sockaddr_in and inet_ntoa() */
 #include <sys/prctl.h>
 #include <sys/inotify.h>
-
+#include <sys/epoll.h>
 
 #include "common/config.h"
 #include "int.h"
@@ -40,6 +40,7 @@
 #include "prctl.h"
 #include "uffd.h"
 #include "vdso.h"
+#include "kcmp.h"
 
 struct kerndat_s kdat = {
 };
@@ -819,6 +820,65 @@ int kerndat_has_inotify_setnextwd(void)
 	return ret;
 }
 
+static int kerndat_has_kcmp_epoll_tfd(void)
+{
+	kcmp_epoll_slot_t epoll_slot = { };
+	struct epoll_event ev;
+	int ret = -1;
+	int pipefd[2];
+	int epollfd;
+	int fddup;
+
+	if (pipe(pipefd)) {
+		pr_perror("Can't create pipe");
+		return -1;
+	}
+
+	epollfd = epoll_create1(0);
+	if (epollfd < 0) {
+		pr_perror("epoll_create1 failed");
+		return -1;
+	}
+
+	memset(&ev, 0xff, sizeof(ev));
+	ev.events = EPOLLIN | EPOLLOUT;
+
+	if (epoll_ctl(epollfd, EPOLL_CTL_ADD, pipefd[0], &ev)) {
+		pr_perror("epoll_ctl failed");
+		return -1;
+	}
+
+	fddup = dup(pipefd[1]);
+	if (fddup < 0) {
+		pr_perror("dup2 failed");
+		goto out;
+	}
+
+	if (epoll_ctl(epollfd, EPOLL_CTL_ADD, fddup, &ev)) {
+		pr_perror("epoll_ctl failed");
+		close(fddup);
+		goto out;
+	}
+	close(fddup);
+
+	epoll_slot = (kcmp_epoll_slot_t) {
+		.efd	= epollfd,
+		.tfd	= fddup,
+		.toff	= 0,
+	};
+
+	ret = syscall(SYS_kcmp, getpid(), getpid(),
+		      KCMP_EPOLL_TFD, pipefd[1], (void *)&epoll_slot);
+	if (ret == 0)
+		kdat.has_kcmp_epoll_tfd = true;
+
+out:
+	close(pipefd[0]);
+	close(pipefd[1]);
+	close(epollfd);
+	return ret;
+}
+
 int __attribute__((weak)) kdat_x86_has_ptrace_fpu_xsave_bug(void)
 {
 	return 0;
@@ -1124,6 +1184,8 @@ int kerndat_init(void)
 		ret = kerndat_x86_has_ptrace_fpu_xsave_bug();
 	if (!ret)
 		ret = kerndat_has_inotify_setnextwd();
+	if (!ret)
+		ret = kerndat_has_kcmp_epoll_tfd();
 
 	kerndat_lsm();
 	kerndat_mmap_min_addr();
