@@ -54,7 +54,6 @@
 #include "cr-service.h"
 #include "files.h"
 #include "pstree.h"
-#include "version.h"
 
 #include "cr-errno.h"
 
