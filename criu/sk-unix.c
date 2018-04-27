@@ -31,6 +31,7 @@
 #include "fdstore.h"
 #include "fdinfo.h"
 #include "kerndat.h"
+#include "rst-malloc.h"
 
 #include "protobuf.h"
 #include "images/sk-unix.pb-c.h"
@@ -90,9 +91,13 @@ struct unix_sk_desc {
 };
 
 static LIST_HEAD(unix_sockets);
+static LIST_HEAD(unix_ghost_addr);
 
 static int unix_resolve_name(int lfd, uint32_t id, struct unix_sk_desc *d,
 			     UnixSkEntry *ue, const struct fd_parms *p);
+
+struct unix_sk_info;
+static void unlink_sk(struct unix_sk_info *ui);
 
 struct unix_sk_listen_icon {
 	unsigned int			peer_ino;
@@ -886,12 +891,14 @@ struct unix_sk_info {
 	char			*name;
 	char			*name_dir;
 	unsigned		flags;
+	int			fdstore_id;
 	struct unix_sk_info	*peer;
 	struct pprep_head	peer_resolve; /* XXX : union with the above? */
 	struct file_desc	d;
 	struct list_head	connected; /* List of sockets, connected to me */
 	struct list_head	node; /* To link in peer's connected list  */
 	struct list_head	scm_fles;
+	struct list_head	ghost_node;
 
 	/*
 	 * For DGRAM sockets with queues, we should only restore the queue
@@ -916,6 +923,7 @@ struct scm_fle {
 
 #define USK_PAIR_MASTER		0x1
 #define USK_PAIR_SLAVE		0x2
+#define USK_GHOST_FDSTORE	0x4
 
 static struct unix_sk_info *find_unix_sk_by_ino(int ino)
 {
@@ -1241,6 +1249,7 @@ err:
 
 static int post_open_standalone(struct file_desc *d, int fd)
 {
+	int fdstore_fd = -1, procfs_self_dir = -1, len;
 	struct unix_sk_info *ui;
 	struct unix_sk_info *peer;
 	struct sockaddr_un addr;
@@ -1269,22 +1278,43 @@ static int post_open_standalone(struct file_desc *d, int fd)
 
 	memset(&addr, 0, sizeof(addr));
 	addr.sun_family = AF_UNIX;
-	memcpy(&addr.sun_path, peer->name, peer->ue->name.len);
 
 	pr_info("\tConnect %#x to %#x\n", ui->ue->ino, peer->ue->ino);
 
 	if (prep_unix_sk_cwd(peer, &cwd_fd, NULL, &ns_fd))
 		return -1;
 
-	if (connect(fd, (struct sockaddr *)&addr,
-				sizeof(addr.sun_family) +
-				peer->ue->name.len) < 0) {
+	if (peer->flags & USK_GHOST_FDSTORE) {
+		procfs_self_dir = open_proc(PROC_SELF, "fd");
+		fdstore_fd = fdstore_get(peer->fdstore_id);
+
+		if (fdstore_fd < 0 || procfs_self_dir < 0)
+			goto err_revert_and_exit;
+
+
+		/*
+		 * WARNING: After this call we rely on revert_unix_sk_cwd
+		 * to restore the former directories so that connect
+		 * will operate inside proc/self/fd/X.
+		 */
+		if (fchdir(procfs_self_dir)) {
+			pr_perror("Can't change to procfs/self");
+			goto err_revert_and_exit;
+		}
+		len = snprintf(addr.sun_path, UNIX_PATH_MAX, "%d", fdstore_fd);
+	} else {
+		memcpy(&addr.sun_path, peer->name, peer->ue->name.len);
+		len = peer->ue->name.len;
+	}
+
+	if (connect(fd, (struct sockaddr *)&addr, sizeof(addr.sun_family) + len) < 0) {
 		pr_perror("Can't connect %#x socket", ui->ue->ino);
-		revert_unix_sk_cwd(peer, &cwd_fd, &root_fd, &ns_fd);
-		return -1;
+		goto err_revert_and_exit;
 	}
 	ui->is_connected = true;
 
+	close_safe(&procfs_self_dir);
+	close_safe(&fdstore_fd);
 	revert_unix_sk_cwd(peer, &cwd_fd, &root_fd, &ns_fd);
 
 restore_queue:
@@ -1296,49 +1326,35 @@ restore_sk_common:
 	if (ui->queuer && !ui->queuer->peer_queue_restored)
 		return 1;
 	return restore_sk_common(fd, ui);
+
+err_revert_and_exit:
+	close_safe(&procfs_self_dir);
+	close_safe(&fdstore_fd);
+	revert_unix_sk_cwd(peer, &cwd_fd, &root_fd, &ns_fd);
+	return -1;
 }
 
-static int bind_deleted_unix_sk(int sk, struct unix_sk_info *ui,
-					struct sockaddr_un *addr)
+static int keep_deleted(struct unix_sk_info *ui, struct sockaddr_un *addr)
 {
-	char temp[PATH_MAX];
-	int ret;
-
-	pr_info("found duplicate unix socket bound at %s\n", addr->sun_path);
-
-	ret = snprintf(temp, sizeof(temp),
-			"%s-%s-%d", addr->sun_path, "criu-temp", getpid());
-	/* this shouldn't happen, since sun_addr is only 108 chars long */
-	if (ret < 0 || ret >= sizeof(temp)) {
-		pr_err("snprintf of %s failed?\n", addr->sun_path);
-		return -1;
+	if (ui->ue->deleted && (ui->flags & USK_GHOST_FDSTORE)) {
+		int fd = open(addr->sun_path, O_PATH);
+		if (fd < 0) {
+			pr_perror("ghost: Can't open %s", addr->sun_path);
+			return -1;
+		}
+		ui->fdstore_id = fdstore_add(fd);
+		pr_debug("ghost: %#x fdstore_id %d %s\n",
+			 ui->ue->ino, ui->fdstore_id, ui->ue->name.data);
+		close(fd);
+		return ui->fdstore_id;
 	}
-
-	ret = rename(addr->sun_path, temp);
-	if (ret < 0) {
-		pr_perror("couldn't move socket for binding");
-		return -1;
-	}
-
-	ret = bind(sk, (struct sockaddr *)addr,
-			sizeof(addr->sun_family) + ui->ue->name.len);
-	if (ret < 0) {
-		pr_perror("Can't bind socket after move");
-		return -1;
-	}
-
-	ret = rename(temp, addr->sun_path);
-	if (ret < 0) {
-		pr_perror("couldn't move socket back");
-		return -1;
-	}
-
-	/* we've handled the deleted-ness of this
-	 * socket and we don't want to delete it later
-	 * since it's not /this/ socket.
-	 */
-	ui->ue->deleted = false;
 	return 0;
+}
+
+static void drop_deleted(struct unix_sk_info *ui)
+{
+	if (ui->ue->deleted)
+		unlink_sk(ui);
 }
 
 static int bind_unix_sk(int sk, struct unix_sk_info *ui)
@@ -1368,19 +1384,14 @@ static int bind_unix_sk(int sk, struct unix_sk_info *ui)
 	if (ui->name[0] && prep_unix_sk_cwd(ui, &cwd_fd, NULL, &ns_fd))
 		return -1;
 
+	pr_debug("bind_unix_sk: id %#x ino %#x addr %s\n",
+		 ui->ue->id, ui->ue->ino, ui->name);
 	ret = bind(sk, (struct sockaddr *)&addr,
 			sizeof(addr.sun_family) + ui->ue->name.len);
-	if (ret < 0) {
-		if (ui->ue->has_deleted && ui->ue->deleted && errno == EADDRINUSE) {
-			if (bind_deleted_unix_sk(sk, ui, &addr))
-				goto done;
-		} else {
-			pr_perror("Can't bind socket");
-			goto done;
-		}
-	}
+	if (ret < 0)
+		goto done;
 
-	if (*ui->name && ui->ue->file_perms) {
+	if (ui->ue->file_perms) {
 		FilePermsEntry *perms = ui->ue->file_perms;
 		char fname[PATH_MAX];
 
@@ -1403,8 +1414,8 @@ static int bind_unix_sk(int sk, struct unix_sk_info *ui)
 		}
 	}
 
-	if (ui->ue->deleted && unlink((char *)ui->ue->name.data) < 0) {
-		pr_perror("failed to unlink %s", ui->ue->name.data);
+	if (keep_deleted(ui, &addr) < 0) {
+		pr_err("Can't save socket in fdstore\n");
 		goto done;
 	}
 
@@ -1416,6 +1427,7 @@ static int bind_unix_sk(int sk, struct unix_sk_info *ui)
 	exit_code = 0;
 done:
 	revert_unix_sk_cwd(ui, &cwd_fd, &root_fd, &ns_fd);
+	drop_deleted(ui);
 	return exit_code;
 }
 
@@ -1556,6 +1568,7 @@ static int open_unixsk_standalone(struct unix_sk_info *ui, int *new_fd)
 
 	fle = file_master(&ui->d);
 	pr_info_opening("standalone", ui, fle);
+
 	if (fle->stage == FLE_OPEN)
 		return post_open_standalone(&ui->d, fle->fe->fd);
 
@@ -1812,6 +1825,7 @@ static int init_unix_sk_info(struct unix_sk_info *ui, UnixSkEntry *ue)
 	ui->name_dir = (void *)ue->name_dir;
 
 	ui->flags		= 0;
+	ui->fdstore_id		= -1;
 	ui->peer		= NULL;
 	ui->queuer		= NULL;
 	ui->bound		= 0;
@@ -1826,6 +1840,109 @@ static int init_unix_sk_info(struct unix_sk_info *ui, UnixSkEntry *ue)
 	INIT_LIST_HEAD(&ui->connected);
 	INIT_LIST_HEAD(&ui->node);
 	INIT_LIST_HEAD(&ui->scm_fles);
+	INIT_LIST_HEAD(&ui->ghost_node);
+
+	return 0;
+}
+
+#define GHOST_NAME_FMT		"~criu-%u"
+#define GHOST_NAME_FMT_PREFIX	6 /* num of chars before counter */
+
+static int ghost_new_name(char *name, size_t namelen,
+			  char **name_new, size_t *namelen_new)
+{
+	char sname[64], *pos, *oldname = name;
+	static unsigned int unix_name_cnt = 0;
+	size_t k;
+
+	pr_debug("\tghost: handling name %s namelen %zu\n", name, namelen);
+
+	for (pos = &name[namelen - 1]; pos > name; pos--) {
+		if (*pos == GHOST_NAME_FMT[0])
+			break;
+	}
+
+	if (strncmp(pos, GHOST_NAME_FMT, GHOST_NAME_FMT_PREFIX) == 0) {
+		unsigned int __cnt;
+
+		if (sscanf(pos, GHOST_NAME_FMT, &__cnt) == 1) {
+			pr_debug("\tghost: unix_name_cnt %d detected\n", __cnt);
+			if (__cnt != unix_name_cnt)
+				unix_name_cnt += __cnt;
+		}
+	}
+
+	memzero(sname, sizeof(sname));
+	k = snprintf(sname, sizeof(sname), GHOST_NAME_FMT, unix_name_cnt++) + 1;
+	if (k > sizeof(sname) || k > UNIX_PATH_MAX) {
+		pr_err("\tghost: New name for socket is too long\n");
+		return -1;
+	}
+	*namelen_new = k;
+
+	*name_new = shmalloc(*namelen_new);
+	if (!*name_new) {
+		pr_err("\tghost: Can't allocate new name for socket\n");
+		return -ENOMEM;
+	}
+
+	memcpy(*name_new, sname, k);
+
+	pr_debug("\tghost: name transition %s -> %s\n", oldname, *name_new);
+	return 0;
+}
+
+int unix_resolve_ghost_addr(void)
+{
+	struct unix_sk_info *ui, *t;
+
+	pr_debug("ghost: Resolving addresses\n");
+
+	/*
+	 * Walk over ghost unix entries and find one
+	 * which gonna be a master and won't unlink
+	 * the name until all peers are connected to
+	 * this designation.
+	 */
+
+	list_for_each_entry(ui, &unix_ghost_addr, ghost_node) {
+		size_t newnamelen;
+		char *newname;
+
+		pr_debug("ghost: ino %#x peer %#x address %s\n",
+			 ui->ue->ino, ui->peer ? ui->peer->ue->ino : 0,
+			 ui->name);
+
+		unlink_sk(ui);
+
+		if (ghost_new_name(ui->name, ui->ue->name.len,
+				   &newname, &newnamelen))
+			return -1;
+
+		ui->name = newname;
+		ui->ue->name.len = newnamelen;
+		ui->ue->name.data = (void *)newname;
+
+		unlink_sk(ui);
+
+		/*
+		 * Figure out who is connected to this peer,
+		 * so the name will be removed from FS only
+		 * when last one is connected.
+		 */
+		list_for_each_entry(t, &unix_sockets, list) {
+			if (t->flags & USK_GHOST_FDSTORE)
+				continue;
+			if (ui == t || t->peer != ui)
+				continue;
+
+			pr_debug("\t\tghost: connected to us %#x -> %#x\n",
+				 t->ue->ino, ui->ue->ino);
+
+			if (!(ui->flags & USK_GHOST_FDSTORE))
+				ui->flags |= USK_GHOST_FDSTORE;
+		}
+	}
 
 	return 0;
 }
@@ -1871,6 +1988,15 @@ static int collect_one_unixsk(void *o, ProtobufCMessage *base, struct cr_img *i)
 
 		ui->peer_resolve.actor = post_prepare_unix_sk;
 		add_post_prepare_cb(&ui->peer_resolve);
+	}
+
+	if (ui->ue->deleted) {
+		if (!ui->name || !ui->ue->name.len || !ui->name[0]) {
+			pr_err("No name present, ino %#x\n", ui->ue->ino);
+			return -1;
+		}
+
+		list_add_tail(&ui->ghost_node, &unix_ghost_addr);
 	}
 
 	list_add_tail(&ui->list, &unix_sockets);
