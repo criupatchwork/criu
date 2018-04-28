@@ -1577,7 +1577,9 @@ static int cr_pre_dump_finish(int ret)
 	if (arch_set_thread_regs(root_item, false) < 0)
 		goto err;
 
-	prepare_inventory_pre_dump(&he);
+	if (invertory_save_uptime(&he))
+		goto err;
+
 	pstree_switch_state(root_item, TASK_ALIVE);
 
 	timing_stop(TIME_FROZEN);
@@ -2006,6 +2008,9 @@ int cr_dump_tasks(pid_t pid)
 
 	ret = tty_post_actions();
 	if (ret)
+		goto err;
+
+	if (invertory_save_uptime(&he))
 		goto err;
 
 	ret = write_img_inventory(&he);
