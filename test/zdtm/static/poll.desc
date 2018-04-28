@@ -1,1 +1,1 @@
-{'flavor': 'h'}
+{'flavor': 'h', 'env': 'ZDTM_DELTA=60'}
