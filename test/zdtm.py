@@ -371,7 +371,7 @@ class zdtm_test:
 		self.__flavor = flavor
 		self.__freezer = freezer
 		self._bins = [name]
-		self._env = {}
+		self._env = dict(x.split("=") for x in desc.get('env', '').split())
 		self._deps = desc.get('deps', [])
 		self.auto_reap = True
 		self.__timeout = int(self.__desc.get('timeout') or 30)
