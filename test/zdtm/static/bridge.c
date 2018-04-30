@@ -84,6 +84,10 @@ int main(int argc, char **argv)
 	 * (I got this race with zdtm.py, but not with zdtm.sh; not quite sure
 	 * what the environment difference is/was.)
 	 */
+	while (1) {
+		if (system("ip addr list dev " BRIDGE_NAME " | grep tentative"))
+			break;
+	}
 	if (system("ip addr list dev " BRIDGE_NAME " | grep inet | sort > bridge.dump.test")) {
 		pr_perror("can't save net config");
 		fail("Can't save net config");
@@ -93,12 +97,16 @@ int main(int argc, char **argv)
 	test_daemon();
 	test_waitsig();
 
+	while (1) {
+		if (system("ip addr list dev " BRIDGE_NAME " | grep tentative"))
+			break;
+	}
 	if (system("ip addr list dev " BRIDGE_NAME " | grep inet | sort > bridge.rst.test")) {
 		fail("Can't get net config");
 		goto out;
 	}
 
-	if (system("diff bridge.rst.test bridge.dump.test")) {
+	if (system("diff -up bridge.rst.test bridge.dump.test")) {
 		fail("Net config differs after restore");
 		goto out;
 	}
