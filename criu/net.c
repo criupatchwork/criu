@@ -1965,10 +1965,53 @@ out:
 	return ret;
 }
 
+/*
+ * iptables-restore is executed from a target userns and it may have not enough
+ * rights to open /run/xtables.lock. Here we try to workaround this problem.
+ */
+static int replace_xtable_lock() { static bool done; int fd;
+
+	if (!(root_ns_mask & CLONE_NEWUSER))
+		return 0;
+
+	/* It is a question what to do when we have userns without mntns */
+	if (!(root_ns_mask & CLONE_NEWNS))
+		return 0;
+
+	if (done)
+		return 0;
+
+	fd = open("/run/xtables.lock", O_RDONLY);
+	if (fd >= 0) {
+		close(fd);
+		done = true;
+		return 0;
+	}
+
+	/*
+	 * /run/xtables.lock may not exist, so we can't just bind-mount a file
+	 * over it.
+	 * A new mount will not be propagated to the host mount namespace,
+	 * because we are in another userns.
+	 */
+
+	if (mount("criu-xtable-lock", "/run", "tmpfs", 0, NULL)) {
+		pr_perror("Unable to mount tmpfs into /run");
+		return -1;
+	}
+
+	done = true;
+
+	return 0;
+}
+
 static inline int restore_iptables(int pid)
 {
 	int ret = -1;
 	struct cr_img *img;
+
+	if (replace_xtable_lock())
+		return -1;
 
 	img = open_image(CR_FD_IPTABLES, O_RSTR, pid);
 	if (img == NULL)
