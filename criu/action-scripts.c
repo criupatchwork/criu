@@ -108,6 +108,10 @@ int rpc_send_fd(enum script_actions act, int fd)
 		return -1;
 
 	rpc_sk = get_service_fd(RPC_SK_OFF);
+	if (unlikely(rpc_sk < 0)) {
+		pr_err("Can't obtain RPC_SK_OFF service descriptor\n");
+		return -1;
+	}
 
 	pr_debug("\tRPC\n");
 	return send_criu_rpc_script(act, (char *)action, rpc_sk, fd);
