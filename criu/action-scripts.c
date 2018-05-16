@@ -132,7 +132,12 @@ int run_scripts(enum script_actions act)
 
 		pr_debug("\tRPC\n");
 		rpc_sk = get_service_fd(RPC_SK_OFF);
-		ret = send_criu_rpc_script(act, (char *)action, rpc_sk, -1);
+		if (rpc_sk >= 0)
+			ret = send_criu_rpc_script(act, (char *)action, rpc_sk, -1);
+		else {
+			pr_err("Can't obtain RPC_SK_OFF service descriptor\n");
+			ret = -1;
+		}
 		goto out;
 	}
 
