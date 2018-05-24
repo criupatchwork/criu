@@ -66,6 +66,7 @@
 	})
 
 static struct task_entries *task_entries_local;
+static atomic_t thread_aborted = ATOMIC_INIT(0);
 static futex_t thread_inprogress;
 static pid_t *helpers;
 static int n_helpers;
@@ -588,17 +589,22 @@ long __export_restore_thread(struct thread_restore_args *args)
 	 * operation bound to uid 0 in current user ns.
 	 */
 	if (restore_seccomp(args))
-		goto core_restore_end;
+		goto thread_panic;
 
 	ret = restore_creds(args->creds_args, args->ta->proc_fd);
 	ret = ret || restore_dumpable_flag(&args->ta->mm);
 	ret = ret || restore_pdeath_sig(args);
-	if (ret)
-		goto core_restore_end;
 
 	restore_finish_stage(task_entries_local, CR_STATE_RESTORE_CREDS);
 
 	futex_dec_and_wake(&thread_inprogress);
+
+	/*
+	 * We can't just exit in such deep stage on thread restore,
+	 * instead notify group leader that we've failed.
+	 */
+	if (ret)
+		goto thread_panic;
 
 	if (check_only)
 		restore_finish_stage(task_entries_local, CR_STATE_COMPLETE);
@@ -610,6 +616,11 @@ core_restore_end:
 	pr_err("Restorer abnormal termination for %ld\n", sys_getpid());
 	futex_abort_and_wake(&task_entries_local->nr_in_progress);
 	sys_exit_group(1);
+	return -1;
+thread_panic:
+	pr_err("Restorer panic for %ld\n", sys_getpid());
+	atomic_set(&thread_aborted, 1);
+	BUG();
 	return -1;
 }
 
@@ -1747,6 +1758,20 @@ long __export_restore_task(struct task_restore_args *args)
 
 	/* Wait until children stop to use args->task_entries */
 	futex_wait_while_gt(&thread_inprogress, 1);
+
+	/*
+	 * If error happened somewhere insidee deep restore of
+	 * a thread where we can't exit gracefully and have fired
+	 * BUG already, do the same here in group leader so all
+	 * threads get killed as well.
+	 *
+	 * Note that we've to complete @thread_inprogress counting
+	 * since the group leader is still waiting and futex-abort
+	 * flag won't work here because the form we have futexes
+	 * doesn't allow multiple writers
+	 */
+	if (atomic_read(&thread_aborted))
+		BUG();
 
 	if (args->check_only) {
 		pr_info("Restore check was successful.\n");
