@@ -7,6 +7,7 @@ typedef struct {
 	int counter;
 } atomic_t;
 
+#define ATOMIC_INIT(i)	{ (i) }
 
 /* Copied from the Linux kernel header arch/arm/include/asm/atomic.h */
 
