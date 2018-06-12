@@ -5,6 +5,7 @@
 #include <sys/file.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <linux/limits.h>
 
 #include "zdtmtst.h"
@@ -125,8 +126,6 @@ static int check_file_lock(int fd, char *expected_type,
 				continue;
 		}
 
-		if (fl_owner != getpid())
-			continue;
 		if (i_no != expected_ino)
 			continue;
 		if (strcmp(fl_flag, "FLOCK"))
@@ -145,7 +144,8 @@ static int check_file_lock(int fd, char *expected_type,
 
 int main(int argc, char **argv)
 {
-	int fd_0, fd_1, fd_2, ret = 0;
+	int fd_0, fd_1, fd_2, ret = 0, status;
+	pid_t lpid;
 
 	test_init(argc, argv);
 
@@ -160,9 +160,24 @@ int main(int argc, char **argv)
 	if (open_all_files(&fd_0, &fd_1, &fd_2))
 		return -1;
 
-	flock(fd_0, LOCK_SH);
-	flock(fd_1, LOCK_EX);
-	flock(fd_2, LOCK_MAND | LOCK_READ);
+	lpid = fork();
+	if (lpid < 0)
+		return 1;
+	if (lpid == 0) {
+		flock(fd_0, LOCK_SH);
+		flock(fd_1, LOCK_EX);
+		flock(fd_2, LOCK_MAND | LOCK_READ);
+		return 0;
+	}
+	if (waitpid(lpid, &status, 0) < 0) {
+		pr_perror("Unable to wait a child process");
+		return 1;
+	}
+
+	if (status) {
+		pr_err("The child process exists with a non-zero code: %d\n", status);
+		return 1;
+	}
 
 	test_daemon();
 	test_waitsig();
