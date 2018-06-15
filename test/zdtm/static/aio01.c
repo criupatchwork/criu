@@ -1,3 +1,4 @@
+#define SIGNAL_H
 #include <linux/aio_abi.h>
 #include <sys/syscall.h>
 #include <sys/types.h>

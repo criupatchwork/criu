@@ -1,6 +1,7 @@
 #ifndef __CR_AIO_H__
 #define __CR_AIO_H__
 
+#define SIGNAL_H
 #include <linux/aio_abi.h>
 #include "images/mm.pb-c.h"
 unsigned int aio_estimate_nr_reqs(unsigned int size);
