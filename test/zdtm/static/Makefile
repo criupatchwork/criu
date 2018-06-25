@@ -345,6 +345,7 @@ TST_DIR		=				\
 		del_standalone_un		\
 		sk-unix-mntns			\
 		sk-unix01			\
+		private_bind_propagation	\
 
 TST_DIR_FILE	=				\
 		chroot				\
