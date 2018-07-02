@@ -358,6 +358,9 @@ class test_fail_exc(Exception):
 	def __init__(self, step):
 		self.step = step
 
+	def __str__(self):
+		return str(self.step)
+
 
 class test_fail_expected_exc(Exception):
 	def __init__(self, cr_action):
@@ -397,7 +400,8 @@ class zdtm_test:
 				preexec_fn = self.__freezer and self.__freezer.attach or None)
 		if act == "pid":
 			try_run_hook(self, ["--post-start"])
-		s.wait()
+		if s.wait():
+			raise test_fail_exc(str(s_args))
 
 		if self.__freezer:
 			self.__freezer.freeze()
