@@ -77,6 +77,7 @@ struct kerndat_s {
 	bool has_pid_for_children_ns;
 	bool x86_has_ptrace_fpu_xsave_bug;
 	bool has_inotify_setnextwd;
+	bool has_kcmp_epoll_tfd;
 };
 
 extern struct kerndat_s kdat;
