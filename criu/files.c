@@ -487,7 +487,8 @@ static int dump_chrdev(struct fd_parms *p, int lfd, FdinfoEntry *e)
 }
 
 static int dump_one_file(struct pid *pid, int fd, int lfd, struct fd_opts *opts,
-		struct parasite_ctl *ctl, FdinfoEntry *e)
+		struct parasite_ctl *ctl, FdinfoEntry *e,
+		struct parasite_drain_fd *dfds)
 {
 	struct fd_parms p = FD_PARMS_INIT;
 	const struct fdtype_ops *ops;
@@ -510,6 +511,7 @@ static int dump_one_file(struct pid *pid, int fd, int lfd, struct fd_opts *opts,
 	}
 
 	p.fd_ctl = ctl; /* Some dump_opts require this to talk to parasite */
+	p.dfds = dfds; /* epoll needs to verify if target fd exist */
 
 	if (S_ISSOCK(p.stat.st_mode))
 		return dump_socket(&p, lfd, e);
@@ -584,7 +586,7 @@ int dump_my_file(int lfd, u32 *id, int *type)
 	me.real = getpid();
 	me.ns[0].virt = -1; /* FIXME */
 
-	if (dump_one_file(&me, lfd, lfd, &fo, NULL, &e))
+	if (dump_one_file(&me, lfd, lfd, &fo, NULL, &e, NULL))
 		return -1;
 
 	*id = e.id;
@@ -631,7 +633,7 @@ int dump_task_files_seized(struct parasite_ctl *ctl, struct pstree_item *item,
 			FdinfoEntry e = FDINFO_ENTRY__INIT;
 
 			ret = dump_one_file(item->pid, dfds->fds[i + off],
-						lfds[i], opts + i, ctl, &e);
+						lfds[i], opts + i, ctl, &e, dfds);
 			if (ret)
 				break;
 
