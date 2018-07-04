@@ -1110,6 +1110,14 @@ static int check_pid_for_children_ns(void)
 	return 0;
 }
 
+static int check_kcmp_epoll(void)
+{
+	if (!kdat.has_kcmp_epoll_tfd)
+		return -1;
+
+	return 0;
+}
+
 static int (*chk_feature)(void);
 
 /*
@@ -1221,6 +1229,7 @@ int cr_check(void)
 		ret |= check_ns_get_userns();
 		ret |= check_ns_get_parent();
 		ret |= check_pid_for_children_ns();
+		ret |= check_kcmp_epoll();
 	}
 
 	/*
@@ -1309,6 +1318,7 @@ static struct feature_list feature_list[] = {
 	{ "ns_get_userns", check_ns_get_userns },
 	{ "ns_get_parent", check_ns_get_parent },
 	{ "pid_for_children_ns", check_pid_for_children_ns},
+	{ "kcmp_epoll", check_kcmp_epoll},
 	{ NULL, NULL },
 };
 
