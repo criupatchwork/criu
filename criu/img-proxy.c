@@ -5,8 +5,45 @@
 #include "criu-log.h"
 #include <pthread.h>
 #include <fcntl.h>
+#include <netdb.h>
 #include <sys/socket.h>
 #include "cr_options.h"
+
+int setup_TCP_client_socket(char *hostname, int port)
+{
+	int sockfd;
+	struct sockaddr_in serv_addr;
+	struct hostent *server;
+
+	sockfd = socket(AF_INET, SOCK_STREAM, 0);
+	if (sockfd < 0) {
+		pr_perror("Unable to open remote image socket");
+		return -1;
+	}
+
+	server = gethostbyname(hostname);
+	if (server == NULL) {
+		pr_perror("Unable to get host by name (%s)", hostname);
+		goto err;
+	}
+
+	bzero((char *) &serv_addr, sizeof(serv_addr));
+	serv_addr.sin_family = AF_INET;
+	bcopy((char *) server->h_addr,
+		(char *) &serv_addr.sin_addr.s_addr,
+		server->h_length);
+	serv_addr.sin_port = htons(port);
+
+	if (connect(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
+		pr_perror("Unable to connect to remote %s", hostname);
+		goto err;
+	}
+
+	return sockfd;
+err:
+	close(sockfd);
+	return -1;
+}
 
 int image_proxy(bool background, char *local_proxy_path, char *fwd_host, unsigned short fwd_port)
 {
