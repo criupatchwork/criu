@@ -22,6 +22,44 @@ int accept_proxy_to_cache(int sockfd)
 	return proxy_fd;
 }
 
+int setup_TCP_server_socket(int port)
+{
+	struct sockaddr_in serv_addr;
+	int sockopt = 1;
+	int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+
+	if (sockfd < 0) {
+		pr_perror("Unable to open image socket");
+		return -1;
+	}
+
+	bzero((char *) &serv_addr, sizeof(serv_addr));
+	serv_addr.sin_family = AF_INET;
+	serv_addr.sin_addr.s_addr = INADDR_ANY;
+	serv_addr.sin_port = htons(port);
+
+	if (setsockopt(
+		sockfd, SOL_SOCKET, SO_REUSEADDR, &sockopt, sizeof(sockopt)) == -1) {
+		pr_perror("Unable to set SO_REUSEADDR");
+		goto err;
+	}
+
+	if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
+		pr_perror("Unable to bind image socket");
+		goto err;
+	}
+
+	if (listen(sockfd, DEFAULT_LISTEN)) {
+		pr_perror("Unable to listen image socket");
+		goto err;
+	}
+
+	return sockfd;
+err:
+	close(sockfd);
+	return -1;
+}
+
 int image_cache(bool background, char *local_cache_path, unsigned short cache_write_port)
 {
 	pr_info("Proxy to Cache Port %d, CRIU to Cache Path %s\n",
