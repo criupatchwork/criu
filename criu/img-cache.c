@@ -65,6 +65,13 @@ int image_cache(bool background, char *local_cache_path, unsigned short cache_wr
 			cache_write_port, local_cache_path);
 	restoring = true;
 
+	if (background) {
+		if (daemon(1, 0) == -1) {
+			pr_perror("Can't run service server in the background");
+			return -1;
+		}
+	}
+
 	if (opts.ps_socket != -1) {
 		proxy_to_cache_fd = opts.ps_socket;
 		pr_info("Re-using ps socket %d\n", proxy_to_cache_fd);
@@ -87,13 +94,6 @@ int image_cache(bool background, char *local_cache_path, unsigned short cache_wr
 		pr_perror("Unable to open cache to proxy UNIX socket");
 		return -1; // TODO - should close other sockets.
 
-	}
-
-	if (background) {
-		if (daemon(1, 0) == -1) {
-			pr_perror("Can't run service server in the background");
-			return -1;
-		}
 	}
 
 	accept_image_connections();
