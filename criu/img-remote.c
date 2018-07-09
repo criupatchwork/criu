@@ -925,6 +925,7 @@ void accept_image_connections() {
 			pr_perror("Failed to add proxy to cache fd to epoll");
 			goto end;
 		}
+		signal(SIGPIPE, SIG_IGN);
 	}
 
 	while (1) {
