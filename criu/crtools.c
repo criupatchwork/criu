@@ -384,22 +384,6 @@ int main(int argc, char *argv[], char *envp[])
 
 	init_opts();
 
-	if (!strcmp(argv[1], "swrk")) {
-		if (argc < 3)
-			goto usage;
-
-		if (early_init())
-			return -1;
-
-		/*
-		 * This is to start criu service worker from libcriu calls.
-		 * The usage is "criu swrk <fd>" and is not for CLI/scripts.
-		 * The arguments semantics can change at any time with the
-		 * corresponding lib call change.
-		 */
-		opts.swrk_restore = true;
-		return cr_service_work(atoi(argv[2]));
-	}
 
 	ret = init_config(argc, argv, &global_cfg_argc, &user_cfg_argc,
 			  &usage_error);
@@ -748,6 +732,19 @@ int main(int argc, char *argv[], char *envp[])
 
 	if (early_init())
 		return -1;
+
+	if (!strcmp(argv[1], "swrk")) {
+		if (argc < 3)
+			goto usage;
+		/*
+		 * This is to start criu service worker from libcriu calls.
+		 * The usage is "criu swrk <fd>" and is not for CLI/scripts.
+		 * The arguments semantics can change at any time with the
+		 * corresponding lib call change.
+		 */
+		opts.swrk_restore = true;
+		return cr_service_work(atoi(argv[2]));
+	}
 
 	if (opts.deprecated_ok)
 		pr_msg("Turn deprecated stuff ON\n");
