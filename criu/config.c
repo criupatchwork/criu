@@ -157,6 +157,7 @@ int init_config(int argc, char **argv, int *global_cfg_argc, int *user_cfg_argc,
 {
 	bool no_default_config = false;
 	char *cfg_file = NULL;
+	char *cfg_from_env = getenv("CRIU_CONFIG_FILE");
 	int i;
 
 	/*
@@ -187,6 +188,14 @@ int init_config(int argc, char **argv, int *global_cfg_argc, int *user_cfg_argc,
 			cfg_file = argv[i] + strlen("--config=");
 		}
 	}
+
+	/*
+	 * If the environment variable CRIU_CONFIG_FILE is set it
+	 * will overwrite the configuration file set via '--config'.
+	 */
+
+	if (cfg_from_env)
+		cfg_file = cfg_from_env;
 
 	init_configuration(argc, argv, no_default_config, cfg_file);
 	if (global_conf != NULL)
