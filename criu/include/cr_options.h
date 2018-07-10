@@ -128,6 +128,17 @@ struct cr_options {
 
 extern struct cr_options opts;
 
+/*
+ * This is used to track if options have been changed manually from the
+ * default, or if it was manually set to the default value.
+ *
+ * In this copy of the actual used opts structure options changed by
+ * the configuration file or command-line arguments are set to '1' or 'true'
+ * so that the RPC code knows that this value should not be overwritten
+ * by the RPC caller.
+ */
+extern struct cr_options opt_changed_by_config;
+
 extern void init_opts(void);
 
 #endif /* __CR_OPTIONS_H__ */
