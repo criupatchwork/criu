@@ -232,6 +232,31 @@ int send_criu_rpc_script(enum script_actions act, char *name, int sk, int fd)
 	return 0;
 }
 
+static bool prefer_config_file = false;
+
+static void set_log_level(int config_log_level, int rpc_log_level)
+{
+	if (opt_changed_by_config.log_level && prefer_config_file) {
+		log_set_loglevel(config_log_level);
+		return;
+	}
+	log_set_loglevel(rpc_log_level);
+}
+
+static void set_opts_char(char **config, char *rpc)
+{
+	/* First check if it is already set by the configuration file. */
+	if (*config && prefer_config_file) {
+		pr_info("Overwriting RPC value %s with configuration file "
+			"value %s\n", rpc, *config);
+		return;
+	}
+
+	/* Check if a value was given via RPC and set it. */
+	if (rpc)
+		*config = rpc;
+}
+
 static char images_dir[PATH_MAX];
 
 static int setup_opts_from_req(int sk, CriuOpts *req)
@@ -257,11 +282,27 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	BUG_ON(st.st_ino == -1);
 	service_sk_ino = st.st_ino;
 
+	/*
+	 * If the RPC client requests to ignore the default config file
+	 * the structure which has the information about the config file
+	 * changes is just zeroed out.
+	 */
+	if (req->has_no_default_config && req->no_default_config)
+		memset(&opt_changed_by_config, 0, sizeof(opt_changed_by_config));
+	/*
+	 * The client explicitly tells us to use the values from
+	 * the configuration file. This can override options
+	 * specified via RPC. This can lead to undesired behavior
+	 * if the configuration file has settings which are different
+	 * than what the RPC client actually wanted to do.
+	 */
+	if (req->has_prefer_config_file && req->prefer_config_file)
+		prefer_config_file = true;
+
 	/* open images_dir */
 	sprintf(images_dir_path, "/proc/%d/fd/%d", ids.pid, req->images_dir_fd);
 
-	if (req->parent_img)
-		opts.img_parent = req->parent_img;
+	set_opts_char(&opts.img_parent, req->parent_img);
 
 	if (open_image_dir(images_dir_path) < 0) {
 		pr_perror("Can't open images directory");
@@ -291,12 +332,11 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 			pr_perror("No subdirs are allowed in log_file name");
 			goto err;
 		}
+	}
+	set_opts_char(&opts.output, req->log_file);
 
-		opts.output = req->log_file;
-	} else
-		opts.output = DEFAULT_LOG_FILENAME;
+	set_log_level(opts.log_level, req->log_level);
 
-	log_set_loglevel(req->log_level);
 	if (log_init(opts.output) == -1) {
 		pr_perror("Can't initiate log");
 		goto err;
@@ -308,7 +348,8 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	}
 
 	/* checking flags from client */
-	if (req->has_leave_running && req->leave_running)
+	if (req->has_leave_running && req->leave_running &&
+	    !((opt_changed_by_config.final_state == 1) && prefer_config_file))
 		opts.final_state = TASK_ALIVE;
 
 	if (!req->has_pid) {
@@ -316,7 +357,7 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 		req->pid = ids.pid;
 	}
 
-	if (req->has_ext_unix_sk) {
+	if (req->has_ext_unix_sk && !(opt_changed_by_config.ext_unix_sk && prefer_config_file)) {
 		opts.ext_unix_sk = req->ext_unix_sk;
 		for (i = 0; i < req->n_unix_sk_ino; i++) {
 			if (unix_sk_id_add((unsigned int)req->unix_sk_ino[i]->inode) < 0)
@@ -324,10 +365,9 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 		}
 	}
 
-	if (req->root)
-		opts.root = req->root;
+	set_opts_char(&opts.root, req->root);
 
-	if (req->has_rst_sibling) {
+	if (req->has_rst_sibling && !(opt_changed_by_config.restore_sibling && prefer_config_file)) {
 		if (!opts.swrk_restore) {
 			pr_err("rst_sibling is not allowed in standalone service\n");
 			goto err;
@@ -336,35 +376,35 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 		opts.restore_sibling = req->rst_sibling;
 	}
 
-	if (req->has_tcp_established)
-		opts.tcp_established_ok = req->tcp_established;
+#define _REALLY_USE_RPC_VALUE(option, rpc) do { \
+	if (req->has_##rpc && !(opt_changed_by_config.option && prefer_config_file)) { \
+		opts.option = req->rpc; \
+	} \
+	if (opt_changed_by_config.option && prefer_config_file) \
+		pr_info("Using %s from configuration file\n", #option); \
+} while (0)
 
-	if (req->has_tcp_skip_in_flight)
-		opts.tcp_skip_in_flight = req->tcp_skip_in_flight;
+#define REALLY_USE_RPC_VALUE(option) _REALLY_USE_RPC_VALUE(option, option)
 
-	if (req->has_weak_sysctls)
-		opts.weak_sysctls = req->weak_sysctls;
+	_REALLY_USE_RPC_VALUE(tcp_established_ok, tcp_established);
 
-	if (req->has_evasive_devices)
-		opts.evasive_devices = req->evasive_devices;
+	REALLY_USE_RPC_VALUE(tcp_skip_in_flight);
 
-	if (req->has_shell_job)
-		opts.shell_job = req->shell_job;
+	REALLY_USE_RPC_VALUE(weak_sysctls);
 
-	if (req->has_file_locks)
-		opts.handle_file_locks = req->file_locks;
+	REALLY_USE_RPC_VALUE(evasive_devices);
 
-	if (req->has_track_mem)
-		opts.track_mem = req->track_mem;
+	REALLY_USE_RPC_VALUE(shell_job);
 
-	if (req->has_link_remap)
-		opts.link_remap_ok = req->link_remap;
+	_REALLY_USE_RPC_VALUE(handle_file_locks, file_locks);
 
-	if (req->has_auto_dedup)
-		opts.auto_dedup = req->auto_dedup;
+	REALLY_USE_RPC_VALUE(track_mem);
 
-	if (req->has_force_irmap)
-		opts.force_irmap = req->force_irmap;
+	_REALLY_USE_RPC_VALUE(link_remap_ok, link_remap);
+
+	REALLY_USE_RPC_VALUE(auto_dedup);
+
+	REALLY_USE_RPC_VALUE(force_irmap);
 
 	if (req->n_exec_cmd > 0) {
 		opts.exec_cmd = xmalloc((req->n_exec_cmd + 1) * sizeof(char *));
@@ -372,16 +412,16 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 		opts.exec_cmd[req->n_exec_cmd] = NULL;
 	}
 
-	if (req->has_lazy_pages) {
-		opts.lazy_pages = req->lazy_pages;
-	}
+	REALLY_USE_RPC_VALUE(lazy_pages);
 
-	if (req->ps) {
-		opts.port = (short)req->ps->port;
+	if (req->ps || opts.use_page_server) {
+		if (!(opt_changed_by_config.port && prefer_config_file))
+			opts.port = (short)req->ps->port;
 
 		if (!opts.lazy_pages) {
 			opts.use_page_server = true;
-			opts.addr = req->ps->address;
+			if (!(opt_changed_by_config.addr && prefer_config_file))
+				opts.addr = req->ps->address;
 
 			if (req->ps->has_fd) {
 				if (!opts.swrk_restore)
@@ -439,8 +479,7 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 			goto err;
 	}
 
-	if (req->has_cpu_cap)
-		opts.cpu_cap = req->cpu_cap;
+	REALLY_USE_RPC_VALUE(cpu_cap);
 
 	/*
 	 * FIXME: For backward compatibility we setup
@@ -448,11 +487,11 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	 * other modes as well via separate option
 	 * probably.
 	 */
-	if (req->has_manage_cgroups)
+	if (req->has_manage_cgroups && !(opt_changed_by_config.manage_cgroups && prefer_config_file))
 		opts.manage_cgroups = req->manage_cgroups ? CG_MODE_SOFT : CG_MODE_IGNORE;
 
 	/* Override the manage_cgroup if mode is set explicitly */
-	if (req->has_manage_cgroups_mode) {
+	if (req->has_manage_cgroups_mode && !(opt_changed_by_config.manage_cgroups && prefer_config_file)) {
 		unsigned int mode;
 
 		switch (req->manage_cgroups_mode) {
@@ -484,36 +523,33 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 		opts.manage_cgroups = mode;
 	}
 
-	if (req->freeze_cgroup)
-		opts.freeze_cgroup = req->freeze_cgroup;
+	set_opts_char(&opts.freeze_cgroup, req->freeze_cgroup);
 
-	if (req->has_timeout)
-		opts.timeout = req->timeout;
+	REALLY_USE_RPC_VALUE(timeout);
 
-	if (req->cgroup_props)
-		opts.cgroup_props = req->cgroup_props;
+	set_opts_char(&opts.cgroup_props, req->cgroup_props);
 
-	if (req->cgroup_props_file)
-		opts.cgroup_props_file = req->cgroup_props_file;
+	set_opts_char(&opts.cgroup_props_file, req->cgroup_props_file);
 
 	for (i = 0; i < req->n_cgroup_dump_controller; i++) {
 		if (!cgp_add_dump_controller(req->cgroup_dump_controller[i]))
 			goto err;
 	}
 
-	if (req->has_auto_ext_mnt)
-		opts.autodetect_ext_mounts = req->auto_ext_mnt;
+	_REALLY_USE_RPC_VALUE(autodetect_ext_mounts, auto_ext_mnt);
 
-	if (req->has_ext_sharing)
-		opts.enable_external_sharing = req->ext_sharing;
+	_REALLY_USE_RPC_VALUE(enable_external_sharing, ext_sharing);
 
-	if (req->has_ext_masters)
-		opts.enable_external_masters = req->ext_masters;
+	_REALLY_USE_RPC_VALUE(enable_external_masters, ext_masters);
 
-	if (req->has_ghost_limit)
-		opts.ghost_limit = req->ghost_limit;
+	_REALLY_USE_RPC_VALUE(enable_external_masters, ext_masters);
 
-	if (req->has_empty_ns) {
+	REALLY_USE_RPC_VALUE(ghost_limit);
+
+#undef REALLY_USE_RPC_VALUE
+#undef _REALLY_USE_RPC_VALUE
+
+	if (req->has_empty_ns && !(opt_changed_by_config.empty_ns && prefer_config_file)) {
 		opts.empty_ns = req->empty_ns;
 		if (req->empty_ns & ~(CLONE_NEWNET))
 			goto err;
@@ -526,7 +562,7 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 		}
 	}
 
-	if (req->has_status_fd) {
+	if (req->has_status_fd && !(opt_changed_by_config.status_fd && prefer_config_file)) {
 		sprintf(status_fd, "/proc/%d/fd/%d", ids.pid, req->status_fd);
 		opts.status_fd = open(status_fd, O_WRONLY);
 		if (opts.status_fd < 0)
