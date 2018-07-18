@@ -25,6 +25,7 @@ env:
   - TR_ARCH=local       GCOV=1
   - TR_ARCH=centos
   - TR_ARCH=phaul-test
+  - TR_ARCH=runc-test
 matrix:
   allow_failures:
     - env: TR_ARCH=docker-test

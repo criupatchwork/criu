@@ -37,5 +37,26 @@ phaul-test:
 docker-test:
 	./docker-test.sh
 
+runc-test:
+	SKIP_TRAVIS_TEST=1 ./travis-tests
+	# clone runc we actually just want the test suite
+	git clone https://github.com/opencontainers/runc
+	# download the released binary
+	curl -o runc/runc -sSL https://github.com/opencontainers/runc/releases/download/v1.0.0-rc5/runc.amd64
+	chmod 755 runc/runc
+	# for the test suite we need to build recvtty
+	docker build -t runc -f Dockerfile.runc .
+	docker run runc tar c -C contrib/cmd/recvtty recvtty | tar x -C runc/contrib/cmd/recvtty
+	# install current criu
+	install -D -m0755 ../../criu/criu /usr/local/sbin/criu
+	# get bats to run tests
+	git clone https://github.com/sstephenson/bats.git
+	cd bats && git reset --hard 03608115df2071fff4eaaff1605768c275e5f81f
+	cd bats && ./install.sh /usr/local
+	# the runc test suite does 'go env GOARCH' to detect the arch, let's fake this
+	echo '#!/bin/bash\necho travis\n' > /usr/local/bin/go
+	chmod 755 /usr/local/bin/go
+	cd runc && bats -t tests/integration/checkpoint.bats
+
 %:
 	$(MAKE) -C ../build $@$(target-suffix)
