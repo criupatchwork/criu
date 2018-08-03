@@ -188,6 +188,7 @@ extern int dump_unsupp_fd(struct fd_parms *p, int lfd,
 		char *more, char *info, FdinfoEntry *);
 
 extern int inherit_fd_parse(char *optarg);
+extern int inherit_fd_add_rpc(char *key);
 extern int inherit_fd_add(int fd, char *key);
 extern void inherit_fd_log(void);
 extern int inherit_fd_resolve_clash(int fd);

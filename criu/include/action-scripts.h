@@ -23,7 +23,7 @@ enum script_actions {
 extern int add_script(char *path);
 extern int add_rpc_notify(int sk);
 extern int run_scripts(enum script_actions);
-extern int rpc_send_fd(enum script_actions, int fd);
-extern int send_criu_rpc_script(enum script_actions act, char *name, int sk, int fd);
+extern int rpc_send_fd(enum script_actions, int fd, char *key);
+extern int send_criu_rpc_script(enum script_actions act, char *name, int sk, int fd, char *key);
 
 #endif /* __CR_ACTION_SCRIPTS_H__ */
