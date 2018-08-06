@@ -123,8 +123,14 @@ message criu_restore_resp {
 }
 
 message criu_notify {
+	/* This is not always the actual script. Better name
+	 * would be command, as it can be the script or
+	 * 'orphan-pts-master' or 'request-inherit-fd'. */
 	optional string script		= 1;
 	optional int32	pid		= 2;
+	/* For the command 'request-inherit-fd' this includes the
+	 * the inherit fd option key for which the fd is requested. */
+	optional string inherit_fd_key  = 3;
 }
 
 enum criu_req_type {
