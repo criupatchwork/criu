@@ -26,6 +26,7 @@
 #include "sockets.h"
 #include "pstree.h"
 #include "tty.h"
+#include "action-scripts.h"
 #include "pipes.h"
 #include "fifo.h"
 #include "eventfd.h"
@@ -1570,6 +1571,15 @@ int inherit_fd_parse(char *optarg)
 	}
 
 	return inherit_fd_add(fd, cp);
+}
+
+int inherit_fd_add_rpc(char *key)
+{
+	int fd;
+	fd = rpc_send_fd(ACT_REQ_INHERIT_FD, -1, key);
+	if (fd <= 0)
+		return -1;
+	return inherit_fd_add(fd, key);
 }
 
 int inherit_fd_add(int fd, char *key)

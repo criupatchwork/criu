@@ -188,9 +188,10 @@ int send_criu_restore_resp(int socket_fd, bool success, int pid)
 	return send_criu_msg(socket_fd, &msg);
 }
 
-int send_criu_rpc_script(enum script_actions act, char *name, int sk, int fd)
+int send_criu_rpc_script(enum script_actions act, char *name, int sk, int fd, char *key)
 {
 	int ret;
+	int ret_fd = 0;
 	CriuResp msg = CRIU_RESP__INIT;
 	CriuReq *req;
 	CriuNotify cn = CRIU_NOTIFY__INIT;
@@ -211,6 +212,15 @@ int send_criu_rpc_script(enum script_actions act, char *name, int sk, int fd)
 		cn.has_pid = true;
 		cn.pid = root_item->pid->real;
 		break;
+	case ACT_REQ_INHERIT_FD:
+		/*
+		 * Sending a 'ACT_REQ_INHERIT_FD' notify message
+		 * only makes sense when 'key' is set.
+		 */
+		if (!key)
+			return -1;
+		cn.inherit_fd_key = key;
+		break;
 	default:
 		break;
 	}
@@ -218,6 +228,18 @@ int send_criu_rpc_script(enum script_actions act, char *name, int sk, int fd)
 	ret = send_criu_msg_with_fd(sk, &msg, fd);
 	if (ret < 0)
 		return ret;
+
+	if (act == ACT_REQ_INHERIT_FD) {
+		/*
+		 * Sending a ACT_REQ_INHERIT_FD notify message means, that CRIU
+		 * expects to get a FD from the RPC client.
+		 */
+		ret_fd = recv_fd(sk);
+		if (ret_fd <= 0) {
+			pr_perror("recv_fd error\n");
+			return -1;
+		}
+	}
 
 	ret = recv_criu_msg(sk, &req);
 	if (ret < 0)
@@ -229,7 +251,7 @@ int send_criu_rpc_script(enum script_actions act, char *name, int sk, int fd)
 	}
 
 	criu_req__free_unpacked(req, NULL);
-	return 0;
+	return ret_fd;
 }
 
 static char images_dir[PATH_MAX];
@@ -481,11 +503,21 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	}
 
 	if (req->n_inherit_fd && !opts.swrk_restore) {
+		/* TODO: Is this really still true, even with callback handling for inherit_fd */
 		pr_err("inherit_fd is not allowed in standalone service\n");
 		goto err;
 	}
 	for (i = 0; i < req->n_inherit_fd; i++) {
-		if (inherit_fd_add(req->inherit_fd[i]->fd, req->inherit_fd[i]->key))
+		/*
+		 * For the FDs 0, 1, 2 this falls back to old, non callbacb
+		 * inherit_fd mode. At some point in the future this can be removed.
+		 */
+		if (req->inherit_fd[i]->fd >=0 && req->inherit_fd[i]->fd <= 2) {
+			if (inherit_fd_add(req->inherit_fd[i]->fd, req->inherit_fd[i]->key))
+				goto err;
+			continue;
+		}
+		if (inherit_fd_add_rpc(req->inherit_fd[i]->key))
 			goto err;
 	}
 

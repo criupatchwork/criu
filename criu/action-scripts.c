@@ -100,7 +100,11 @@ static int run_shell_scripts(const char *action)
 	return retval;
 }
 
-int rpc_send_fd(enum script_actions act, int fd)
+/*
+ * The name of this function is misleading. Right now it only
+ * sends an FD in one of three possible use cases.
+ */
+int rpc_send_fd(enum script_actions act, int fd, char *key)
 {
 	const char *action = action_names[act];
 	int rpc_sk;
@@ -113,7 +117,7 @@ int rpc_send_fd(enum script_actions act, int fd)
 		return -1;
 
 	pr_debug("\tRPC\n");
-	return send_criu_rpc_script(act, (char *)action, rpc_sk, fd);
+	return send_criu_rpc_script(act, (char *)action, rpc_sk, fd, key);
 }
 
 int run_scripts(enum script_actions act)
@@ -127,7 +131,7 @@ int run_scripts(enum script_actions act)
 		return 0;
 
 	if (scripts_mode == SCRIPTS_RPC) {
-		ret = rpc_send_fd(act, -1);
+		ret = rpc_send_fd(act, -1, NULL);
 		goto out;
 	}
 

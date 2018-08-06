@@ -984,7 +984,7 @@ static int pty_open_unpaired_slave(struct file_desc *d, struct tty_info *slave)
 			unlock_pty(master);
 
 			if (opts.orphan_pts_master &&
-			    rpc_send_fd(ACT_ORPHAN_PTS_MASTER, master) == 0) {
+			    rpc_send_fd(ACT_ORPHAN_PTS_MASTER, master, NULL) == 0) {
 
 				fd = open_tty_reg(slave->reg_d, slave->tfe->flags);
 				if (fd < 0) {
