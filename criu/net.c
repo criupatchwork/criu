@@ -1726,8 +1726,14 @@ static int run_ip_tool(char *arg1, char *arg2, char *arg3, char *arg4, int fdin,
 	ret = cr_system(fdin, fdout, -1, ip_tool_cmd,
 				(char *[]) { "ip", arg1, arg2, arg3, arg4, NULL }, flags);
 	if (ret) {
-		if (!(flags & CRS_CAN_FAIL))
+		if (!(flags & CRS_CAN_FAIL)) {
+			char buf[PATH_MAX];
+
 			pr_err("IP tool failed on %s %s %s %s\n", arg1, arg2, arg3 ? : "\0", arg4 ? : "\0");
+			if (!strcmp(arg2, "restore")
+			    && read_fd_link(fdin, buf, sizeof(buf)) >= 0)
+				pr_err("failed restore from image %s\n", buf);
+		}
 		return -1;
 	}
 
