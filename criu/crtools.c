@@ -230,6 +230,11 @@ int main(int argc, char *argv[], char *envp[])
 		pr_info("Will do snapshot from %s\n", opts.img_parent);
 
 	if (!strcmp(argv[optind], "dump")) {
+		if (opts.remote && euidaccess(DEFAULT_PROXY_SOCKET, R_OK|W_OK)) {
+			pr_perror("Can't access %s", DEFAULT_PROXY_SOCKET);
+			return 1;
+		}
+
 		if (!opts.tree_id)
 			goto opt_pid_missing;
 		return cr_dump_tasks(opts.tree_id);
@@ -245,6 +250,11 @@ int main(int argc, char *argv[], char *envp[])
 	if (!strcmp(argv[optind], "restore")) {
 		if (opts.tree_id)
 			pr_warn("Using -t with criu restore is obsoleted\n");
+
+		if (opts.remote && euidaccess(DEFAULT_CACHE_SOCKET, R_OK|W_OK)) {
+			pr_perror("Can't access %s", DEFAULT_CACHE_SOCKET);
+			return 1;
+		}
 
 		ret = cr_restore_tasks();
 		if (ret == 0 && opts.exec_cmd) {
