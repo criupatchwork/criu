@@ -128,4 +128,6 @@ extern struct mount_info *parse_mountinfo(pid_t pid, struct ns_id *nsid, bool fo
 
 extern int check_mnt_id(void);
 
+extern int remount_readonly_mounts(void);
+
 #endif /* __CR_MOUNT_H__ */
