@@ -22,11 +22,8 @@ static int nlmsg_receive(char *buf, int len,
 		if (hdr->nlmsg_type == NLMSG_DONE) {
 			int *len = (int *)NLMSG_DATA(hdr);
 
-			if (*len < 0) {
-				pr_err("ERROR %d reported by netlink (%s)\n",
-					*len, strerror(-*len));
+			if (*len < 0)
 				return *len;
-			}
 
 			return 0;
 		}

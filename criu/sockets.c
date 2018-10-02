@@ -28,6 +28,7 @@
 #include "pstree.h"
 #include "util.h"
 #include "fdstore.h"
+#include "kerndat.h"
 
 #undef  LOG_PREFIX
 #define LOG_PREFIX "sockets: "
@@ -786,7 +787,12 @@ int collect_sockets(struct ns_id *ns)
 	req.r.i.sdiag_protocol	= IPPROTO_RAW;
 	req.r.i.idiag_ext	= 0;
 	req.r.i.idiag_states	= -1; /* All */
-	tmp = do_collect_req(nl, &req, sizeof(req), inet_receive_one, ns, &req.r.i);
+	if (kdat.has_sk_diag_packet < 2) {
+		tmp = do_collect_req(nl, &req, sizeof(req), inet_receive_one, ns, &req.r.i);
+		if (tmp == -ENOENT)
+			kdat.has_sk_diag_packet = 2;
+	} else
+		tmp = -ENOENT;
 	if (tmp) {
 		pr_warn("The current kernel doesn't support ipv4 raw_diag module\n");
 		if (tmp != -ENOENT)
@@ -829,7 +835,12 @@ int collect_sockets(struct ns_id *ns)
 	req.r.i.sdiag_protocol	= IPPROTO_RAW;
 	req.r.i.idiag_ext	= 0;
 	req.r.i.idiag_states	= -1; /* All */
-	tmp = do_collect_req(nl, &req, sizeof(req), inet_receive_one, ns, &req.r.i);
+	if (kdat.has_sk_diag_packet < 2) {
+		tmp = do_collect_req(nl, &req, sizeof(req), inet_receive_one, ns, &req.r.i);
+		if (tmp == -ENOENT)
+			kdat.has_sk_diag_packet = 2;
+	} else
+		tmp = -ENOENT;
 	if (tmp) {
 		pr_warn("The current kernel doesn't support ipv6 raw_diag module\n");
 		if (tmp != -ENOENT)
@@ -843,7 +854,7 @@ int collect_sockets(struct ns_id *ns)
 	tmp = do_collect_req(nl, &req, sizeof(req), packet_receive_one, ns, NULL);
 	if (tmp) {
 		pr_warn("The current kernel doesn't support packet_diag\n");
-		if (ns->ns_pid == 0 || tmp != -ENOENT) /* Fedora 19 */
+		if (tmp != -ENOENT) /* Fedora 19 */
 			err = tmp;
 	}
 
