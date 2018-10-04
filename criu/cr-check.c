@@ -516,7 +516,7 @@ static int check_ipc(void)
 
 static int check_sigqueuinfo()
 {
-	siginfo_t info = { .si_code = 1 };
+	siginfo_t info = { .si_code = 1, .si_signo = SIGUSR1};
 
 	signal(SIGUSR1, SIG_IGN);
 
