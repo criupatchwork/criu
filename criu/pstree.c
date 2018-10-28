@@ -335,8 +335,9 @@ err:
 
 static int prepare_pstree_for_shell_job(void)
 {
-	pid_t current_sid = getsid(getpid());
-	pid_t current_gid = getpgid(getpid());
+	pid_t current_pid = getpid();
+	pid_t current_sid = getsid(current_pid);
+	pid_t current_gid = getpgid(current_pid);
 
 	struct pstree_item *pi;
 
