@@ -655,7 +655,7 @@ static int pty_open_ptmx_index(struct file_desc *d, struct tty_info *info, int f
 					open_tty_reg, d, path_from_reg(d));
 }
 
-static int unlock_pty(int fd)
+static void inline unlock_pty(int fd)
 {
 	const int lock = 0;
 
@@ -664,12 +664,8 @@ static int unlock_pty(int fd)
 	 * by kernel and we need to unlock it to be
 	 * able to connect slave peer.
 	 */
-	if (ioctl(fd, TIOCSPTLCK, &lock)) {
+	if (ioctl(fd, TIOCSPTLCK, &lock))
 		pr_err("Unable to unlock pty device via y%d\n", fd);
-		return -1;
-	}
-
-	return 0;
 }
 
 static int lock_pty(int fd)
