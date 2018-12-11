@@ -295,6 +295,14 @@ void test_init(int argc, char **argv)
 	futex_init(&test_shared_state->stage);
 	futex_set(&test_shared_state->stage, TEST_INIT_STAGE);
 
+
+	if (getenv("ZDTM_PIDNS"))
+		pr_err("newpid\n");
+	if (getenv("ZDTM_PIDNS") && unshare(CLONE_NEWPID)) {
+		pr_perror("Unable to create pidns");
+		exit(1);
+	}
+
 	pid = fork();
 	if (pid < 0) {
 		pr_perror("Daemonizing failed");
