@@ -271,12 +271,21 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 		char *tmp_work = NULL;
 		char *tmp_imgs = NULL;
 
-		if (opts.output)
+		if (opts.output) {
 			tmp_output = xstrdup(opts.output);
-		if (opts.work_dir)
+			if (!tmp_output)
+				goto err;
+		}
+		if (opts.work_dir) {
 			tmp_work = xstrdup(opts.work_dir);
-		if (opts.imgs_dir)
+			if (!tmp_work)
+				goto err;
+		}
+		if (opts.imgs_dir) {
 			tmp_imgs = xstrdup(opts.imgs_dir);
+			if (!tmp_imgs)
+				goto err;
+		}
 		xfree(opts.output);
 		xfree(opts.work_dir);
 		xfree(opts.imgs_dir);
@@ -292,23 +301,42 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 			xfree(tmp_imgs);
 			goto err;
 		}
-		if (tmp_output && opts.output && !strncmp(tmp_output, opts.output, PATH_MAX))
+		/* If this is non-NULL, the RPC configuration file had a value, use it.*/
+		if (opts.output)
 			output_changed_by_rpc_conf = true;
-		if (tmp_work && opts.work_dir && !strncmp(tmp_work, opts.work_dir, PATH_MAX))
+		/* If this is NULL, use the old value if it was set. */
+		if (!opts.output && tmp_output) {
+			opts.output = tmp_output;
+			tmp_output = NULL;
+		}
+
+		if (opts.work_dir)
 			work_changed_by_rpc_conf = true;
-		if (tmp_imgs && opts.imgs_dir && !strncmp(tmp_imgs, opts.imgs_dir, PATH_MAX))
+		if (!opts.work_dir && tmp_work) {
+			opts.work_dir = tmp_work;
+			tmp_work = NULL;
+		}
+
+		if (opts.imgs_dir)
 			imgs_changed_by_rpc_conf = true;
+		/*
+		 * As the images directory is a required RPC setting, it is not
+		 * necessary to use the value from other configuration files.
+		 * Either it is set in the RPC configuration file or it is set
+		 * via RPC.
+		 */
 		xfree(tmp_output);
 		xfree(tmp_work);
 		xfree(tmp_imgs);
 	}
 
 	/*
-	 * open images_dir
+	 * open images_dir - images_dir_fd is a required RPC parameter
+	 *
 	 * This assumes that if opts.imgs_dir is set we have a value
 	 * from the configuration file parser. The test to see that
 	 * imgs_changed_by_rpc_conf is true is used to make sure the value
-	 * is not the same as from one of the other configuration files.
+	 * is from the RPC configuration file.
 	 * The idea is that only the RPC configuration file is able to
 	 * overwrite RPC settings:
 	 *  * apply_config(global_conf)
@@ -317,7 +345,7 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	 *  * apply_rpc_options()
 	 *  * apply_config(rpc_conf)
 	 */
-	if (opts.imgs_dir && imgs_changed_by_rpc_conf)
+	if (imgs_changed_by_rpc_conf)
 		strncpy(images_dir_path, opts.imgs_dir, PATH_MAX - 1);
 	else
 		sprintf(images_dir_path, "/proc/%d/fd/%d", ids.pid, req->images_dir_fd);
@@ -337,11 +365,17 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	}
 
 	/* chdir to work dir */
-	if (opts.work_dir && work_changed_by_rpc_conf)
+	if (work_changed_by_rpc_conf)
+		/* Use the value from the RPC configuration file first. */
 		strncpy(work_dir_path, opts.work_dir, PATH_MAX - 1);
 	else if (req->has_work_dir_fd)
+		/* Use the value set via RPC. */
 		sprintf(work_dir_path, "/proc/%d/fd/%d", ids.pid, req->work_dir_fd);
+	else if (opts.work_dir)
+		/* Use the value from one of the other configuration files. */
+		strncpy(work_dir_path, opts.work_dir, PATH_MAX - 1);
 	else
+		/* Use the images directory a work directory. */
 		strcpy(work_dir_path, images_dir_path);
 
 	if (chdir(work_dir_path)) {
@@ -350,7 +384,11 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 	}
 
 	/* initiate log file in work dir */
-	if (req->log_file && !(opts.output  && output_changed_by_rpc_conf)) {
+	if (req->log_file && !output_changed_by_rpc_conf) {
+		/*
+		 * If RPC sets a log file and if there nothing from the
+		 * RPC configuration file, use the RPC value.
+		 */
 		if (strchr(req->log_file, '/')) {
 			pr_perror("No subdirs are allowed in log_file name");
 			goto err;
