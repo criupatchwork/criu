@@ -1552,7 +1552,7 @@ static int mount_proc(void)
 	int fd, ret;
 	char proc_mountpoint[] = "crtools-proc.XXXXXX";
 
-	if (root_ns_mask == 0)
+	if (!(root_ns_mask & CLONE_NEWNS || root_ns_mask & CLONE_NEWPID))
 		fd = ret = open("/proc", O_DIRECTORY);
 	else {
 		if (mkdtemp(proc_mountpoint) == NULL) {
@@ -1701,9 +1701,8 @@ static int restore_task_with_children(void *_arg)
 		restore_sid();
 
 		/*
-		 * We need non /proc proc mount for restoring pid and mount
-		 * namespaces and do not care for the rest of the cases.
-		 * Thus -- mount proc at custom location for any new namespace
+		 * For restoring pid and mount namespaces we need to
+		 * mount proc at custom location.
 		 */
 		if (mount_proc())
 			goto err;
