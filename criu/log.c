@@ -31,11 +31,21 @@
 /* Enable timestamps if verbosity is increased from default */
 #define LOG_TIMESTAMP		(DEFAULT_LOGLEVEL + 1)
 #define LOG_BUF_LEN		(8*1024)
+#define EARLY_LOG_BUF_LEN	1024
 
 static unsigned int current_loglevel = DEFAULT_LOGLEVEL;
 
 static char buffer[LOG_BUF_LEN];
 static char buf_off = 0;
+/*
+ * The early_log_buffer is used to store log messages before
+ * logging is set up to make sure no logs are lost.
+ */
+static char early_log_buffer[EARLY_LOG_BUF_LEN];
+static unsigned int early_log_buf_off = 0;
+
+/* If this is 0 the logging has not been set up yet. */
+static int init_done = 0;
 
 static struct timeval start;
 /*
@@ -155,6 +165,45 @@ static void print_versions(void)
 		buf.release, buf.version, buf.machine);
 }
 
+static void flush_early_log_buffer(int fd)
+{
+	unsigned int log_size;
+	unsigned int pos = 0;
+	int tmp_log_level;
+	int size;
+	int ret;
+
+	while (pos < early_log_buf_off) {
+		/*
+		 * The early_log_buffer contains all messages written
+		 * before logging was set up. We only want to print
+		 * out messages which correspond to the requested
+		 * log_level. Therefore the early_log_buffer also contains
+		 * the log_level and the size. This writes one messages,
+		 * depending on the log_level, to the logging fd. Start
+		 * with reading the log_level.
+		 */
+		tmp_log_level = early_log_buffer[pos++];
+		/* Read out log message size */
+		memcpy(&log_size, early_log_buffer + pos, sizeof(unsigned int));
+		pos += sizeof(unsigned int);
+		size = 0;
+		if (tmp_log_level <= current_loglevel) {
+			while (size < log_size) {
+				ret = write(fd, early_log_buffer + pos + size,
+						log_size - size);
+				if (ret <= 0)
+					break;
+				size += ret;
+			}
+		} else {
+			size += log_size;
+		}
+		pos += size;
+	}
+	early_log_buf_off = 0;
+}
+
 int log_init(const char *output)
 {
 	int new_logfd, fd;
@@ -185,6 +234,14 @@ int log_init(const char *output)
 	fd = install_service_fd(LOG_FD_OFF, new_logfd);
 	if (fd < 0)
 		goto err;
+
+	init_done = 1;
+
+	/*
+	 * Once logging is setup this write out all early log messages.
+	 * Only those messages which have to correct log level are printed.
+	 */
+	flush_early_log_buffer(fd);
 
 	print_versions();
 
@@ -258,6 +315,39 @@ unsigned int log_get_loglevel(void)
 	return current_loglevel;
 }
 
+static void early_vprint(const char *format, unsigned int loglevel, va_list params)
+{
+	unsigned int log_size = 0;
+
+	if (early_log_buf_off >= EARLY_LOG_BUF_LEN)
+		return;
+
+	/* Save loglevel */
+	early_log_buffer[early_log_buf_off++] = loglevel;
+	/* Skip the log entry size */
+	early_log_buf_off += sizeof(unsigned int);
+	if (loglevel >= LOG_TIMESTAMP) {
+		/*
+		 * If logging is not yet setup we just write zeros
+		 * instead of a real timestamp. This way we can
+		 * keep the same format as the other messages on
+		 * log levels with timestamps (>=LOG_TIMESTAMP).
+		 */
+		log_size  = snprintf(early_log_buffer + early_log_buf_off,
+				sizeof(early_log_buffer) - early_log_buf_off,
+				"(00.000000) ");
+	}
+
+	log_size += vsnprintf(early_log_buffer + early_log_buf_off + log_size,
+			sizeof(early_log_buffer) - early_log_buf_off - log_size,
+			format, params);
+
+	/* Save log entry size */
+	memcpy(early_log_buffer + (early_log_buf_off - sizeof(unsigned int)),
+			&log_size, sizeof(unsigned int));
+	early_log_buf_off += log_size;
+}
+
 void vprint_on_level(unsigned int loglevel, const char *format, va_list params)
 {
 	int fd, size, ret, off = 0;
@@ -267,6 +357,14 @@ void vprint_on_level(unsigned int loglevel, const char *format, va_list params)
 		fd = STDOUT_FILENO;
 		off = buf_off; /* skip dangling timestamp */
 	} else {
+		/*
+		 * If logging has not yet been initialized (init_done == 0)
+		 * make sure all messages are written to the early_log_buffer.
+		 */
+		if (!init_done) {
+			early_vprint(format, loglevel, params);
+			return;
+		}
 		if (loglevel > current_loglevel)
 			return;
 		fd = log_get_fd();
@@ -284,6 +382,7 @@ void vprint_on_level(unsigned int loglevel, const char *format, va_list params)
 		off += ret;
 	}
 
+	/* This is missing for messages in the early_log_buffer. */
 	if (loglevel == LOG_ERROR)
 		log_note_err(buffer + buf_off);
 
