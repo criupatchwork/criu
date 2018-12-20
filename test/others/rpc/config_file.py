@@ -7,7 +7,6 @@ import rpc_pb2 as rpc
 import argparse
 import subprocess
 from tempfile import mkstemp
-import time
 
 log_file = 'config_file_test.log'
 does_not_exist = 'does-not.exist'
@@ -68,24 +67,16 @@ def do_rpc(s, req):
 
 def test_broken_configuration_file():
 	# Testing RPC configuration file mode with a broken configuration file.
-	# This should fail
+	# This should not fail but print a warning
 	content = 'hopefully-this-option-will-never=exist'
 	path = setup_config_file(content)
-	swrk, s = setup_swrk()
+	req = setup_criu_dump_request()
+	_, s = setup_swrk()
+	resp = do_rpc(s, req)
 	s.close()
-	# This test is only about detecting wrong configuration files.
-	# If we do not sleep it might happen that we kill CRIU before
-	# it parses the configuration file. A short sleep makes sure
-	# that the configuration file has been parsed. Hopefully.
-	# (I am sure this will fail horribly at some point)
-	time.sleep(0.3)
-	swrk.kill()
-	return_code = swrk.wait()
-	# delete temporary file again
 	cleanup_config_file(path)
-	if return_code != 1:
-		print('FAIL: CRIU should have returned 1 instead of %d' % return_code)
-		sys.exit(-1)
+	check_results(resp, log_file)
+	search_in_log_file(log_file, 'Unknown option encountered')
 
 
 def search_in_log_file(log, message):
