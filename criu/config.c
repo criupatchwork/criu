@@ -31,6 +31,8 @@
 
 struct cr_options opts;
 
+static bool rpc_mode = false;
+
 static int count_elements(char **to_count)
 {
 	int count = 0;
@@ -235,6 +237,20 @@ static int pre_parse(int argc, char **argv, bool *usage_error, bool *no_default_
 		} else if (strstr(argv[i], "--config=") != NULL) {
 			*cfg_file = argv[i] + strlen("--config=");
 			*no_default_config = true;
+		} else if (!strcmp(argv[i], "swrk")) {
+			/*
+			 * In RPC mode we do not want to error out if we
+			 * encounter unknown options. The options can only
+			 * be from a configuration file. To not error out
+			 * because of wrong lines in the configuration file
+			 * this just prints the wrong option into the log.
+			 */
+			rpc_mode = true;
+			/*
+			 * This is only needed so that getopt() does not
+			 * print invalid options to stderr.
+			 */
+			opterr = 0;
 		}
 	}
 
@@ -787,6 +803,28 @@ int parse_options(int argc, char **argv, bool *usage_error,
 		case 'h':
 			*usage_error = false;
 			return 2;
+		case '?':
+			/*
+			 * In RPC mode we do not want to
+			 * error out if an unknown option is found.
+			 * This writes it to the log file and continues.
+			 */
+			if (rpc_mode) {
+				pr_warn("Unknown option encountered: %s\n", _argv[optind - 1]);
+				break;
+			} else {
+				/*
+				 * Only an unknown option that starts with '-' needs to be
+				 * reported to the user. getopt() knows nothing about our
+				 * commands (dump, check, swrk, ...). Those should be
+				 * ignored.
+				 */
+				if (_argv[optind - 1][0] == '-') {
+					*usage_error = true;
+					return 2;
+				}
+			}
+			break;
 		default:
 			return 2;
 		}
