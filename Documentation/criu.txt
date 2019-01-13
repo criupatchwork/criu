@@ -445,6 +445,17 @@ The 'mode' may be one of the following:
 *-l*, *--file-locks*::
     Restore file locks from the image.
 
+*--lsm-profile* 'LSM'*:*'PROFILE'::
+    Specify LSM profile name to be used for restore. The generic syntax is
+    'LSM', followed by a literal colon and the name 'PROFILE'. Currently
+    supported 'LSM' types are: *apparmor* and *selinux*.
++
+Example:
++
+----------
+--lsm-profile apparmor:whatever
+----------
+
 *--auto-dedup*::
     As soon as a page is restored it get punched out from image.
 
