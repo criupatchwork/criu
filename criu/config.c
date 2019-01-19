@@ -509,7 +509,7 @@ int parse_options(int argc, char **argv, bool *usage_error,
 		/* Only if opt is -1 we are going to the next configuration input */
 		if (opt == -1) {
 			/* Do not free any memory if it points to argv */
-			if (state != PARSING_ARGV + 1) {
+			if (state != PARSING_ARGV + 1 && state != PARSING_USER_CONF) {
 				int i;
 				for (i=1; i < _argc; i++) {
 					free(_argv[i]);
