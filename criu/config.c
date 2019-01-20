@@ -59,6 +59,7 @@ static char ** parse_config(char *filepath)
 		fclose(configfile);
 		exit(1);
 	}
+	memzero(configuration, config_size * sizeof(char *));
 	/*
 	 * Initialize first element, getopt ignores it.
 	 */
