@@ -170,7 +170,7 @@ static int next_config(char **argv, char ***_argv, bool no_default_config,
 				break;
 			home_dir = getenv("HOME");
 			if (!home_dir) {
-				pr_info("Unable to get $HOME directory, local configuration file will not be used.");
+				pr_info("Unable to get $HOME directory, local configuration file will not be used.\n");
 			} else {
 				snprintf(local_filepath, PATH_MAX, "%s/%s%s",
 						home_dir, USER_CONFIG_DIR, DEFAULT_CONFIG_FILENAME);
