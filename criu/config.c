@@ -54,7 +54,7 @@ static char ** parse_config(char *filepath)
 	if (!configfile) {
 		return NULL;
 	}
-	configuration = xmalloc(config_size * sizeof(char *));
+	configuration = xzalloc(config_size * sizeof(char *));
 	if (configuration == NULL) {
 		fclose(configfile);
 		exit(1);
