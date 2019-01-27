@@ -781,7 +781,7 @@ int parse_options(int argc, char **argv, bool *usage_error,
 			break;
 		case 'V':
 			pr_msg("Version: %s\n", CRIU_VERSION);
-			if (strcmp(CRIU_GITID, "0"))
+			if (STRNEQ(CRIU_GITID, "0"))
 				pr_msg("GitID: %s\n", CRIU_GITID);
 			exit(0);
 		case 'h':

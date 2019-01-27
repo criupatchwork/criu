@@ -967,7 +967,7 @@ static int handle_version(int sk, CriuReq * msg)
 	/* This assumes we will always have a major and minor version */
 	version.major = CRIU_VERSION_MAJOR;
 	version.minor = CRIU_VERSION_MINOR;
-	if (strcmp(CRIU_GITID, "0")) {
+	if (STRNEQ(CRIU_GITID, "0")) {
 		version.gitid = CRIU_GITID;
 	}
 #ifdef CRIU_VERSION_SUBLEVEL

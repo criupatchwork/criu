@@ -286,7 +286,7 @@ static int fixup_overlayfs(struct fd_parms *p, struct fd_link *link)
 	 * If the bug is present, the file path from /proc/<pid>/fd
 	 * does not include the mountpoint, so we prepend it ourselves.
 	 */
-	if (strcmp("./", m->mountpoint) != 0) {
+	if (STRNEQ("./", m->mountpoint) != 0) {
 		char buf[PATH_MAX];
 		int n;
 

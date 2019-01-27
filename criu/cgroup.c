@@ -81,7 +81,7 @@ static bool cg_set_compare(struct cg_set *set, struct list_head *ctls, int what)
 		if (!c1 || !c2) /* Nowhere to move next */
 			return !c1 && !c2; /* Both lists scanned -- match */
 
-		if (strcmp(c1->name, c2->name))
+		if (STRNEQ(c1->name, c2->name))
 			return false;
 
 		switch (what) {
@@ -90,7 +90,7 @@ static bool cg_set_compare(struct cg_set *set, struct list_head *ctls, int what)
 			if (c1->cgns_prefix != c2->cgns_prefix)
 				return false;
 
-			if (strcmp(c1->path, c2->path))
+			if (STRNEQ(c1->path, c2->path))
 				return false;
 
 			break;
@@ -677,7 +677,7 @@ int dump_task_cgroup(struct pstree_item *item, u32 *cg_id, struct parasite_dump_
 			 */
 			list_for_each_entry(root, &root_cgset->ctls, l) {
 				list_for_each_entry(stray, &cs->ctls, l) {
-					if (strcmp(root->name, stray->name))
+					if (STRNEQ(root->name, stray->name))
 						continue;
 
 					if (strlen(stray->path) < root->cgns_prefix) {
@@ -1828,7 +1828,7 @@ static int rewrite_cgroup_roots(CgroupEntry *cge)
 			cgroup_contains(ctrl->cnames, ctrl->n_cnames,
 					o->controller, &ctrl_mask);
 			if (old_mask != ctrl_mask) {
-				if (newroot && strcmp(newroot, o->newroot)) {
+				if (newroot && STRNEQ(newroot, o->newroot)) {
 					pr_err("CG paths mismatch: %s %s\n",
 							newroot, o->newroot);
 					return -1;

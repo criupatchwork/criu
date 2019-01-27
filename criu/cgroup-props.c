@@ -88,7 +88,7 @@ static int cgp_handle_props(cgp_list_entry_t **p, int strategy)
 	cgp_list_entry_t *t;
 
 	list_for_each_entry(t, &cgp_list, list) {
-		if (strcmp(t->cgp.name, s->cgp.name))
+		if (STRNEQ(t->cgp.name, s->cgp.name))
 			continue;
 
 		pr_debug("%s \"%s\" controller properties\n",

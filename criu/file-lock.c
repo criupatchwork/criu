@@ -195,7 +195,7 @@ static int lock_check_fd(int lfd, struct file_lock *fl)
 	} else {
 		/*
 		 * The ret == 0 means, that new lock doesn't conflict
-		 * with any others on the file. But since we do know, 
+		 * with any others on the file. But since we do know,
 		 * that there should be some other one (file is found
 		 * in /proc/locks), it means that the lock is already
 		 * on file pointed by fd.
@@ -223,7 +223,7 @@ static int lock_ofd_check_fd(int lfd, struct file_lock *fl)
 		.l_type   = F_WRLCK,
 		.l_start  = fl->start
 	};
-	if (strcmp(fl->end, "EOF")) {
+	if (STRNEQ(fl->end, "EOF")) {
 		unsigned long end;
 
 		ret = sscanf(fl->end, "%lu", &end);
