@@ -98,7 +98,7 @@ int main(int argc, char *argv[], char *envp[])
 	if (early_init())
 		return -1;
 
-	if (!strcmp(argv[1], "swrk")) {
+	if (STREQ(argv[1], "swrk")) {
 		if (argc < 3)
 			goto usage;
 		/*
@@ -125,7 +125,7 @@ int main(int argc, char *argv[], char *envp[])
 		goto usage;
 	}
 
-	if (!strcmp(argv[optind], "exec")) {
+	if (STREQ(argv[optind], "exec")) {
 		pr_msg("The \"exec\" action is deprecated by the Compel library.\n");
 		return -1;
 	}
@@ -173,7 +173,7 @@ int main(int argc, char *argv[], char *envp[])
 	 * When a process group becomes an orphan,
 	 * its processes are sent a SIGHUP signal
 	 */
-	if (!strcmp(argv[optind], "restore") &&
+	if (STREQ(argv[optind], "restore") &&
 			opts.restore_detach &&
 			opts.final_state == TASK_STOPPED &&
 			opts.shell_job)
@@ -205,13 +205,13 @@ int main(int argc, char *argv[], char *envp[])
 	if (opts.img_parent)
 		pr_info("Will do snapshot from %s\n", opts.img_parent);
 
-	if (!strcmp(argv[optind], "dump")) {
+	if (STREQ(argv[optind], "dump")) {
 		if (!opts.tree_id)
 			goto opt_pid_missing;
 		return cr_dump_tasks(opts.tree_id);
 	}
 
-	if (!strcmp(argv[optind], "pre-dump")) {
+	if (STREQ(argv[optind], "pre-dump")) {
 		if (!opts.tree_id)
 			goto opt_pid_missing;
 
@@ -223,7 +223,7 @@ int main(int argc, char *argv[], char *envp[])
 		return cr_pre_dump_tasks(opts.tree_id) != 0;
 	}
 
-	if (!strcmp(argv[optind], "restore")) {
+	if (STREQ(argv[optind], "restore")) {
 		if (opts.tree_id)
 			pr_warn("Using -t with criu restore is obsoleted\n");
 
@@ -238,28 +238,28 @@ int main(int argc, char *argv[], char *envp[])
 		return ret != 0;
 	}
 
-	if (!strcmp(argv[optind], "show")) {
+	if (STREQ(argv[optind], "show")) {
 		pr_msg("The \"show\" action is deprecated by the CRIT utility.\n");
 		pr_msg("To view an image use the \"crit decode -i $name --pretty\" command.\n");
 		return -1;
 	}
 
-	if (!strcmp(argv[optind], "lazy-pages"))
+	if (STREQ(argv[optind], "lazy-pages"))
 		return cr_lazy_pages(opts.daemon_mode) != 0;
 
-	if (!strcmp(argv[optind], "check"))
+	if (STREQ(argv[optind], "check"))
 		return cr_check() != 0;
 
-	if (!strcmp(argv[optind], "page-server"))
+	if (STREQ(argv[optind], "page-server"))
 		return cr_page_server(opts.daemon_mode, false, -1) != 0;
 
-	if (!strcmp(argv[optind], "image-cache")) {
+	if (STREQ(argv[optind], "image-cache")) {
 		if (!opts.port)
 			goto opt_port_missing;
 		return image_cache(opts.daemon_mode, DEFAULT_CACHE_SOCKET, opts.port);
 	}
 
-	if (!strcmp(argv[optind], "image-proxy")) {
+	if (STREQ(argv[optind], "image-proxy")) {
 		if (!opts.addr) {
 			pr_msg("Error: address not specified\n");
 			return 1;
@@ -269,20 +269,20 @@ int main(int argc, char *argv[], char *envp[])
 		return image_proxy(opts.daemon_mode, DEFAULT_PROXY_SOCKET, opts.addr, opts.port);
 	}
 
-	if (!strcmp(argv[optind], "service"))
+	if (STREQ(argv[optind], "service"))
 		return cr_service(opts.daemon_mode);
 
-	if (!strcmp(argv[optind], "dedup"))
+	if (STREQ(argv[optind], "dedup"))
 		return cr_dedup() != 0;
 
-	if (!strcmp(argv[optind], "cpuinfo")) {
+	if (STREQ(argv[optind], "cpuinfo")) {
 		if (!argv[optind + 1]) {
 			pr_msg("Error: cpuinfo requires an action: dump or check\n");
 			goto usage;
 		}
-		if (!strcmp(argv[optind + 1], "dump"))
+		if (STREQ(argv[optind + 1], "dump"))
 			return cpuinfo_dump();
-		else if (!strcmp(argv[optind + 1], "check"))
+		else if (STREQ(argv[optind + 1], "check"))
 			return cpuinfo_check();
 	}
 

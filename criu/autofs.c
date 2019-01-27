@@ -239,11 +239,11 @@ static int parse_options(char *options, AutofsEntry *entry, long *pipe_ino)
 			err = xatoi(opt + strlen("minproto="), &entry->minproto);
 		else if (!strncmp(opt, "maxproto=", strlen("maxproto=")))
 			err = xatoi(opt + strlen("maxproto="), &entry->maxproto);
-		else if (!strcmp(opt, "indirect"))
+		else if (STREQ(opt, "indirect"))
 			entry->mode = AUTOFS_MODE_INDIRECT;
-		else if (!strcmp(opt, "offset"))
+		else if (STREQ(opt, "offset"))
 			entry->mode = AUTOFS_MODE_OFFSET;
-		else if (!strcmp(opt, "direct"))
+		else if (STREQ(opt, "direct"))
 			entry->mode = AUTOFS_MODE_DIRECT;
 		else if (!strncmp(opt, "uid=", strlen("uid=")))
 			err = xatoi(opt + strlen("uid="), &entry->uid);
@@ -1076,4 +1076,3 @@ umount:
 		pr_perror("Failed to umount %s", mi->mountpoint);
 	goto close_pipe;
 }
-

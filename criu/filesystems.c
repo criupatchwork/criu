@@ -165,9 +165,9 @@ static int binfmt_misc_dump(struct mount_info *pm)
 	while ((de = readdir(fdir))) {
 		if (dir_dots(de))
 			continue;
-		if (!strcmp(de->d_name, "register"))
+		if (STREQ(de->d_name, "register"))
 			continue;
-		if (!strcmp(de->d_name, "status"))
+		if (STREQ(de->d_name, "status"))
 			continue;
 
 		if (!img) {
@@ -632,7 +632,7 @@ static bool btrfs_sb_equal(struct mount_info *a, struct mount_info *b)
 	}
 
 	*posa = *posb = 0;
-	equal = !strcmp(a->options, b->options);
+	equal = STREQ(a->options, b->options);
 	*posa = *posb = 's';
 
 	if (!equal)
@@ -841,7 +841,7 @@ struct fstype *find_fstype_by_name(char *fst)
 	for (i = 1; i < ARRAY_SIZE(fstypes); i++) {
 		struct fstype *fstype = fstypes + i;
 
-		if (!strcmp(fstype->name, fst))
+		if (STREQ(fstype->name, fst))
 			return fstype;
 	}
 
@@ -870,4 +870,3 @@ struct fstype *decode_fstype(u32 fst)
 uns:
 	return &fstypes[0];
 }
-

@@ -545,16 +545,16 @@ static int handle_vma(pid_t pid, struct vma_area *vma_area,
 	if (vma_area->e->status != 0)
 		return 0;
 
-	if (!strcmp(file_path, "[vsyscall]") ||
-		   !strcmp(file_path, "[vectors]")) {
+	if (STREQ(file_path, "[vsyscall]") ||
+		   STREQ(file_path, "[vectors]")) {
 		vma_area->e->status |= VMA_AREA_VSYSCALL;
-	} else if (!strcmp(file_path, "[vdso]")) {
+	} else if (STREQ(file_path, "[vdso]")) {
 		if (handle_vdso_vma(vma_area))
 			goto err;
-	} else if (!strcmp(file_path, "[vvar]")) {
+	} else if (STREQ(file_path, "[vvar]")) {
 		if (handle_vvar_vma(vma_area))
 			goto err;
-	} else if (!strcmp(file_path, "[heap]")) {
+	} else if (STREQ(file_path, "[heap]")) {
 		vma_area->e->status |= VMA_AREA_REGULAR | VMA_AREA_HEAP;
 	} else {
 		vma_area->e->status = VMA_AREA_REGULAR;
@@ -1206,7 +1206,7 @@ static int do_opt2flag(char *opt, unsigned *flags,
 			*end = '\0';
 
 		for (i = 0; opts[i].opt != NULL; i++)
-			if (!strcmp(opts[i].opt, opt)) {
+			if (STREQ(opts[i].opt, opt)) {
 				(*flags) |= opts[i].flag;
 				break;
 			}
@@ -1458,7 +1458,7 @@ static bool should_skip_mount(const char *mountpoint)
 	struct str_node *pos;
 
 	list_for_each_entry(pos, &skip_mount_list, node) {
-		if (strcmp(mountpoint, pos->string) == 0)
+		if (STREQ(mountpoint, pos->string))
 			return true;
 	}
 
@@ -2023,40 +2023,40 @@ static int parse_file_lock_buf(char *buf, struct file_lock *fl,
 		return -1;
 	}
 
-	if (!strcmp(fl_flag, "POSIX"))
+	if (STREQ(fl_flag, "POSIX"))
 		fl->fl_kind = FL_POSIX;
-	else if (!strcmp(fl_flag, "FLOCK"))
+	else if (STREQ(fl_flag, "FLOCK"))
 		fl->fl_kind = FL_FLOCK;
-	else if (!strcmp(fl_flag, "OFDLCK"))
+	else if (STREQ(fl_flag, "OFDLCK"))
 		fl->fl_kind = FL_OFD;
-	else if (!strcmp(fl_flag, "LEASE"))
+	else if (STREQ(fl_flag, "LEASE"))
 		fl->fl_kind = FL_LEASE;
 	else
 		fl->fl_kind = FL_UNKNOWN;
 
-	if (fl->fl_kind == FL_LEASE && !strcmp(fl_type, "BREAKING")) {
+	if (fl->fl_kind == FL_LEASE && STREQ(fl_type, "BREAKING")) {
 		fl->fl_ltype |= LEASE_BREAKING;
 	}
 
-	if (!strcmp(fl_type, "MSNFS")) {
+	if (STREQ(fl_type, "MSNFS")) {
 		fl->fl_ltype |= LOCK_MAND;
 
-		if (!strcmp(fl_option, "READ")) {
+		if (STREQ(fl_option, "READ")) {
 			fl->fl_ltype |= LOCK_READ;
-		} else if (!strcmp(fl_option, "RW")) {
+		} else if (STREQ(fl_option, "RW")) {
 			fl->fl_ltype |= LOCK_RW;
-		} else if (!strcmp(fl_option, "WRITE")) {
+		} else if (STREQ(fl_option, "WRITE")) {
 			fl->fl_ltype |= LOCK_WRITE;
 		} else {
 			pr_err("Unknown lock option!\n");
 			return -1;
 		}
 	} else {
-		if (!strcmp(fl_option, "UNLCK")) {
+		if (STREQ(fl_option, "UNLCK")) {
 			fl->fl_ltype |= F_UNLCK;
-		} else if (!strcmp(fl_option, "WRITE")) {
+		} else if (STREQ(fl_option, "WRITE")) {
 			fl->fl_ltype |= F_WRLCK;
-		} else if (!strcmp(fl_option, "READ")) {
+		} else if (STREQ(fl_option, "READ")) {
 			fl->fl_ltype |= F_RDLCK;
 		} else {
 			pr_err("Unknown lock option!\n");
@@ -2435,7 +2435,7 @@ int parse_task_cgroup(int pid, struct parasite_dump_cgroup_args *args, struct li
 			 * is no cgroup namespace relative to criu), the paths
 			 * are equal and we don't need to set a prefix.
 			 */
-			if (!strcmp(ext->path, intern->path))
+			if (STREQ(ext->path, intern->path))
 				continue;
 
 			/* +1 here to chop off the leading / */
@@ -2571,7 +2571,7 @@ int aufs_parse(struct mount_info *new)
 {
 	int ret = 0;
 
-	if (!strcmp(new->mountpoint, "./")) {
+	if (STREQ(new->mountpoint, "./")) {
 		opts.aufs = true;
 		ret = parse_aufs_branches(new);
 	}

@@ -50,7 +50,7 @@ static int apparmor_get_label(pid_t pid, char **profile_name)
 	 * An "unconfined" value means there is no profile, so we don't need to
 	 * worry about trying to restore one.
 	 */
-	if (strcmp(*profile_name, "unconfined") == 0) {
+	if (STREQ(*profile_name, "unconfined")) {
 		free(*profile_name);
 		*profile_name = NULL;
 	}
@@ -224,21 +224,21 @@ int lsm_check_opts(void)
 	*aux = '\0';
 	aux++;
 
-	if (strcmp(opts.lsm_profile, "apparmor") == 0) {
+	if (STREQ(opts.lsm_profile, "apparmor")) {
 		if (kdat.lsm != LSMTYPE__APPARMOR) {
 			pr_err("apparmor LSM specified but apparmor not supported by kernel\n");
 			return -1;
 		}
 
 		SET_CHAR_OPTS(lsm_profile, aux);
-	} else if (strcmp(opts.lsm_profile, "selinux") == 0) {
+	} else if (STREQ(opts.lsm_profile, "selinux")) {
 		if (kdat.lsm != LSMTYPE__SELINUX) {
 			pr_err("selinux LSM specified but selinux not supported by kernel\n");
 			return -1;
 		}
 
 		SET_CHAR_OPTS(lsm_profile, aux);
-	} else if (strcmp(opts.lsm_profile, "none") == 0) {
+	} else if (STREQ(opts.lsm_profile, "none")) {
 		xfree(opts.lsm_profile);
 		opts.lsm_profile = NULL;
 	} else {

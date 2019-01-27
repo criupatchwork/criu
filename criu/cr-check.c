@@ -1336,7 +1336,7 @@ int check_add_feature(char *feat)
 	struct feature_list *fl;
 
 	for (fl = feature_list; fl->name; fl++) {
-		if (!strcmp(feat, fl->name)) {
+		if (STREQ(feat, fl->name)) {
 			chk_feature = fl->func;
 			return 0;
 		}

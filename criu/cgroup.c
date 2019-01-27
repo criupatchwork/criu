@@ -227,7 +227,7 @@ static int find_dir(const char *path, struct list_head *dirs, struct cgroup_dir 
 {
 	struct cgroup_dir *d;
 	list_for_each_entry(d, dirs, siblings) {
-		if (strcmp(d->path, path) == 0) {
+		if (STREQ(d->path, path)) {
 			*rdir = d;
 			return EXACT_MATCH;
 		}
@@ -289,7 +289,7 @@ static int read_cgroup_prop(struct cgroup_prop *property, const char *fullpath)
 
 	/* skip dumping the value of these, since it doesn't make sense (we
 	 * just want to restore the perms) */
-	if (!strcmp(property->name, "cgroup.procs") || !strcmp(property->name, "tasks")) {
+	if (STREQ(property->name, "cgroup.procs") || STREQ(property->name, "tasks")) {
 		ret = 0;
 		/* libprotobuf segfaults if we leave a null pointer in a
 		 * string, so let's not do that */
@@ -387,7 +387,7 @@ static int dump_cg_props_array(const char *fpath, struct cgroup_dir *ncd, const 
 			return -1;
 		}
 
-		if (!strcmp("memory.oom_control", cgp->props[j])) {
+		if (STREQ("memory.oom_control", cgp->props[j])) {
 			char *new;
 			int disable;
 
@@ -613,7 +613,7 @@ static int collect_cgroups(struct list_head *ctls)
 			root = opts.new_global_cg_root;
 
 		list_for_each_entry(o, &opts.new_cgroup_roots, node) {
-			if (!strcmp(cc->name, o->controller))
+			if (STREQ(cc->name, o->controller))
 				root = o->newroot;
 		}
 
@@ -628,7 +628,7 @@ static int collect_cgroups(struct list_head *ctls)
 		if (ret < 0)
 			return ret;
 
-		if (opts.freeze_cgroup && !strcmp(cc->name, "freezer") &&
+		if (opts.freeze_cgroup && STREQ(cc->name, "freezer") &&
 				add_freezer_state(current_controller))
 			return -1;
 	}
@@ -978,7 +978,7 @@ bool is_special_property(const char *prop)
 	size_t i = 0;
 
 	for (i = 0; special_props[i]; i++)
-		if (strcmp(prop, special_props[i]) == 0)
+		if (STREQ(prop, special_props[i]))
 			return true;
 
 	return false;
@@ -1232,7 +1232,7 @@ static int restore_cgroup_prop(const CgroupPropEntry *cg_prop_entry_p,
 		goto out;
 
 	/* skip these two since restoring their values doesn't make sense */
-	if (!strcmp(cg_prop_entry_p->name, "cgroup.procs") || !strcmp(cg_prop_entry_p->name, "tasks")) {
+	if (STREQ(cg_prop_entry_p->name, "cgroup.procs") || STREQ(cg_prop_entry_p->name, "tasks")) {
 		ret = 0;
 		goto out;
 	}
@@ -1389,14 +1389,14 @@ static int prepare_cgroup_dir_properties(char *path, int off, CgroupDirEntry **e
 		CgroupDirEntry *e = ents[i];
 		size_t off2 = off;
 
-		if (strcmp(e->dir_name, "") == 0)
+		if (STREQ(e->dir_name, ""))
 			goto skip; /* skip root cgroups */
 
 		off2 += sprintf(path + off, "/%s", e->dir_name);
 		for (j = 0; j < e->n_properties; ++j) {
 			CgroupPropEntry *p = e->properties[j];
 
-			if (!strcmp(p->name, "freezer.state")) {
+			if (STREQ(p->name, "freezer.state")) {
 				add_freezer_state_for_restore(p, path, off2);
 				continue; /* skip restore now */
 			}
@@ -1413,7 +1413,7 @@ static int prepare_cgroup_dir_properties(char *path, int off, CgroupDirEntry **e
 			 * The kernel can't handle it in one write()
 			 * Number of network interfaces on host may differ.
 			 */
-			if (strcmp(p->name, "net_prio.ifpriomap") == 0) {
+			if (STREQ(p->name, "net_prio.ifpriomap")) {
 				if (restore_cgroup_ifpriomap(p, path, off2))
 					return -1;
 				continue;
@@ -1478,7 +1478,7 @@ static int restore_devices_list(char *paux, size_t off, CgroupPropEntry *pr)
 	 * and the kernel disallows writing an "" to devices.allow,
 	 * so let's just keep going.
 	 */
-	if (!strcmp(dev_allow.value, ""))
+	if (STREQ(dev_allow.value, ""))
 		return 0;
 
 	if (ret < 0)
@@ -1494,12 +1494,12 @@ static int restore_special_property(char *paux, size_t off, CgroupPropEntry *pr)
 	 * memory.oom_control regular properties when we drop support for
 	 * kernels < 3.16. See 3dae7fec5.
 	 */
-	if (!strcmp(pr->name, "memory.swappiness") && !strcmp(pr->value, "60"))
+	if (STREQ(pr->name, "memory.swappiness") && STREQ(pr->value, "60"))
 		return 0;
-	if (!strcmp(pr->name, "memory.oom_control") && !strcmp(pr->value, "0"))
+	if (STREQ(pr->name, "memory.oom_control") && STREQ(pr->value, "0"))
 		return 0;
 
-	if (!strcmp(pr->name, "devices.list")) {
+	if (STREQ(pr->name, "devices.list")) {
 		/*
 		 * A bit of a fudge here. These are write only by owner
 		 * by default, but the container engine could have changed
@@ -1583,9 +1583,9 @@ static int prepare_cgroup_dirs(char **controllers, int n_controllers, char *paux
 				return -1;
 
 			for (j = 0; j < n_controllers; j++) {
-				if (!strcmp(controllers[j], "cpuset")
-						|| !strcmp(controllers[j], "memory")
-						|| !strcmp(controllers[j], "devices")) {
+				if (STREQ(controllers[j], "cpuset")
+						|| STREQ(controllers[j], "memory")
+						|| STREQ(controllers[j], "devices")) {
 					if (restore_special_props(paux, off2, e) < 0) {
 						pr_err("Restoring special cpuset props failed!\n");
 						return -1;

@@ -97,7 +97,7 @@ static char ** parse_config(char *filepath)
 				/*
 				 * Handle empty strings which strtok ignores
 				 */
-				if (!strcmp(configuration[i], "\"\"")) {
+				if (STREQ(configuration[i], "\"\"")) {
 					configuration[i] = "";
 					offset += strlen("\"\"");
 				} else if ((configuration[i] = strtok_r(line + offset, "\"", &quotedptr))) {
@@ -220,12 +220,12 @@ static int pre_parse(int argc, char **argv, bool *usage_error, bool *no_default_
 	 * number of argv iterations, but checks for help have higher priority.
 	 */
 	for (i = 0; i < argc; i++) {
-		if ((!strcmp(argv[i], "--help")) || (!strcmp(argv[i], "-h"))) {
+		if ((STREQ(argv[i], "--help")) || (STREQ(argv[i], "-h"))) {
 			*usage_error = false;
 			return 1;
-		} else if (!strcmp(argv[i], "--no-default-config")) {
+		} else if (STREQ(argv[i], "--no-default-config")) {
 			*no_default_config = true;
-		} else if (!strcmp(argv[i], "--config")) {
+		} else if (STREQ(argv[i], "--config")) {
 			/*
 			 * getopt takes next string as required
 			 * argument automatically, we do the same
@@ -344,15 +344,15 @@ static int parse_manage_cgroups(struct cr_options *opts, const char *optarg)
 		return 0;
 	}
 
-	if (!strcmp(optarg, "none")) {
+	if (STREQ(optarg, "none")) {
 		opts->manage_cgroups = CG_MODE_NONE;
-	} else if (!strcmp(optarg, "props")) {
+	} else if (STREQ(optarg, "props")) {
 		opts->manage_cgroups = CG_MODE_PROPS;
-	} else if (!strcmp(optarg, "soft")) {
+	} else if (STREQ(optarg, "soft")) {
 		opts->manage_cgroups = CG_MODE_SOFT;
-	} else if (!strcmp(optarg, "full")) {
+	} else if (STREQ(optarg, "full")) {
 		opts->manage_cgroups = CG_MODE_FULL;
-	} else if (!strcmp(optarg, "strict")) {
+	} else if (STREQ(optarg, "strict")) {
 		opts->manage_cgroups = CG_MODE_STRICT;
 	} else
 		goto Esyntax;
@@ -725,7 +725,7 @@ int parse_options(int argc, char **argv, bool *usage_error,
 			{
 				char *aux;
 
-				if (strcmp(optarg, "auto") == 0) {
+				if (STREQ(optarg, "auto")) {
 					opts.autodetect_ext_mounts = true;
 					break;
 				}
@@ -744,7 +744,7 @@ int parse_options(int argc, char **argv, bool *usage_error,
 				return 1;
 			break;
 		case 1074:
-			if (!strcmp("net", optarg))
+			if (STREQ("net", optarg))
 				opts.empty_ns |= CLONE_NEWNET;
 			else {
 				pr_err("Unsupported empty namespace: %s\n",

@@ -139,7 +139,7 @@ static struct tun_link *find_tun_link(char *name, unsigned int ns_id)
 	struct tun_link *tl;
 
 	list_for_each_entry(tl, &tun_links, l) {
-		if (!strcmp(tl->name, name) &&
+		if (STREQ(tl->name, name) &&
 		    tl->ns_id == ns_id)
 			return tl;
 	}
