@@ -200,6 +200,10 @@ extern int read_fd_link(int lfd, char *buf, size_t size);
 
 int vaddr_to_pfn(int fd, unsigned long vaddr, u64 *pfn);
 
+/* String equality tests */
+#define STREQ(a, b) (strcmp(a, b) == 0)
+#define STRNEQ(a, b) (strcmp(a, b) != 0)
+
 /*
  * Check whether @str starts with @sub and report the
  * next character of @str in @end
