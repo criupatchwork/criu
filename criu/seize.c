@@ -51,11 +51,11 @@ static const char *get_freezer_state(int fd)
 		state[ret] = 0;
 
 	pr_debug("freezer.state=%s\n", state);
-	if (strcmp(state, frozen) == 0)
+	if (STREQ(state, frozen))
 		return frozen;
-	else if (strcmp(state, freezing) == 0)
+	else if (STREQ(state, freezing))
 		return freezing;
-	else if (strcmp(state, thawed) == 0)
+	else if (STREQ(state, thawed))
 		return thawed;
 
 	pr_err("Unknown freezer state: %s\n", state);
@@ -838,4 +838,3 @@ err:
 	alarm(0);
 	return ret;
 }
-

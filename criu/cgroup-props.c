@@ -276,9 +276,9 @@ static int cgp_parse_stream(char *stream, size_t len)
 			goto err_parse;
 		};
 
-		if (!strcmp(p, "merge")) {
+		if (STREQ(p, "merge")) {
 			strategy = CGP_MERGE;
-		} else if (!strcmp(p, "replace")) {
+		} else if (STREQ(p, "replace")) {
 			strategy = CGP_REPLACE;
 		} else {
 			pr_err("Unknown strategy \"%s\" in controller's %s stream\n",
@@ -543,7 +543,7 @@ bool cgp_should_skip_controller(const char *name)
 		return false;
 
 	for (i = 0; i < nr_dump_controllers; i++) {
-		if (!strcmp(name, dump_controllers[i]))
+		if (STREQ(name, dump_controllers[i]))
 			return false;
 	}
 
@@ -555,7 +555,7 @@ const cgp_t *cgp_get_props(const char *name)
 	cgp_list_entry_t *p;
 
 	list_for_each_entry(p, &cgp_list, list) {
-		if (!strcmp(p->cgp.name, name))
+		if (STREQ(p->cgp.name, name))
 			return &p->cgp;
 	}
 

@@ -729,7 +729,7 @@ int is_anon_link_type(char *link, char *type)
 	char aux[32];
 
 	snprintf(aux, sizeof(aux), "anon_inode:%s", type);
-	return !strcmp(link, aux);
+	return STREQ(link, aux);
 }
 
 #define DUP_SAFE(fd, out)						\

@@ -546,7 +546,7 @@ static bool mnt_needs_remap(struct mount_info *m)
 	 * remapped too, else fixup_remap_mounts() won't be able to move parent
 	 * to it's real place, it will move child instead.
 	 */
-	if (!strcmp(m->parent->mountpoint, m->mountpoint))
+	if (STREQ(m->parent->mountpoint, m->mountpoint))
 		return mnt_needs_remap(m->parent);
 
 	return false;
@@ -599,7 +599,7 @@ static int validate_children_collision(struct mount_info *mnt)
 		list_for_each_entry(chj, &mnt->children, siblings) {
 			if (chj == chi)
 				break;
-			if (!strcmp(chj->mountpoint, chi->mountpoint)) {
+			if (STREQ(chj->mountpoint, chi->mountpoint)) {
 				pr_err("Mount %d has two children with same "
 				       "mountpoint: %d %d\n",
 				       mnt->mnt_id, chj->mnt_id, chi->mnt_id);
@@ -889,7 +889,7 @@ static int same_propagation_group(struct mount_info *a, struct mount_info *b) {
 	 * 3) Their mountpoints relative to the root of the superblock of their
 	 * parent's share should be equal
 	 */
-	if (!strcmp(root_path_a, root_path_b))
+	if (STREQ(root_path_a, root_path_b))
 		return 1;
 	return 0;
 }
@@ -1174,7 +1174,7 @@ static bool mnt_is_overmounted(struct mount_info *mi)
 
 	/* Check there is no children-overmount */
 	list_for_each_entry(c, &mi->children, siblings)
-		if (!strcmp(c->mountpoint, mi->mountpoint))
+		if (STREQ(c->mountpoint, mi->mountpoint))
 			return true;
 
 	return false;
@@ -1196,7 +1196,7 @@ static int __umount_children_overmounts(struct mount_info *mi)
 	 */
 again:
 	list_for_each_entry(c, &m->children, siblings) {
-		if (!strcmp(c->mountpoint, m->mountpoint)) {
+		if (STREQ(c->mountpoint, m->mountpoint)) {
 			m = c;
 			goto again;
 		}
@@ -2464,7 +2464,7 @@ static int do_mount_one(struct mount_info *mi)
 		return 1;
 	}
 
-	if (!strcmp(mi->parent->mountpoint, mi->mountpoint)) {
+	if (STREQ(mi->parent->mountpoint, mi->mountpoint)) {
 		mi->parent->fd = open(mi->parent->mountpoint, O_PATH);
 		if (mi->parent->fd < 0) {
 			pr_perror("Unable to open %s", mi->mountpoint);

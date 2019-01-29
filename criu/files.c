@@ -1587,7 +1587,7 @@ int inherit_fd_lookup_id(char *id)
 
 	ret = -1;
 	list_for_each_entry(inh, &opts.inherit_fds, inh_list) {
-		if (!strcmp(inh->inh_id, id)) {
+		if (STREQ(inh->inh_id, id)) {
 			ret = fdstore_get(inh->inh_fd_id);
 			pr_debug("Found id %s (fd %d) in inherit fd list\n",
 				id, ret);

@@ -1117,7 +1117,7 @@ int strip_deleted(struct fd_link *link)
 			continue;
 
 		at = link->len - prepends[i].len;
-		if (!strcmp(&link->name[at], prepends[i].str)) {
+		if (STREQ(&link->name[at], prepends[i].str)) {
 			pr_debug("Strip '%s' tag from '%s'\n",
 				 prepends[i].str, link->name);
 			link->name[at] = '\0';
@@ -1634,7 +1634,7 @@ int open_path(struct file_desc *d,
 		tmp = inherit_fd_lookup_id(rfi->rfe->name);
 		if (tmp >= 0) {
 			inh_fd = tmp;
-			/* 
+			/*
 			 * PROC_SELF isn't used, because only service
 			 * descriptors can be used here.
 			 */

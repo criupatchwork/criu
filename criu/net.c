@@ -116,7 +116,7 @@ static bool sysctl_entries_equal(SysctlEntry *a, SysctlEntry *b)
 		case SYSCTL_TYPE__CTL_32:
 			return a->has_iarg && b->has_iarg && a->iarg == b->iarg;
 		case SYSCTL_TYPE__CTL_STR:
-			return a->sarg && b->sarg && !strcmp(a->sarg, b->sarg);
+			return a->sarg && b->sarg && STREQ(a->sarg, b->sarg);
 		default:;
 	}
 
@@ -243,7 +243,7 @@ static int net_conf_op(char *tgt, SysctlEntry **conf, int n, int op, char *proto
 		 * Make "accept_redirects" go last on write(it should
 		 * restore after forwarding to be correct)
 		 */
-		if (op == CTL_WRITE && !strcmp(devconfs[i], "accept_redirects")) {
+		if (op == CTL_WRITE && STREQ(devconfs[i], "accept_redirects")) {
 			ar = i;
 			continue;
 		}
@@ -263,7 +263,7 @@ static int net_conf_op(char *tgt, SysctlEntry **conf, int n, int op, char *proto
 				break;
 			case SYSCTL_TYPE__CTL_STR:
 				req[ri].type = CTL_STR(MAX_STR_CONF_LEN);
-				req[ri].flags |= op == CTL_READ && !strcmp(devconfs[i], "stable_secret")
+				req[ri].flags |= op == CTL_READ && STREQ(devconfs[i], "stable_secret")
 					? CTL_FLAGS_READ_EIO_SKIP : 0;
 
 				/* skip non-existing sysctl */
@@ -608,7 +608,7 @@ static int dump_macvlan(NetDeviceEntry *nde, struct cr_imgset *imgset, struct nl
 static int dump_one_ethernet(struct ifinfomsg *ifi, char *kind,
 		struct nlattr **tb, struct ns_id *ns, struct cr_imgset *fds)
 {
-	if (!strcmp(kind, "veth"))
+	if (STREQ(kind, "veth"))
 		/*
 		 * This is not correct. The peer of the veth device may
 		 * be either outside or inside the netns we're working
@@ -618,11 +618,11 @@ static int dump_one_ethernet(struct ifinfomsg *ifi, char *kind,
 		 * connection to the outer world and just dump this end :(
 		 */
 		return dump_one_netdev(ND_TYPE__VETH, ifi, tb, ns, fds, NULL);
-	if (!strcmp(kind, "tun"))
+	if (STREQ(kind, "tun"))
 		return dump_one_netdev(ND_TYPE__TUN, ifi, tb, ns, fds, dump_tun_link);
-	if (!strcmp(kind, "bridge"))
+	if (STREQ(kind, "bridge"))
 		return dump_one_netdev(ND_TYPE__BRIDGE, ifi, tb, ns, fds, dump_bridge);
-	if (!strcmp(kind, "gretap")) {
+	if (STREQ(kind, "gretap")) {
 		char *name = (char *)RTA_DATA(tb[IFLA_IFNAME]);
 
 		if (!name) {
@@ -630,14 +630,14 @@ static int dump_one_ethernet(struct ifinfomsg *ifi, char *kind,
 			return -1;
 		}
 
-		if (!strcmp(name, "gretap0")) {
+		if (STREQ(name, "gretap0")) {
 			pr_info("found %s, ignoring\n", name);
 			return 0;
 		}
 
 		pr_warn("GRE tap device %s not supported natively\n", name);
 	}
-	if (!strcmp(kind, "macvlan"))
+	if (STREQ(kind, "macvlan"))
 		return dump_one_netdev(ND_TYPE__MACVLAN, ifi, tb, ns, fds, dump_macvlan);
 
 	return dump_unknown_device(ifi, kind, tb, ns, fds);
@@ -646,7 +646,7 @@ static int dump_one_ethernet(struct ifinfomsg *ifi, char *kind,
 static int dump_one_gendev(struct ifinfomsg *ifi, char *kind,
 		struct nlattr **tb, struct ns_id *ns, struct cr_imgset *fds)
 {
-	if (!strcmp(kind, "tun"))
+	if (STREQ(kind, "tun"))
 		return dump_one_netdev(ND_TYPE__TUN, ifi, tb, ns, fds, dump_tun_link);
 
 	return dump_unknown_device(ifi, kind, tb, ns, fds);
@@ -655,7 +655,7 @@ static int dump_one_gendev(struct ifinfomsg *ifi, char *kind,
 static int dump_one_voiddev(struct ifinfomsg *ifi, char *kind,
 		struct nlattr **tb, struct ns_id *ns, struct cr_imgset *fds)
 {
-	if (!strcmp(kind, "venet"))
+	if (STREQ(kind, "venet"))
 		return dump_one_netdev(ND_TYPE__VENET, ifi, tb, ns, fds, NULL);
 
 	return dump_unknown_device(ifi, kind, tb, ns, fds);
@@ -664,14 +664,14 @@ static int dump_one_voiddev(struct ifinfomsg *ifi, char *kind,
 static int dump_one_gre(struct ifinfomsg *ifi, char *kind,
 		struct nlattr **tb, struct ns_id *ns, struct cr_imgset *fds)
 {
-	if (!strcmp(kind, "gre")) {
+	if (STREQ(kind, "gre")) {
 		char *name = (char *)RTA_DATA(tb[IFLA_IFNAME]);
 		if (!name) {
 			pr_err("gre device %d has no name\n", ifi->ifi_index);
 			return -1;
 		}
 
-		if (!strcmp(name, "gre0")) {
+		if (STREQ(name, "gre0")) {
 			pr_info("found %s, ignoring\n", name);
 			return 0;
 		}
@@ -797,7 +797,7 @@ static int dump_one_sit(struct ifinfomsg *ifi, char *kind,
 		return -1;
 	}
 
-	if (!strcmp(name, "sit0")) {
+	if (STREQ(name, "sit0")) {
 		pr_info("found %s, ignoring\n", name);
 		return 0;
 	}

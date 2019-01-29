@@ -2415,7 +2415,7 @@ int devpts_check_bindmount(struct mount_info *m)
 	struct mount_info *master_mp;
 	int index;
 
-	if (strcmp(m->root, "/") == 0 || strcmp(m->root, "/ptmx") == 0)
+	if (STREQ(m->root, "/") || STREQ(m->root, "/ptmx"))
 		return 0;
 
 	if (sscanf(m->root, "/%d", &index) != 1) {
