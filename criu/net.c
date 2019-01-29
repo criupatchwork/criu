@@ -234,7 +234,7 @@ static int net_conf_op(char *tgt, SysctlEntry **conf, int n, int op, char *proto
 		 * it's restore
 		 */
 		if (def_conf && sysctl_entries_equal(conf[i], def_conf[i])
-				&& strcmp(devconfs[i], "mtu")) {
+				&& STRNEQ(devconfs[i], "mtu")) {
 			pr_debug("Skip %s/%s, coincides with default\n", tgt, devconfs[i]);
 			continue;
 		}
@@ -499,7 +499,7 @@ static int dump_one_netdev(int type, struct ifinfomsg *ifi,
 	for (i = 0; i < size6; i++) {
 		sysctl_entry__init(&confs6[i]);
 		netdev.conf6[i] = &confs6[i];
-		if (strcmp(devconfs6[i], "stable_secret")) {
+		if (STRNEQ(devconfs6[i], "stable_secret")) {
 			netdev.conf6[i]->type = SYSCTL_TYPE__CTL_32;
 		} else {
 			netdev.conf6[i]->type = SYSCTL_TYPE__CTL_STR;
@@ -786,7 +786,7 @@ static int dump_one_sit(struct ifinfomsg *ifi, char *kind,
 {
 	char *name;
 
-	if (strcmp(kind, "sit")) {
+	if (STRNEQ(kind, "sit")) {
 		pr_err("SIT device with %s kind\n", kind);
 		return -1;
 	}
@@ -1880,7 +1880,7 @@ static int dump_netns_conf(struct ns_id *ns, struct cr_imgset *fds)
 		sysctl_entry__init(&all_confs6[i]);
 		netns.def_conf6[i] = &def_confs6[i];
 		netns.all_conf6[i] = &all_confs6[i];
-		if (strcmp(devconfs6[i], "stable_secret")) {
+		if (STRNEQ(devconfs6[i], "stable_secret")) {
 			netns.def_conf6[i]->type = SYSCTL_TYPE__CTL_32;
 			netns.all_conf6[i]->type = SYSCTL_TYPE__CTL_32;
 		} else {

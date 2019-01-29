@@ -716,7 +716,7 @@ static unsigned long get_ring_len(unsigned long addr)
 
 		if (start == addr) {
 			fclose(maps);
-			if (strcmp(buf + tail, "/[aio] (deleted)\n"))
+			if (STRNEQ(buf + tail, "/[aio] (deleted)\n"))
 				goto notfound;
 
 			return end - start;

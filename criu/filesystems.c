@@ -591,10 +591,9 @@ static int tracefs_parse(struct mount_info *pm)
 
 static bool cgroup_sb_equal(struct mount_info *a, struct mount_info *b)
 {
-	if (a->private && b->private &&
-			strcmp(a->private, b->private))
+	if (a->private && b->private && STRNEQ(a->private, b->private))
 		return false;
-	if (strcmp(a->options, b->options))
+	if (STRNEQ(a->options, b->options))
 		return false;
 
 	return true;
@@ -644,7 +643,7 @@ static bool btrfs_sb_equal(struct mount_info *a, struct mount_info *b)
 	if ((posa && !posb) || (!posa && posb))
 		return false;
 
-	if (posa && strcmp(posa, posb))
+	if (posa && STRNEQ(posa, posb))
 		return false;
 
 	return true;

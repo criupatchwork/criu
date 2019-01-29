@@ -275,7 +275,7 @@ dev_t phys_stat_resolve_dev(struct ns_id *ns, dev_t st_dev, const char *path)
 	 * superblock dev-id, in such case return device
 	 * obtained from mountinfo (ie subvolume0).
 	 */
-	return strcmp(m->fstype->name, "btrfs") ?
+	return STRNEQ(m->fstype->name, "btrfs") ?
 		MKKDEV(major(st_dev), minor(st_dev)) : m->s_dev;
 }
 
@@ -299,13 +299,13 @@ static bool mounts_sb_equal(struct mount_info *a, struct mount_info *b)
 	if (a->s_dev != b->s_dev)
 		return false;
 
-	if (strcmp(a->source, b->source) != 0)
+	if (STRNEQ(a->source, b->source) != 0)
 		return false;
 
 	if (a->fstype->sb_equal) /* :) */
 		return b->fstype->sb_equal(a, b);
 
-	if (strcmp(a->options, b->options))
+	if (STRNEQ(a->options, b->options))
 		return false;
 
 	return true;
@@ -318,7 +318,7 @@ static bool mounts_equal(struct mount_info *a, struct mount_info *b)
 {
 	if (!mounts_sb_equal(a, b))
 		return false;
-	if (strcmp(a->root, b->root))
+	if (STRNEQ(a->root, b->root))
 		return false;
 
 	return true;
@@ -366,8 +366,7 @@ static struct mount_info *mnt_build_ids_tree(struct mount_info *list, struct mou
 			pr_debug("Mountpoint %d (@%s) w/o parent %d\n",
 				 m->mnt_id, m->mountpoint, m->parent_mnt_id);
 
-			if (!mounts_sb_equal(root, m) ||
-			    strcmp(root->root, m->root)) {
+			if (!mounts_sb_equal(root, m) || STRNEQ(root->root, m->root)) {
 				pr_err("Nested mount namespaces with different "
 				       "roots %d (@%s %s) %d (@%s %s) are not supported yet\n",
 				       root->mnt_id, root->mountpoint, root->root,

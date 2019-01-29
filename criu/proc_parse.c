@@ -2212,7 +2212,7 @@ int parse_posix_timers(pid_t pid, struct proc_posix_timers_stat *args)
 
 			timer->spt.sival_ptr = NULL;
 			if (sscanf(pbuf, "%p", &timer->spt.sival_ptr) != 1 &&
-			    strcmp(pbuf, "(null)")) {
+			    STRNEQ(pbuf, "(null)")) {
 				pr_err("Unable to parse '%s'\n", pbuf);
 				goto err;
 			}
@@ -2428,7 +2428,7 @@ int parse_task_cgroup(int pid, struct parasite_dump_cgroup_args *args, struct li
 		list_for_each_entry(ext, retl, l) {
 			char *pos;
 
-			if (strcmp(ext->name, intern->name))
+			if (STRNEQ(ext->name, intern->name))
 				continue;
 
 			/* If the cgroup namespace was unshared at / (or there
@@ -2440,7 +2440,7 @@ int parse_task_cgroup(int pid, struct parasite_dump_cgroup_args *args, struct li
 
 			/* +1 here to chop off the leading / */
 			pos = ext->path + strlen(ext->path) - strlen(intern->path+1);
-			if (strcmp(pos, intern->path+1)) {
+			if (STRNEQ(pos, intern->path+1)) {
 				pr_err("invalid cgroup configuration, %s is not a suffix of %s\n", intern->path, ext->path);
 				ret = -1;
 				goto out;

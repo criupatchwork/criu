@@ -138,7 +138,7 @@ int main(int argc, char *argv[], char *envp[])
 			goto usage;
 		}
 
-		if (strcmp(argv[optind], "restore")) {
+		if (STRNEQ(argv[optind], "restore")) {
 			pr_msg("Error: --exec-cmd is available for the restore command only\n");
 			goto usage;
 		}
@@ -155,7 +155,7 @@ int main(int argc, char *argv[], char *envp[])
 		opts.exec_cmd[argc - optind - 1] = NULL;
 	} else {
 		/* No subcommands except for cpuinfo and restore --exec-cmd */
-		if (strcmp(argv[optind], "cpuinfo") && has_sub_command) {
+		if (STRNEQ(argv[optind], "cpuinfo") && has_sub_command) {
 			pr_msg("Error: excessive parameter%s for command %s\n",
 				(argc - optind) > 2 ? "s" : "", argv[optind]);
 			goto usage;
@@ -163,7 +163,7 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 	/* We must not open imgs dir, if service is called */
-	if (strcmp(argv[optind], "service")) {
+	if (STRNEQ(argv[optind], "service")) {
 		ret = open_image_dir(opts.imgs_dir);
 		if (ret < 0)
 			return 1;
@@ -194,7 +194,7 @@ int main(int argc, char *argv[], char *envp[])
 		pr_debug("DEPRECATED ON\n");
 
 	if (!list_empty(&opts.inherit_fds)) {
-		if (strcmp(argv[optind], "restore")) {
+		if (STRNEQ(argv[optind], "restore")) {
 			pr_err("--inherit-fd is restore-only option\n");
 			return 1;
 		}
