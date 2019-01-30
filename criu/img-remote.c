@@ -808,7 +808,7 @@ void check_pending()
 }
 
 void accept_image_connections() {
-	int ret;
+	int ret, n_events, i;
 
 	epoll_fd = epoll_create(EPOLL_MAX_EVENTS);
 	if (epoll_fd < 0) {
@@ -840,8 +840,6 @@ void accept_image_connections() {
 	}
 
 	while (1) {
-		int n_events, i;
-
 		n_events = epoll_wait(epoll_fd, events, EPOLL_MAX_EVENTS, 250);
 		if (n_events < 0) {
 			pr_perror("Failed to epoll wait");
