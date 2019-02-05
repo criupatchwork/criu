@@ -1219,6 +1219,37 @@ static bool vdso_needs_parking(struct task_restore_args *args)
 	return !vdso_unmapped(args);
 }
 
+/* Return number of elements that can be read from iovs in one preadv
+ * without exceeding cap on read size. Possibly adjusts size of last element
+ * to make it fit. In that case, the original size is saved to saved_last_iov_len.
+ * Otherwise saved_last_iov_len is set to 0.
+ *
+ * We want to cap the size of one preadv because the code below does a preadv to
+ * read data from image files (possibly on tmpfs) and then calls fallocate() to
+ * free up space on that tmpfs. Thus temporarily the same data is on both tmpfs
+ * and in process memory, adding memory overhead to the restore process.
+ * */
+static int limit_iovec_size(struct iovec *iovs, int nr, size_t* saved_last_iov_len) {
+	size_t remaining_read_limit = 100 * (1 << 20);
+	int limited_nr = 0;
+	for (int i = 0; i < nr; ++i) {
+		if (iovs[i].iov_len > remaining_read_limit) {
+			break;
+		}
+		remaining_read_limit -= iovs[i].iov_len;
+		limited_nr++;
+	}
+
+	/* Try to do a partial read of the last iov. */
+	*saved_last_iov_len = 0;
+	if (limited_nr < nr && remaining_read_limit > 0) {
+		*saved_last_iov_len = iovs[limited_nr].iov_len;
+		iovs[limited_nr].iov_len = remaining_read_limit;
+		limited_nr++;
+	}
+	return limited_nr;
+}
+
 /*
  * The main routine to restore task via sigreturn.
  * This one is very special, we never return there
@@ -1389,10 +1420,16 @@ long __export_restore_task(struct task_restore_args *args)
 		ssize_t r;
 
 		while (nr) {
+			size_t saved_last_iov_len = 0;
+			int nr_in_one_pread = limit_iovec_size(iovs, nr, &saved_last_iov_len);
 			pr_debug("Preadv %lx:%d... (%d iovs)\n",
 					(unsigned long)iovs->iov_base,
-					(int)iovs->iov_len, nr);
-			r = sys_preadv(args->vma_ios_fd, iovs, nr, rio->off);
+					(int)iovs->iov_len, nr_in_one_pread);
+			r = sys_preadv(args->vma_ios_fd, iovs, nr_in_one_pread, rio->off);
+			/* Restore the iov_len we had overwritten */
+			if (saved_last_iov_len > 0) {
+				iovs[nr_in_one_pread-1].iov_len = saved_last_iov_len;
+			}
 			if (r < 0) {
 				pr_err("Can't read pages data (%d)\n", (int)r);
 				goto core_restore_end;
