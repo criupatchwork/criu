@@ -10,6 +10,7 @@ struct cr_imgset;
 struct fd_parms;
 
 struct file_remap {
+	char *subdir;
 	char *rpath;
 	bool is_dir;
 	int  rmnt_id;
@@ -20,6 +21,7 @@ struct file_remap {
 static inline void file_remap_init(struct file_remap *remap)
 {
 	remap->rpath	= NULL;
+	remap->subdir	= NULL;
 	remap->is_dir	= false;
 	remap->uid	= -1;
 	remap->gid	= -1;

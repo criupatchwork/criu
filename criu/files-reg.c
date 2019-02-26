@@ -355,6 +355,7 @@ err:
 
 static int create_ghost(struct ghost_file *gf, GhostFileEntry *gfe, struct cr_img *img)
 {
+	const char *subdir = NULL;
 	struct mount_info *mi;
 	char path[PATH_MAX];
 	int ret, root_len;
@@ -391,7 +392,8 @@ again:
 		if ((ret = mknod(path, gfe->mode, gfe->rdev)) < 0)
 			msg = "Can't create node for ghost dev";
 	} else if (S_ISDIR(gfe->mode)) {
-		if ((ret = mkdirpat(AT_FDCWD, path, gfe->mode)) < 0)
+		ret = mkdirpat_precise(AT_FDCWD, path, gfe->mode, &subdir);
+		if (ret < 0)
 			msg = "Can't make ghost dir";
 	} else {
 		if ((ret = mkreg_ghost(path, gfe, img)) < 0)
@@ -414,6 +416,14 @@ again:
 
 	strcpy(gf->remap.rpath, path + root_len);
 	pr_debug("Remap rpath is %s\n", gf->remap.rpath);
+
+	/*
+	 * Save nested dirs for better cleanup.
+	 */
+	if (subdir && subdir != path) {
+		gf->remap.subdir  = gf->remap.rpath;
+		gf->remap.subdir += subdir - path - root_len;
+	}
 
 	ret = -1;
 	if (ghost_apply_metadata(path, gfe))
@@ -758,6 +768,9 @@ static int order_remap_dirs(void)
 			pr_debug("remap: ghost ord %3s %s\n",
 				 ri->rfi->remap->is_dir ? "dir" : "fil",
 				 ri->rfi->path);
+			if (ri->rfi->remap->subdir)
+				pr_debug("remap:\tnew subdir %s\n",
+					 ri->rfi->remap->subdir);
 		}
 	}
 
@@ -783,6 +796,31 @@ int prepare_remaps(void)
 	return ret ? : order_remap_dirs();
 }
 
+static int cleanup_subdir(int dirfd, struct file_remap *remap)
+{
+	char *pos;
+	int ret;
+
+	if (!remap->subdir)
+		return 0;
+
+	/*
+	 * Note that we're modifying @remap->rpath but
+	 * caller is dropping this variable a bit later
+	 * anyway!
+	 */
+	for (pos = strrchr(remap->subdir, '/'); pos;
+	     pos = strrchr(pos, '/')) {
+		*pos = '\0';
+		pr_debug("\tUnlink remap subdir %s\n", remap->rpath);
+		ret = unlinkat(dirfd, remap->rpath, AT_REMOVEDIR);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
 static int clean_ghost_dir(int rmntns_root, struct remap_info *ri)
 {
 	struct file_remap *remap = ri->rfi->remap;
@@ -791,10 +829,15 @@ static int clean_ghost_dir(int rmntns_root, struct remap_info *ri)
 	 * When deleting ghost directories here is two issues:
 	 * - names might duplicate, so we may receive ENOENT
 	 *   and should not treat it as an error
+	 * - some ghost directories might have transient entries
+	 *   which we have to make during former path restoration
 	 */
-	if (ret)
-		return errno == ENOENT ? 0 : -errno;
-	return 0;
+	if (ret) {
+		if (errno == ENOENT)
+			ret = 0;
+	} else
+		ret = cleanup_subdir(rmntns_root, remap);
+	return ret;
 }
 
 static int clean_one_remap(struct remap_info *ri)
