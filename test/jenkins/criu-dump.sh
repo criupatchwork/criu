@@ -1,3 +1,4 @@
+#!/bin/sh
 # Check that dump is not destructive
 set -e
 source `dirname $0`/criu-lib.sh

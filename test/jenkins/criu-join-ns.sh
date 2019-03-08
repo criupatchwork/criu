@@ -1,3 +1,4 @@
+#!/bin/sh
 # Make one regular C/R cycle
 set -e
 source `dirname $0`/criu-lib.sh

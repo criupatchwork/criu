@@ -1,3 +1,4 @@
+#!/bin/sh
 # Check lazy-pages
 set -e
 source `dirname $0`/criu-lib.sh

@@ -1,3 +1,4 @@
+#!/bin/sh
 # Make one regular C/R cycle over randomly-generated groups
 set -e
 source `dirname $0`/criu-lib.sh

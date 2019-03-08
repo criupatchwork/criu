@@ -1,3 +1,4 @@
+#!/bin/sh
 echo 950000 > /sys/fs/cgroup/cpu,cpuacct/system/cpu.rt_runtime_us
 echo 950000 > /sys/fs/cgroup/cpu,cpuacct/system/jenkins.service/cpu.rt_runtime_us
 git checkout -f ${TEST_COMMIT}

@@ -1,3 +1,4 @@
+#!/bin/sh
 function exit_hook()
 {
 	test -z "$GCOV" && return
@@ -25,7 +26,7 @@ function prep()
 
 function mount_tmpfs_to_dump()
 {
-	test -n "$SKIP_PREP" && return	
+	test -n "$SKIP_PREP" && return
 	mkdir -p test/dump &&
 	mount -t tmpfs criu_dump test/dump &&
 	true

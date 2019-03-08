@@ -1,3 +1,4 @@
+#!/bin/sh
 # Check how crit de/encodes images
 set -e
 source `dirname $0`/criu-lib.sh
