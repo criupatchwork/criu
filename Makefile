@@ -89,7 +89,7 @@ export PROTOUFIX DEFINES
 DEFINES			+= -D_FILE_OFFSET_BITS=64
 DEFINES			+= -D_GNU_SOURCE
 
-WARNINGS		:= -Wall -Wformat-security
+WARNINGS		:= -Wall -Wformat-security -Wno-implicit-function-declaration -Wno-macro-redefined
 
 CFLAGS-GCOV		:= --coverage -fno-exceptions -fno-inline -fprofile-update=atomic
 export CFLAGS-GCOV
