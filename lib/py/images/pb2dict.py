@@ -98,6 +98,16 @@ mmap_status_map = [
 	('VMA_UNSUPP',		1 << 31),
 ]
 
+madvise_advice_map = [
+	('MADV_RANDOM',	1 << 1),
+	('MADV_SEQUENTIAL',	1 << 2),
+	('MADV_DONTFORK',	1 << 10),
+	('MADV_MERGEABLE',	1 << 12),
+	('MADV_HUGEPAGE',	1 << 14),
+	('MADV_NOHUGEPAGE',	1 << 15),
+	('MADV_DONTDUMP',	1 << 16),
+]
+
 rfile_flags_map = [
 	('O_WRONLY',	0o1),
 	('O_RDWR',	0o2),
@@ -116,6 +126,7 @@ flags_maps = {
 	'mmap.prot' : mmap_prot_map,
 	'mmap.flags' : mmap_flags_map,
 	'mmap.status' : mmap_status_map,
+	'madvise.advice' : madvise_advice_map,
 	'rfile.flags' : rfile_flags_map,
 	'pmap.flags' : pmap_flags_map,
 }

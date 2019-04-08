@@ -18,7 +18,7 @@ message vma_entry {
 	required sint64		fd	= 8;
 
 	/* madvise flags bitmap */
-	optional uint64		madv	= 9 [(criu).hex = true];
+	optional uint64		madv	= 9 [(criu).flags = "madvise.advice" ];
 
 	/* file status flags */
 	optional uint32		fdflags	= 10 [(criu).hex = true];
