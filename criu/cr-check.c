@@ -828,10 +828,20 @@ static int check_autofs_pipe_ino(void)
 	fclose(f);
 	return ret;
 }
+/*
+for Android, there is no /tmp, and rootfs is readonly,
+so in order to run in Android, has to find another place for tmpdir.
+data partition is a good place.
+*/
+#ifdef __ANDROID__
+#define CR_TMPDIR "/data/tmp"
+#else
+#define CR_TMPDIR "/tmp"
+#endif
 
 static int check_autofs(void)
 {
-	char *dir, *options, template[] = "/tmp/.criu.mnt.XXXXXX";
+	char *dir, *options, template[] = CR_TMPDIR"/.criu.mnt.XXXXXX";
 	int ret, pfd[2];
 
 	ret = check_autofs_pipe_ino();
