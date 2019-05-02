@@ -288,21 +288,21 @@ void arch_free_thread_info(CoreEntry *core)
 static bool valid_xsave_frame(CoreEntry *core)
 {
 	UserX86XsaveEntry *xsave = core->thread_info->fpregs->xsave;
-	struct xsave_struct *x = NULL;
+	struct xsave_struct __always_unused x;
 
-	if (core->thread_info->fpregs->n_st_space < ARRAY_SIZE(x->i387.st_space)) {
+	if (core->thread_info->fpregs->n_st_space < ARRAY_SIZE(x.i387.st_space)) {
 		pr_err("Corruption in FPU st_space area "
 		       "(got %li but %li expected)\n",
 		       (long)core->thread_info->fpregs->n_st_space,
-		       (long)ARRAY_SIZE(x->i387.st_space));
+		       (long)ARRAY_SIZE(x.i387.st_space));
 		return false;
 	}
 
-	if (core->thread_info->fpregs->n_xmm_space < ARRAY_SIZE(x->i387.xmm_space)) {
+	if (core->thread_info->fpregs->n_xmm_space < ARRAY_SIZE(x.i387.xmm_space)) {
 		pr_err("Corruption in FPU xmm_space area "
 		       "(got %li but %li expected)\n",
 		       (long)core->thread_info->fpregs->n_st_space,
-		       (long)ARRAY_SIZE(x->i387.xmm_space));
+		       (long)ARRAY_SIZE(x.i387.xmm_space));
 		return false;
 	}
 
