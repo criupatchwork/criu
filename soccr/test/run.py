@@ -1,5 +1,6 @@
 #!/usr/bin/env python2
 
+from __future__ import print_function
 import sys, os
 import hashlib
 from subprocess import Popen, PIPE
@@ -41,7 +42,7 @@ m.update(str2)
 str2 = m.hexdigest()
 
 if str2 != eval(s):
-    print("FAIL", repr(str2), repr(s))
+    print(("FAIL", repr(str2), repr(s)))
     sys.exit(5);
 
 s = p1.stdout.read()
@@ -51,7 +52,7 @@ str1 = m.hexdigest()
 
 s = p2.stdout.read()
 if str1 != eval(s):
-    print("FAIL", repr(str1), s)
+    print(("FAIL", repr(str1), s))
     sys.exit(5);
 
 if p1.wait():

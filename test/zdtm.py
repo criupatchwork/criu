@@ -1,6 +1,12 @@
 #!/usr/bin/env python
 # vim: noet ts=8 sw=8 sts=8
 from __future__ import absolute_import, division, print_function, unicode_literals
+from builtins import zip
+from builtins import input
+from builtins import oct
+from builtins import str
+from builtins import range
+from builtins import object
 from builtins import (str, open, range, zip, int, input)
 
 import argparse
@@ -145,7 +151,7 @@ arch = os.uname()[4]
 #
 
 
-class host_flavor:
+class host_flavor(object):
 	def __init__(self, opts):
 		self.name = "host"
 		self.ns = False
@@ -162,7 +168,7 @@ class host_flavor:
 		pass
 
 
-class ns_flavor:
+class ns_flavor(object):
 	__root_dirs = ["/bin", "/sbin", "/etc", "/lib", "/lib64", "/dev", "/dev/pts", "/dev/net", "/tmp", "/usr", "/proc", "/run"]
 
 	def __init__(self, opts):
@@ -192,11 +198,7 @@ class ns_flavor:
 
 		# This Mayakovsky-style code gets list of libraries a binary
 		# needs minus vdso and gate .so-s
-		libs = map(lambda x: x[1] == '=>' and x[2] or x[0],
-				map(lambda x: str(x).split(),
-					filter(lambda x: not xl.match(x),
-						map(lambda x: str(x).strip(),
-							filter(lambda x: str(x).startswith('\t'), ldd.stdout.read().decode('ascii').splitlines())))))
+		libs = [x[1] == '=>' and x[2] or x[0] for x in [str(x).split() for x in [x for x in [str(x).strip() for x in [x for x in ldd.stdout.read().decode('ascii').splitlines() if str(x).startswith('\t')]] if not xl.match(x)]]]
 
 		ldd.wait()
 
@@ -291,7 +293,7 @@ class userns_flavor(ns_flavor):
 
 
 flavors = {'h': host_flavor, 'ns': ns_flavor, 'uns': userns_flavor}
-flavors_codes = dict(zip(range(len(flavors)), sorted(flavors.keys())))
+flavors_codes = dict(list(zip(list(range(len(flavors))), sorted(flavors.keys()))))
 
 #
 # Helpers
@@ -365,7 +367,7 @@ class test_fail_expected_exc(Exception):
 #
 
 
-class zdtm_test:
+class zdtm_test(object):
 	def __init__(self, name, desc, flavor, freezer):
 		self.__name = name
 		self.__desc = desc
@@ -497,7 +499,7 @@ class zdtm_test:
 		self.kill(signal.SIGTERM)
 
 		res = tail(self.__name + '.out')
-		if 'PASS' not in list(map(lambda s: s.strip(), res.split())):
+		if 'PASS' not in list([s.strip() for s in res.split()]):
 			if os.access(self.__name + '.out.inprogress', os.F_OK):
 				print_sep(self.__name + '.out.inprogress')
 				with open(self.__name + '.out.inprogress') as fd:
@@ -586,7 +588,7 @@ def load_module_from_file(name, path):
 	return mod
 
 
-class inhfd_test:
+class inhfd_test(object):
 	def __init__(self, name, desc, flavor, freezer):
 		self.__name = os.path.basename(name)
 		print("Load %s" % name)
@@ -736,7 +738,7 @@ class groups_test(zdtm_test):
 		if flavor.ns:
 			self.__real_name = name
 			with open(name) as fd:
-				self.__subs = map(lambda x: x.strip(), fd.readlines())
+				self.__subs = [x.strip() for x in fd.readlines()]
 			print("Subs:\n%s" % '\n'.join(self.__subs))
 		else:
 			self.__real_name = ''
@@ -789,7 +791,7 @@ test_classes = {'zdtm': zdtm_test, 'inhfd': inhfd_test, 'groups': groups_test}
 join_ns_file = '/run/netns/zdtm_netns'
 
 
-class criu_cli:
+class criu_cli(object):
 	@staticmethod
 	def run(action, args, criu_bin, fault = None, strace = [], preexec = None, nowait = False):
 		env = dict(os.environ, ASAN_OPTIONS = "log_path=asan.log:disable_coredump=0:detect_leaks=0")
@@ -805,7 +807,7 @@ class criu_cli:
 		return cr.wait()
 
 
-class criu_rpc_process:
+class criu_rpc_process(object):
 	def wait(self):
 		return self.criu.wait_pid(self.pid)
 
@@ -813,7 +815,7 @@ class criu_rpc_process:
 		os.kill(self.pid, signal.SIGTERM)
 
 
-class criu_rpc:
+class criu_rpc(object):
 	@staticmethod
 	def __set_opts(criu, args, ctx):
 		while len(args) != 0:
@@ -934,7 +936,7 @@ class criu_rpc:
 		return ret
 
 
-class criu:
+class criu(object):
 	def __init__(self, opts):
 		self.__test = None
 		self.__dump_path = None
@@ -1287,7 +1289,7 @@ def init_sbs():
 
 def sbs(what):
 	if do_sbs:
-		input("Pause at %s. Press Enter to continue." % what)
+		eval(input("Pause at %s. Press Enter to continue." % what))
 
 
 #
@@ -1295,7 +1297,7 @@ def sbs(what):
 #
 def iter_parm(opt, dflt):
 	x = ((opt or str(dflt)) + ":0").split(':')
-	return (range(0, int(x[0])), float(x[1]))
+	return (list(range(0, int(x[0]))), float(x[1]))
 
 
 def cr(cr_api, test, opts):
@@ -1352,7 +1354,7 @@ def get_visible_state(test):
 		return ({}, {}, {})
 
 	r = re.compile('^[0-9]+$')
-	pids = filter(lambda p: r.match(p), os.listdir("/proc/%s/root/proc/" % test.getpid()))
+	pids = [p for p in os.listdir("/proc/%s/root/proc/" % test.getpid()) if r.match(p)]
 	for pid in pids:
 		files[pid] = set(os.listdir("/proc/%s/root/proc/%s/fd" % (test.getpid(), pid)))
 
@@ -1360,7 +1362,7 @@ def get_visible_state(test):
 		last = 0
 		mapsfd = open("/proc/%s/root/proc/%s/maps" % (test.getpid(), pid))
 		for mp in mapsfd:
-			m = list(map(lambda x: int('0x' + x, 0), mp.split()[0].split('-')))
+			m = list([int('0x' + x, 0) for x in mp.split()[0].split('-')])
 
 			m.append(mp.split()[1])
 
@@ -1376,7 +1378,7 @@ def get_visible_state(test):
 				last += 1
 		mapsfd.close()
 
-		maps[pid] = set(map(lambda x: '%x-%x %s' % (x[0], x[1], " ".join(x[2:])), cmaps))
+		maps[pid] = set(['%x-%x %s' % (x[0], x[1], " ".join(x[2:])) for x in cmaps])
 
 		cmounts = []
 		try:
@@ -1394,7 +1396,7 @@ def get_visible_state(test):
 def check_visible_state(test, state, opts):
 	new = get_visible_state(test)
 
-	for pid in state[0].keys():
+	for pid in list(state[0].keys()):
 		fnew = new[0][pid]
 		fold = state[0][pid]
 		if fnew != fold:
@@ -1436,7 +1438,7 @@ def check_visible_state(test, state, opts):
 			raise test_fail_exc("link remaps left")
 
 
-class noop_freezer:
+class noop_freezer(object):
 	def __init__(self):
 		self.kernel = False
 
@@ -1456,7 +1458,7 @@ class noop_freezer:
 		return []
 
 
-class cg_freezer:
+class cg_freezer(object):
 	def __init__(self, path, state):
 		self.__path = '/sys/fs/cgroup/freezer/' + path
 		self.__state = state
@@ -1632,7 +1634,7 @@ def do_run_test(tname, tdesc, flavs, opts):
 			print_sep("Test %s PASS" % tname)
 
 
-class Launcher:
+class Launcher(object):
 	def __init__(self, opts, nr_tests):
 		self.__opts = opts
 		self.__total = nr_tests
@@ -1847,13 +1849,10 @@ def all_tests(opts):
 			if stat.S_IFMT(st.st_mode) in [stat.S_IFLNK, stat.S_IFSOCK]:
 				continue
 			files.append(fp)
-	excl = list(map(lambda x: os.path.join(desc['dir'], x), desc['exclude']))
-	tlist = filter(lambda x:
-			not x.endswith('.checkskip') and
+	excl = list([os.path.join(desc['dir'], x) for x in desc['exclude']])
+	tlist = [x for x in [x.strip() for x in files] if not x.endswith('.checkskip') and
 			not x.endswith('.hook') and
-			x not in excl,
-			map(lambda x: x.strip(), files)
-			)
+			x not in excl]
 	return tlist
 
 
@@ -1934,7 +1933,7 @@ def run_tests(opts):
 		run_all = True
 	elif opts['tests']:
 		r = re.compile(opts['tests'])
-		torun = filter(lambda x: r.match(x), all_tests(opts))
+		torun = [x for x in all_tests(opts) if r.match(x)]
 		run_all = True
 	elif opts['test']:
 		torun = opts['test']
@@ -1945,7 +1944,7 @@ def run_tests(opts):
 			return
 
 		with open(opts['from']) as fd:
-			torun = map(lambda x: x.strip(), fd)
+			torun = [x.strip() for x in fd]
 		opts['keep_going'] = False
 		run_all = True
 	else:
@@ -2086,11 +2085,11 @@ def list_tests(opts):
 	tlist = all_tests(opts)
 	if opts['info']:
 		print(sti_fmt % ('Name', 'Flavors', 'Flags'))
-		tlist = map(lambda x: show_test_info(x), tlist)
+		tlist = [show_test_info(x) for x in tlist]
 	print('\n'.join(tlist))
 
 
-class group:
+class group(object):
 	def __init__(self, tname, tdesc):
 		self.__tests = [tname]
 		self.__desc = tdesc
@@ -2124,9 +2123,7 @@ class group:
 	# common method to write a "meta" auxiliary script (hook/checkskip)
 	# which will call all tests' scripts in turn
 	def __dump_meta(self, fname, ext):
-		scripts = filter(lambda names: os.access(names[1], os.X_OK),
-				map(lambda test: (test, test + ext),
-				self.__tests))
+		scripts = [names for names in [(test, test + ext) for test in self.__tests] if os.access(names[1], os.X_OK)]
 		if scripts:
 			f = open(fname + ext, "w")
 			f.write("#!/bin/sh -e\n")
@@ -2311,10 +2308,10 @@ if opts['debug']:
 
 if opts['action'] == 'run':
 	criu.available()
-for tst in test_classes.values():
+for tst in list(test_classes.values()):
 	tst.available()
 
 opts['action'](opts)
 
-for tst in test_classes.values():
+for tst in list(test_classes.values()):
 	tst.cleanup()

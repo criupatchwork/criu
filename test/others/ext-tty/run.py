@@ -1,4 +1,6 @@
 #!/usr/bin/env python2
+from __future__ import print_function
+from builtins import str
 import subprocess
 import os, sys, time, signal, pty
 

@@ -1,3 +1,9 @@
+from __future__ import absolute_import
+from __future__ import division
+from builtins import str
+from builtins import range
+from past.utils import old_div
+from builtins import object
 # Functions and classes for creating core dump from criu images.
 # Code is inspired by outdated google coredumper(RIP) [1] and
 # fs/binfmt_elf.h from Linux kernel [2].
@@ -29,7 +35,7 @@
 #	4) VMAs contents;
 #
 import io
-import elf
+from . import elf
 import ctypes
 from pycriu import images
 
@@ -60,13 +66,13 @@ prot = {
 	"PROT_EXEC"	: 0x4
 }
 
-class elf_note:
+class elf_note(object):
 	nhdr	= None	# Elf_Nhdr;
 	owner	= None	# i.e. CORE or LINUX;
 	data	= None	# Ctypes structure with note data;
 
 
-class coredump:
+class coredump(object):
 	"""
 	A class to keep elf core dump components inside and
 	functions to properly write them to file.
@@ -117,7 +123,7 @@ class coredump:
 		f.write(buf.read())
 
 
-class coredump_generator:
+class coredump_generator(object):
 	"""
 	Generate core dump from criu images.
 	"""
@@ -476,7 +482,7 @@ class coredump_generator:
 		Generate NT_AUXV note for thread tid of process pid.
 		"""
 		mm = self.mms[pid]
-		num_auxv = len(mm["mm_saved_auxv"])/2
+		num_auxv = old_div(len(mm["mm_saved_auxv"]),2)
 
 		class elf_auxv(ctypes.Structure):
 			_fields_ = [("auxv", elf.Elf64_auxv_t*num_auxv)]
@@ -504,7 +510,7 @@ class coredump_generator:
 		"""
 		mm = self.mms[pid]
 
-		class mmaped_file_info:
+		class mmaped_file_info(object):
 			start		= None
 			end		= None
 			file_ofs	= None
@@ -518,10 +524,10 @@ class coredump_generator:
 
 			shmid	= vma["shmid"]
 			size	= vma["end"] - vma["start"]
-			off	= vma["pgoff"]/PAGESIZE
+			off	= old_div(vma["pgoff"],PAGESIZE)
 
 			files	= self.reg_files
-			fname	= filter(lambda x: x["id"] == shmid, files)[0]["name"]
+			fname	= [x for x in files if x["id"] == shmid][0]["name"]
 
 			info = mmaped_file_info()
 			info.start	= vma["start"]
@@ -669,7 +675,7 @@ class coredump_generator:
 			off	= vma["pgoff"]
 
 			files	= self.reg_files
-			fname	= filter(lambda x: x["id"] == shmid, files)[0]["name"]
+			fname	= [x for x in files if x["id"] == shmid][0]["name"]
 
 			f = open(fname)
 			f.seek(off)
@@ -693,8 +699,8 @@ class coredump_generator:
 		# a file, and changed ones -- from pages.img.
 		# Finally, if no page is found neither in pages.img nor
 		# in file, hole in inserted -- a page filled with zeroes.
-		start_page	= start/PAGESIZE
-		end_page	= end/PAGESIZE
+		start_page	= old_div(start,PAGESIZE)
+		end_page	= old_div(end,PAGESIZE)
 
 		buf = ""
 		for page_no in range(start_page, end_page+1):
@@ -804,7 +810,7 @@ class coredump_generator:
 		"""
 		mm = self.mms[pid]
 
-		class vma_class:
+		class vma_class(object):
 			data	= None
 			filesz	= None
 			memsz	= None

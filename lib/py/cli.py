@@ -1,4 +1,5 @@
 from __future__ import print_function
+from builtins import object
 import argparse
 import sys
 import json
@@ -55,7 +56,7 @@ def get_task_id(p, val):
 # Explorers
 #
 
-class ps_item:
+class ps_item(object):
 	def __init__(self, p, core):
 		self.pid = get_task_id(p, 'pid')
 		self.ppid = p['ppid']
@@ -178,7 +179,7 @@ def explore_fds(opts):
 		print("\t%7s: %s" % ('root', get_file_str(opts, {'type': 'REG', 'id': fdi['root_id']})))
 
 
-class vma_id:
+class vma_id(object):
 	def __init__(self):
 		self.__ids = {}
 		self.__last = 1

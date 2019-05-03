@@ -1,3 +1,5 @@
+from builtins import range
+from builtins import object
 # This file contains methods to deal with criu images.
 #
 # According to http://criu.org/Images, criu images can be described
@@ -67,7 +69,7 @@ class MagicException(Exception):
 
 # Generic class to handle loading/dumping criu images entries from/to bin
 # format to/from dict(json).
-class entry_handler:
+class entry_handler(object):
 	"""
 	Generic class to handle loading/dumping criu images
 	entries from/to bin format to/from dict(json).
@@ -175,7 +177,7 @@ class entry_handler:
 		return entries
 
 # Special handler for pagemap.img
-class pagemap_handler:
+class pagemap_handler(object):
 	"""
 	Special entry handler for pagemap.img, which is unique in a way
 	that it has a header of pagemap_head type followed by entries
@@ -221,7 +223,7 @@ class pagemap_handler:
 		return entry_handler(None).count(f) - 1
 
 # Special handler for ghost-file.img
-class ghost_file_handler:
+class ghost_file_handler(object):
 	def load(self, f, pretty = False, no_payload = False):
 		entries = []
 
@@ -292,7 +294,7 @@ class ghost_file_handler:
 # it doesn't really matter, because our images
 # do not store big amounts of binary data. They
 # are negligible comparing to pages size.
-class pipes_data_extra_handler:
+class pipes_data_extra_handler(object):
 	def load(self, f, pload):
 		size = pload.bytes
 		data = f.read(size)
@@ -306,7 +308,7 @@ class pipes_data_extra_handler:
 		f.seek(pload.bytes, os.SEEK_CUR)
 		return pload.bytes
 
-class sk_queues_extra_handler:
+class sk_queues_extra_handler(object):
 	def load(self, f, pload):
 		size = pload.length
 		data = f.read(size)
@@ -321,7 +323,7 @@ class sk_queues_extra_handler:
 		return pload.length
 
 
-class tcp_stream_extra_handler:
+class tcp_stream_extra_handler(object):
 	def load(self, f, pbuff):
 		d = {}
 
@@ -344,7 +346,7 @@ class tcp_stream_extra_handler:
 		f.seek(0, os.SEEK_END)
 		return pbuff.inq_len + pbuff.outq_len
 
-class ipc_sem_set_handler:
+class ipc_sem_set_handler(object):
 	def load(self, f, pbuff):
 		entry = pb2dict.pb2dict(pbuff)
 		size = sizeof_u16 * entry['nsems']
@@ -375,7 +377,7 @@ class ipc_sem_set_handler:
 		f.seek(round_up(size, sizeof_u64), os.SEEK_CUR)
 		return size
 
-class ipc_msg_queue_handler:
+class ipc_msg_queue_handler(object):
 	def load(self, f, pbuff):
 		entry = pb2dict.pb2dict(pbuff)
 		messages = []
@@ -423,7 +425,7 @@ class ipc_msg_queue_handler:
 
 		return pl_len
 
-class ipc_shm_handler:
+class ipc_shm_handler(object):
 	def load(self, f, pbuff):
 		entry = pb2dict.pb2dict(pbuff)
 		size = entry['size']

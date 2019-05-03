@@ -1,6 +1,9 @@
 #!/usr/bin/python2
 # Test criu errno
 
+from __future__ import print_function
+from builtins import str
+from builtins import object
 import socket, os, errno
 import rpc_pb2 as rpc
 import argparse
@@ -12,7 +15,7 @@ parser.add_argument('dir', type = str, help = "Directory where CRIU images shoul
 args = vars(parser.parse_args())
 
 # Prepare dir for images
-class test:
+class test(object):
 	def __init__(self):
 		self.imgs_fd = os.open(args['dir'], os.O_DIRECTORY)
 		self.s = -1

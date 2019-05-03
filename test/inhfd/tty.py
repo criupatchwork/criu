@@ -1,3 +1,4 @@
+from builtins import range
 # vim: noet ts=8 sw=8 sts=8
 import fcntl
 import os

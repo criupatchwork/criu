@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
+from builtins import object
 import sys
 import os
 import socket
@@ -31,7 +33,7 @@ def mk_socket(st, typ):
 	st.add_socket(sk)
 	return sk
 
-class act_socket:
+class act_socket(object):
 	def __init__(self, typ):
 		self.typ = typ
 
@@ -47,7 +49,7 @@ class act_socket:
 		return 'socket(%s) = %d' % (sk_type_s[self.typ], self.sk_id)
 
 
-class act_close:
+class act_close(object):
 	def __init__(self, sk_id):
 		self.sk_id = sk_id
 
@@ -66,7 +68,7 @@ class act_close:
 		return 'close(%d)' % self.sk_id
 
 
-class act_listen:
+class act_listen(object):
 	def __init__(self, sk_id):
 		self.sk_id = sk_id
 
@@ -82,7 +84,7 @@ class act_listen:
 		return 'listen(%d)' % self.sk_id
 
 
-class act_bind:
+class act_bind(object):
 	def __init__(self, sk_id, name_id):
 		self.sk_id = sk_id
 		self.name_id = name_id
@@ -99,7 +101,7 @@ class act_bind:
 		return 'bind(%d, $name-%d)' % (self.sk_id, self.name_id)
 
 
-class act_connect:
+class act_connect(object):
 	def __init__(self, sk_id, listen_sk_id):
 		self.sk_id = sk_id
 		self.lsk_id = listen_sk_id
@@ -128,7 +130,7 @@ class act_connect:
 		return 'connect(%d, $name-%d)' % (self.sk_id, self.lsk_id)
 
 
-class act_accept:
+class act_accept(object):
 	def __init__(self, sk_id):
 		self.sk_id = sk_id
 
@@ -150,7 +152,7 @@ class act_accept:
 		return 'accept(%d) = %d' % (self.sk_id, self.nsk_id)
 
 
-class act_sendmsg:
+class act_sendmsg(object):
 	def __init__(self, sk_id, to_id):
 		self.sk_id = sk_id
 		self.to_id = to_id
@@ -183,7 +185,7 @@ class act_sendmsg:
 #
 # Description of a socket
 #
-class sock:
+class sock(object):
 	def __init__(self, sk_id, sock_type):
 		# ID of a socket. Since states and sockets are cloned
 		# while we scan the tree of states the only valid way
@@ -363,7 +365,7 @@ class sock:
 		return dsc
 
 
-class state:
+class state(object):
 	def __init__(self, max_sockets, sk_type):
 		self.sockets = []
 		self.sk_id = 0
@@ -602,7 +604,7 @@ def chk_state(st, opts):
 		sys.exit(ret)
 
 	signal_sk.close()
-	for rsk in st.real_sockets.values():
+	for rsk in list(st.real_sockets.values()):
 		rsk.close()
 
 	print("`- dump")

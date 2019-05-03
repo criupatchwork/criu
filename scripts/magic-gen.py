@@ -1,4 +1,6 @@
 #!/bin/env python2
+from __future__ import print_function
+from builtins import str
 import sys
 
 # This program parses criu magic.h file and produces

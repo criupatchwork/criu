@@ -1,3 +1,5 @@
+from builtins import str
+from builtins import object
 # Same as libcriu for C.
 
 import socket
@@ -8,7 +10,7 @@ import struct
 
 import pycriu.rpc_pb2 as rpc
 
-class _criu_comm:
+class _criu_comm(object):
 	"""
 	Base class for communication classes.
 	"""
@@ -183,7 +185,7 @@ class CRIUExceptionExternal(CRIUException):
 		return s
 
 
-class criu:
+class criu(object):
 	"""
 	Call criu through RPC.
 	"""

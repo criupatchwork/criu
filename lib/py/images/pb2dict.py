@@ -1,5 +1,7 @@
+from __future__ import absolute_import
+from builtins import str
 from google.protobuf.descriptor import FieldDescriptor as FD
-import opts_pb2
+from . import opts_pb2
 from ipaddress import IPv4Address, ip_address
 from ipaddress import IPv6Address
 import socket

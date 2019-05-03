@@ -1,3 +1,5 @@
+from __future__ import division
+from past.utils import old_div
 # Define structures and constants for generating elf file.
 import ctypes
 
@@ -266,7 +268,7 @@ elf_fpregset_t = user_fpregs_struct
 # siginfo_t related constants.
 
 _SI_MAX_SIZE	= 128
-_SI_PAD_SIZE	= (_SI_MAX_SIZE/ctypes.sizeof(ctypes.c_int)) - 4
+_SI_PAD_SIZE	= (old_div(_SI_MAX_SIZE,ctypes.sizeof(ctypes.c_int))) - 4
 
 					#          /* kill().  */
 class _siginfo_t_U_kill(ctypes.Structure):	#         struct

@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
+from builtins import range
 import argparse
 import os
 import signal
@@ -76,7 +78,7 @@ def check_pipe_y(pid, fd, rw, inos):
 	ino = get_pipe_ino(pid, fd)
 	if ino == None:
 		return 'missing '
-	if not inos.has_key(fd):
+	if fd not in inos:
 		inos[fd] = ino
 	elif inos[fd] != ino:
 		return 'wrong '

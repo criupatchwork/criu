@@ -1,4 +1,6 @@
 #!/usr/bin/env python2
+from __future__ import print_function
+from builtins import str
 import os, pty, sys, subprocess
 import termios, fcntl, time
 
@@ -11,7 +13,7 @@ def create_pty():
         return (os.fdopen(fd1, "w+"), os.fdopen(fd2, "w+"))
 
 if not os.access("work", os.X_OK):
-    os.mkdir("work", 0755)
+    os.mkdir("work", 0o755)
 
 open("running", "w").close()
 m,s = create_pty()

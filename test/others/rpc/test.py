@@ -1,5 +1,6 @@
 #!/usr/bin/python2
 
+from __future__ import print_function
 import socket, os, sys
 import rpc_pb2 as rpc
 import argparse

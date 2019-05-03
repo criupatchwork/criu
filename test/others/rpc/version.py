@@ -1,5 +1,6 @@
 #!/usr/bin/python2
 
+from __future__ import print_function
 import socket
 import sys
 import rpc_pb2 as rpc
