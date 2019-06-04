@@ -30,6 +30,7 @@ struct pstree_item {
 		futex_t		task_st;
 		unsigned long	task_st_le_bits;
 	};
+	struct vm_area_list *vmas;
 };
 
 static inline pid_t vpid(const struct pstree_item *i)

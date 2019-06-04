@@ -1154,20 +1154,19 @@ static int pre_dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie
 	if (item->pid->state == TASK_DEAD)
 		return 0;
 
-	ret = collect_mappings(pid, &vmas, NULL);
-	if (ret) {
+	if (!item->vmas) {
 		pr_err("Collect mappings (pid: %d) failed with %d\n", pid, ret);
 		goto err;
 	}
 
 	ret = -1;
-	parasite_ctl = parasite_infect_seized(pid, item, &vmas);
+	parasite_ctl = parasite_infect_seized(pid, item, item->vmas);
 	if (!parasite_ctl) {
 		pr_err("Can't infect (pid: %d) with parasite\n", pid);
 		goto err_free;
 	}
 
-	ret = parasite_fixup_vdso(parasite_ctl, pid, &vmas);
+	ret = parasite_fixup_vdso(parasite_ctl, pid, item->vmas);
 	if (ret) {
 		pr_err("Can't fixup vdso VMAs (pid: %d)\n", pid);
 		goto err_cure;
@@ -1192,14 +1191,14 @@ static int pre_dump_one_task(struct pstree_item *item, InventoryEntry *parent_ie
 	mdc.stat = NULL;
 	mdc.parent_ie = parent_ie;
 
-	ret = parasite_dump_pages_seized(item, &vmas, &mdc, parasite_ctl);
+	ret = parasite_dump_pages_seized(item, item->vmas, &mdc, parasite_ctl);
 	if (ret)
 		goto err_cure;
 
 	if (compel_cure_remote(parasite_ctl))
 		pr_err("Can't cure (pid: %d) from parasite\n", pid);
 err_free:
-	free_mappings(&vmas);
+	free_mappings(item->vmas);
 err:
 	return ret;
 
@@ -1471,25 +1470,8 @@ static int setup_alarm_handler()
 
 static int cr_pre_dump_finish(int status)
 {
-	InventoryEntry he = INVENTORY_ENTRY__INIT;
 	struct pstree_item *item;
 	int ret;
-
-	/*
-	 * Restore registers for tasks only. The threads have not been
-	 * infected. Therefore, the thread register sets have not been changed.
-	 */
-	ret = arch_set_thread_regs(root_item, false);
-	if (ret)
-		goto err;
-
-	ret = inventory_save_uptime(&he);
-	if (ret)
-		goto err;
-
-	pstree_switch_state(root_item, TASK_ALIVE);
-
-	timing_stop(TIME_FROZEN);
 
 	if (status < 0) {
 		ret = status;
@@ -1540,9 +1522,6 @@ err:
 	if (bfd_flush_images())
 		ret = -1;
 
-	if (write_img_inventory(&he))
-		ret = -1;
-
 	if (ret)
 		pr_err("Pre-dumping FAILED.\n");
 	else {
@@ -1550,6 +1529,68 @@ err:
 		pr_info("Pre-dumping finished successfully\n");
 	}
 	return ret;
+}
+
+
+static int pre_dump_collect_vmas(struct pstree_item *item)
+{
+       pid_t pid = item->pid->real;
+       struct vm_area_list *vmas;
+       int ret = -1;
+
+       vmas = xmalloc(sizeof(struct vm_area_list));
+       if(!vmas)
+            return -1;
+       INIT_LIST_HEAD(&vmas->h);
+       vmas->nr = 0;
+
+       pr_info("========================================\n");
+       pr_info("Collecting VMAs of (pid: %d)\n", pid);
+       pr_info("========================================\n");
+
+       if (item->pid->state == TASK_STOPPED) {
+               pr_warn("Stopped tasks are not supported\n");
+                    return 0;
+            }
+
+       if (item->pid->state == TASK_DEAD)
+                    return 0;
+
+       ret = collect_mappings(pid, vmas, NULL);
+       if (ret) {
+               pr_err("Collect mappings (pid: %d) failed with %d\n", pid, ret);
+               return -1;
+            }
+
+       item->vmas = vmas;
+       return 0;
+}
+
+
+static int unfreeze_pstree()
+{
+	InventoryEntry he = INVENTORY_ENTRY__INIT;
+	int ret;
+
+	/*
+	 * Restore registers for tasks only. The threads have not been
+	 * infected. Therefore, the thread register sets have not been changed.
+	 */
+	ret = arch_set_thread_regs(root_item, false);
+	if (ret)
+		return -1;
+
+	ret = inventory_save_uptime(&he);
+	if (ret)
+		return -1;
+
+	if (write_img_inventory(&he))
+		return -1;
+
+	pstree_switch_state(root_item, TASK_ALIVE);
+	timing_stop(TIME_FROZEN);
+
+	return 0;
 }
 
 int cr_pre_dump_tasks(pid_t pid)
@@ -1618,6 +1659,16 @@ int cr_pre_dump_tasks(pid_t pid)
 
 	/* Errors handled later in detect_pid_reuse */
 	parent_ie = get_parent_inventory();
+
+	/* Collecting VMAs of all processes in pstree */
+	for_each_pstree_item(item)
+		if (pre_dump_collect_vmas(item))
+			goto err;
+
+	/* Unfreeze pstree */
+	ret = unfreeze_pstree();
+	if(ret)
+		goto err;
 
 	for_each_pstree_item(item)
 		if (pre_dump_one_task(item, parent_ie))
