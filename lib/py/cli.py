@@ -5,6 +5,7 @@ import json
 import os
 
 import pycriu
+import strip
 
 def inf(opts):
 	if opts['in']:
@@ -281,14 +282,20 @@ def anonymize(opts):
 	img_files = os.listdir(opts['in'])
 
 	for i in img_files:
-		temp = {'in':os.path.join(opts['in'], i)}
+		temp = {'in':os.path.join(opts['in'], i), 'out':os.path.join(opts['out'], i)}
 
 		try:
 			m, img = pycriu.images.load(inf(temp), anon_info = True)
+			print("Processing File name:{} with magic:{}".format(i, m))
 		except pycriu.images.MagicException as exc:
 			print("Unknown magic %#x.\n"\
 					"Found a raw image, continuing ..."% exc.magic, file=sys.stderr)
 			continue
+		
+		anon_dict = strip.anon_handler(img, m)
+		if anon_dict != -1:
+			pycriu.images.dump(anon_dict, outf(temp))
+		
 		
 
 explorers = { 'ps': explore_ps, 'fds': explore_fds, 'mems': explore_mems, 'rss': explore_rss }
