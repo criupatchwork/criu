@@ -528,7 +528,7 @@ def __rhandler(f):
 
 	return m, handler
 
-def load(f, pretty = False, no_payload = False):
+def load(f, pretty = False, no_payload = False, anon_info = False):
 	"""
 	Convert criu image from binary format to dict(json).
 	Takes a file-like object to read criu image from.
@@ -540,6 +540,9 @@ def load(f, pretty = False, no_payload = False):
 
 	image['magic'] = m
 	image['entries'] = handler.load(f, pretty, no_payload)
+
+	if anon_info:
+		return m, image
 
 	return image
 

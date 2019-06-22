@@ -273,8 +273,23 @@ def explore_rss(opts):
 
 
 def anonymize(opts):
-	pass
+	try:
+		os.stat(opts['out'])
+	except:
+		os.mkdir(opts['out'])
+	
+	img_files = os.listdir(opts['in'])
 
+	for i in img_files:
+		temp = {'in':os.path.join(opts['in'], i)}
+
+		try:
+			m, img = pycriu.images.load(inf(temp), anon_info = True)
+		except pycriu.images.MagicException as exc:
+			print("Unknown magic %#x.\n"\
+					"Found a raw image, continuing ..."% exc.magic, file=sys.stderr)
+			continue
+		
 
 explorers = { 'ps': explore_ps, 'fds': explore_fds, 'mems': explore_mems, 'rss': explore_rss }
 
