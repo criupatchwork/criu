@@ -272,6 +272,9 @@ def explore_rss(opts):
 			print('%-24s%s' % (pstr, vstr))
 
 
+def anonymize(opts):
+	pass
+
 
 explorers = { 'ps': explore_ps, 'fds': explore_fds, 'mems': explore_mems, 'rss': explore_rss }
 
@@ -328,6 +331,17 @@ def main():
 	show_parser.add_argument("in")
 	show_parser.add_argument('--nopl', help = 'do not show entry payload (if exists)', action = 'store_true')
 	show_parser.set_defaults(func=decode, pretty=True, out=None)
+
+	# Anonymize
+	anon_parser = subparsers.add_parser('anonymize',
+			help = "anonymize binary images to remove certain information")
+	anon_parser.add_argument('-i',
+				'--in',
+				help = 'path to directory containing images that are not anonymized')
+	anon_parser.add_argument('-o',
+				'--out',
+				help = 'path to directory where the anonymized images must be stored')
+	anon_parser.set_defaults(func=anonymize)
 
 	opts = vars(parser.parse_args())
 
