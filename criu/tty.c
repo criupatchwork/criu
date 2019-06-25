@@ -349,19 +349,14 @@ static mutex_t *tty_mutex;
 
 static bool tty_is_master(struct tty_info *info);
 
-static int init_tty_mutex(void)
+int tty_init_restore(void)
 {
-	if (tty_mutex)
-		return 0;
-
 	tty_mutex = shmalloc(sizeof(*tty_mutex));
 	if (!tty_mutex) {
 		pr_err("Can't create ptmx index mutex\n");
 		return -1;
 	}
-
 	mutex_init(tty_mutex);
-
 	return 0;
 }
 
@@ -1788,13 +1783,6 @@ static int tty_info_setup(struct tty_info *info)
 	pr_info("Collected tty ID %#x (%s)\n", info->tfe->id, info->driver->name);
 
 	add_post_prepare_cb_once(&prep_tty_restore);
-
-	/*
-	 * Call it explicitly. Post-callbacks will be called after
-	 * namespaces preparation, while the latter needs this mutex.
-	 */
-	if (init_tty_mutex())
-		return -1;
 
 	info->fdstore_id = -1;
 	return file_desc_add(&info->d, info->tfe->id, &tty_desc_ops);
