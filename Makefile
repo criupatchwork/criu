@@ -127,6 +127,8 @@ ifeq ($(GMON),1)
 export GMON GMONLDOPT
 endif
 
+CFLAGS			+= -iquote flog/include/ -iquote flog/include/uapi
+
 AFLAGS			+= -D__ASSEMBLY__
 CFLAGS			+= $(USERCFLAGS) $(WARNINGS) $(DEFINES) -iquote include/
 HOSTCFLAGS		+= $(WARNINGS) $(DEFINES) -iquote include/
@@ -217,6 +219,17 @@ soccr/built-in.o: $(CONFIG_HEADER) .FORCE
 	$(Q) $(MAKE) $(build)=soccr all
 $(SOCCR_A): |soccr/built-in.o
 criu-deps	+= $(SOCCR_A)
+
+#
+# Fast logging library
+FLOG_A := flog/libflog.a
+flog/Makefile: ;
+flog/%: $(CONFIG_HEADER) .FORCE
+	$(Q) $(MAKE) $(build)=flog $@
+flog/built-in.o: $(CONFIG_HEADER) .FORCE
+	$(Q) $(MAKE) $(build)=flog all
+$(FLOG_A): | flog/built-in.o
+criu-deps	+= $(FLOG_A)
 
 #
 # CRIU building done in own directory

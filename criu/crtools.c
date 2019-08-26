@@ -48,6 +48,14 @@
 #include "sysctl.h"
 #include "img-remote.h"
 
+flog_ctx_t flog_ctx;
+
+
+int criu_quit(int ret_val) {
+	log_fini();	
+	exit(ret_val);
+}
+
 int main(int argc, char *argv[], char *envp[])
 {
 	int ret = -1;
@@ -55,7 +63,14 @@ int main(int argc, char *argv[], char *envp[])
 	bool has_exec_cmd = false;
 	bool has_sub_command;
 	int state = PARSING_GLOBAL_CONF;
+	
+	flog_ctx.readonly=1; 
+	/* It is not known yet if we will have binlog, but let's not try to 
+	 * write into it for safety reasons 
+	 */
+	 
 
+	/* FIXME: where to put flog_fini? */
 	BUILD_BUG_ON(CTL_32 != SYSCTL_TYPE__CTL_32);
 	BUILD_BUG_ON(__CTL_STR != SYSCTL_TYPE__CTL_STR);
 	/* We use it for fd overlap handling in clone_service_fd() */
@@ -67,20 +82,34 @@ int main(int argc, char *argv[], char *envp[])
 
 	cr_pb_init();
 	setproctitle_init(argc, argv, envp);
-
-	if (argc < 2)
+	
+	if (argc < 2) {
 		goto usage;
-
+	}
+	
 	init_opts();
-
 
 	ret = parse_options(argc, argv, &usage_error, &has_exec_cmd, state);
 
+	if (opts.printlog) {
+				
+		if (log_init(opts.output))
+			return 1;	
+		/* print and exit */
+		printf("--- printing log from %s file ---\n", opts.output);
+		struct stat st;			
+		stat(opts.output, &st);			
+		if(st.st_size) 
+			flog_decode_all(&flog_ctx, STDOUT_FILENO);
+		printf("--- end of the log ---\n");
+		criu_quit(0);
+	}
+	
 	if (ret == 1)
-		return 1;
+		return 1;	
 	if (ret == 2)
-		goto usage;
-
+		goto usage;	
+	
 	log_set_loglevel(opts.log_level);
 
 	if (!strcmp(argv[1], "swrk")) {
@@ -98,6 +127,7 @@ int main(int argc, char *argv[], char *envp[])
 
 	if (check_options()) {
 		flush_early_log_buffer(STDERR_FILENO);
+		flog_fini(&flog_ctx);
 		return 1;
 	}
 
@@ -106,7 +136,7 @@ int main(int argc, char *argv[], char *envp[])
 
 	if (opts.work_dir == NULL)
 		SET_CHAR_OPTS(work_dir, opts.imgs_dir);
-
+	
 	if (optind >= argc) {
 		pr_msg("Error: command is required\n");
 		goto usage;
@@ -131,8 +161,8 @@ int main(int argc, char *argv[], char *envp[])
 		}
 
 		opts.exec_cmd = xmalloc((argc - optind) * sizeof(char *));
-		if (!opts.exec_cmd)
-			return 1;
+		if (!opts.exec_cmd) 
+			criu_quit(1);
 		memcpy(opts.exec_cmd, &argv[optind + 1], (argc - optind - 1) * sizeof(char *));
 		opts.exec_cmd[argc - optind - 1] = NULL;
 	} else {
@@ -148,7 +178,7 @@ int main(int argc, char *argv[], char *envp[])
 	if (strcmp(argv[optind], "service")) {
 		ret = open_image_dir(opts.imgs_dir);
 		if (ret < 0)
-			return 1;
+			criu_quit(1);
 	}
 
 	/*
@@ -163,14 +193,14 @@ int main(int argc, char *argv[], char *envp[])
 
 	if (chdir(opts.work_dir)) {
 		pr_perror("Can't change directory to %s", opts.work_dir);
-		return 1;
+		criu_quit(1);
 	}
 
 	if (log_init(opts.output))
-		return 1;
-
+		return 1;		
+	
 	if (kerndat_init())
-		return 1;
+		criu_quit(1);
 
 	if (opts.deprecated_ok)
 		pr_debug("DEPRECATED ON\n");
@@ -178,7 +208,7 @@ int main(int argc, char *argv[], char *envp[])
 	if (!list_empty(&opts.inherit_fds)) {
 		if (strcmp(argv[optind], "restore")) {
 			pr_err("--inherit-fd is restore-only option\n");
-			return 1;
+			criu_quit(1);
 		}
 		/* now that log file is set up, print inherit fd list */
 		inherit_fd_log();
@@ -190,7 +220,7 @@ int main(int argc, char *argv[], char *envp[])
 	if (!strcmp(argv[optind], "dump")) {
 		if (!opts.tree_id)
 			goto opt_pid_missing;
-		return cr_dump_tasks(opts.tree_id);
+		criu_quit(cr_dump_tasks(opts.tree_id));
 	}
 
 	if (!strcmp(argv[optind], "pre-dump")) {
@@ -199,10 +229,10 @@ int main(int argc, char *argv[], char *envp[])
 
 		if (opts.lazy_pages) {
 			pr_err("Cannot pre-dump with --lazy-pages\n");
-			return 1;
+			criu_quit(1);
 		}
 
-		return cr_pre_dump_tasks(opts.tree_id) != 0;
+		criu_quit(cr_pre_dump_tasks(opts.tree_id) != 0);
 	}
 
 	if (!strcmp(argv[optind], "restore")) {
@@ -217,39 +247,41 @@ int main(int argc, char *argv[], char *envp[])
 			ret = 1;
 		}
 
-		return ret != 0;
+		criu_quit(ret != 0);
 	}
 
 	if (!strcmp(argv[optind], "lazy-pages"))
-		return cr_lazy_pages(opts.daemon_mode) != 0;
+		criu_quit(cr_lazy_pages(opts.daemon_mode) != 0);
 
-	if (!strcmp(argv[optind], "check"))
-		return cr_check() != 0;
+	if (!strcmp(argv[optind], "check")) {
+		ret = cr_check();		
+		criu_quit(ret != 0);
+	}
 
 	if (!strcmp(argv[optind], "page-server"))
-		return cr_page_server(opts.daemon_mode, false, -1) != 0;
+		criu_quit(cr_page_server(opts.daemon_mode, false, -1) != 0);
 
 	if (!strcmp(argv[optind], "image-cache")) {
 		if (!opts.port)
 			goto opt_port_missing;
-		return image_cache(opts.daemon_mode, DEFAULT_CACHE_SOCKET);
+		criu_quit(image_cache(opts.daemon_mode, DEFAULT_CACHE_SOCKET));
 	}
 
 	if (!strcmp(argv[optind], "image-proxy")) {
 		if (!opts.addr) {
 			pr_msg("Error: address not specified\n");
-			return 1;
+			criu_quit(1);
 		}
 		if (!opts.port)
 			goto opt_port_missing;
-		return image_proxy(opts.daemon_mode, DEFAULT_PROXY_SOCKET);
+		criu_quit(image_proxy(opts.daemon_mode, DEFAULT_PROXY_SOCKET));
 	}
 
 	if (!strcmp(argv[optind], "service"))
-		return cr_service(opts.daemon_mode);
+		criu_quit(cr_service(opts.daemon_mode));
 
 	if (!strcmp(argv[optind], "dedup"))
-		return cr_dedup() != 0;
+		criu_quit(cr_dedup() != 0);
 
 	if (!strcmp(argv[optind], "cpuinfo")) {
 		if (!argv[optind + 1]) {
@@ -259,22 +291,23 @@ int main(int argc, char *argv[], char *envp[])
 		if (!strcmp(argv[optind + 1], "dump"))
 			return cpuinfo_dump();
 		else if (!strcmp(argv[optind + 1], "check"))
-			return cpuinfo_check();
+			criu_quit(cpuinfo_check());
 	}
 
 	if (!strcmp(argv[optind], "exec")) {
 		pr_msg("The \"exec\" action is deprecated by the Compel library.\n");
-		return -1;
+		criu_quit(-1);
 	}
 
 	if (!strcmp(argv[optind], "show")) {
 		pr_msg("The \"show\" action is deprecated by the CRIT utility.\n");
 		pr_msg("To view an image use the \"crit decode -i $name --pretty\" command.\n");
-		return -1;
+		criu_quit(-1);
 	}
-
+	
 	pr_msg("Error: unknown command: %s\n", argv[optind]);
 usage:
+	printf("usage\n");
 	pr_msg("\n"
 "Usage:\n"
 "  criu dump|pre-dump -t PID [<options>]\n"
@@ -302,8 +335,8 @@ usage:
 	);
 
 	if (usage_error) {
-		pr_msg("\nTry -h|--help for more info\n");
-		return 1;
+		pr_msg("\nTry -h|--help for more info\n");				
+		criu_quit(1);
 	}
 
 	pr_msg("\n"
@@ -425,7 +458,9 @@ usage:
 "\n"
 "* Logging:\n"
 "  -o|--log-file FILE    log file name\n"
+"     --binlog           use faster binary log instead of slower text log\n"
 "     --log-pid          enable per-process logging to separate FILE.pid files\n"
+"     --print-log        print log from the binlog file and exit\n"
 "  -v[v...]|--verbosity  increase verbosity (can use multiple v)\n"
 "  -vNUM|--verbosity=NUM set verbosity to NUM (higher level means more output):\n"
 "                          -v1 - only errors and messages\n"
@@ -466,13 +501,13 @@ usage:
 "  -V|--version          show version\n"
 	);
 
-	return 0;
+	criu_quit(0);
 
 opt_port_missing:
 	pr_msg("Error: port not specified\n");
-	return 1;
+	criu_quit(1);
 
 opt_pid_missing:
 	pr_msg("Error: pid not specified\n");
-	return 1;
+	criu_quit(1);
 }

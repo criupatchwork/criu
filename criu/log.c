@@ -10,6 +10,7 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <sys/utsname.h>
+#include <sys/stat.h>
 
 #include <fcntl.h>
 
@@ -207,10 +208,11 @@ void flush_early_log_buffer(int fd)
 int log_init(const char *output)
 {
 	int new_logfd, fd;
+	int log_file_open_mode, log_file_perm;
 
 	gettimeofday(&start, NULL);
 	reset_buf_off();
-
+	memset(&flog_ctx, 0, sizeof(flog_ctx));
 	if (output && !strncmp(output, "-", 2)) {
 		new_logfd = dup(STDOUT_FILENO);
 		if (new_logfd < 0) {
@@ -218,7 +220,23 @@ int log_init(const char *output)
 			return -1;
 		}
 	} else if (output) {
-		new_logfd = open(output, O_CREAT|O_TRUNC|O_WRONLY|O_APPEND, 0600);
+		if (opts.printlog) {
+			/* read old binlog */
+			log_file_open_mode = O_RDONLY;
+			flog_ctx.readonly=1; /* don't try to write into it */
+			struct stat st;			
+			stat(opts.output, &st);			
+			flog_ctx.size=st.st_size;
+		}
+		else if (opts.binlog) {
+			log_file_open_mode = O_RDWR | O_CREAT | O_TRUNC;
+		}
+		else {
+			flog_ctx.readonly=1; /* no binlog, don't try to write into it */
+			log_file_open_mode = O_CREAT|O_TRUNC|O_WRONLY|O_APPEND;
+		}
+		log_file_perm = opts.binlog?0644:0600;
+		new_logfd = open(output, log_file_open_mode, log_file_perm);
 		if (new_logfd < 0) {
 			pr_perror("Can't create log file %s", output);
 			return -1;
@@ -234,15 +252,19 @@ int log_init(const char *output)
 	fd = install_service_fd(LOG_FD_OFF, new_logfd);
 	if (fd < 0)
 		goto err;
-
+			
+	if (opts.binlog||opts.printlog) {
+		
+		flog_map_buf(fd, &flog_ctx);
+	}
+	
+	
 	init_done = 1;
 
 	/*
 	 * Once logging is setup this write out all early log messages.
 	 * Only those messages which have to correct log level are printed.
 	 */
-	flush_early_log_buffer(fd);
-
 	print_versions();
 
 	return 0;
@@ -277,7 +299,9 @@ int log_init_by_pid(pid_t pid)
 
 void log_fini(void)
 {
-	close_service_fd(LOG_FD_OFF);
+	flog_fini(&flog_ctx);
+	
+	
 }
 
 static void soccr_print_on_level(unsigned int loglevel, const char *format, ...)
@@ -392,9 +416,9 @@ void vprint_on_level(unsigned int loglevel, const char *format, va_list params)
 }
 
 void print_on_level(unsigned int loglevel, const char *format, ...)
-{
+{	
 	va_list params;
-
+	if (opts.binlog) return;
 	va_start(params, format);
 	vprint_on_level(loglevel, format, params);
 	va_end(params);

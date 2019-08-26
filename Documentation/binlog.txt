@@ -1,0 +1,52 @@
+CRIU binary logging
+===================
+
+Usage: turning on binary logging
+--------------------------------
+
+Classical text logging is done by default.
+Binary logging is turned on by the `--binlog` command line parameter.
+It should be combined with `--log-file filename` parameter to specify
+the log file name (this second parameter is used with both text and binary logging).
+
+The example:
+
+`criu --log-file /tmp/sdf.bin --binlog check`
+
+Usage: reading binary log file
+------------------------------
+
+There is a `--print-log` parameter which turnes criy into a log reader.
+It should be combined with `--log-file filename` parameter, which specifies
+the log file name. When these parameters are used, CRIU prints all messages
+from the binary log file on the screen and exits. This looks as follows:
+
+`criu --log-file /tmp/sdf.bin --binlog --print-log`
+
+Binary log file format
+----------------------
+
+Text logging in CRIU is based on the printf functions family, with format string
+followed by arguments. To make logging in binary form faster, CRIU just stores
+format string and arguments in binary log without parsing. When binary log file
+is read with `--print-log` parameter, these data are taken from the binary log
+records and passed to a printf function.
+
+Binary log file format is highly inspired by the [flog experimental project](https://github.com/cyrillos/flog).
+Each log message is stored as a format string aned a variable number of
+arguments. The variable size record has following structure:
+
+
+| field   | datatype     |  explanation                    |
+|---------|--------------|---------------------------------|
+| magic   | unsigned int | magic code, equal to `0x676f6c66` |
+| version | unsigned int | binlog file version, equal to `1` |
+| size    | unsigned int | actual size of the record (is needed because of variable arguments|
+| nargs   | unsigned int | number of arguments |
+| mask    | unsigned int | mask, which encodes the argument type, e.g. long integer or string|
+| fmt     | long         | offset to the format string, starting from the beginning of the record|
+| args[0] | long         | 1st argument: the value, if it is a number, or the offset to the string, starting from the beginning of the record |
+| .....   |              | |
+| args[nargs-1] | long   | last argument: the value, if it is a number, or the offset to the string, starting from the beginning of the record |
+| .....   |              | format string and all other strings passed as arguments, if any |
+
