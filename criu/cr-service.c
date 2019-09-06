@@ -336,7 +336,7 @@ static int setup_opts_from_req(int sk, CriuOpts *req)
 		SET_CHAR_OPTS(img_parent, req->parent_img);
 
 	if (open_image_dir(images_dir_path) < 0) {
-		pr_perror("Can't open images directory");
+		pr_perror("Can't open images directory %s", images_dir_path);
 		goto err;
 	}
 

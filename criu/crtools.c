@@ -147,8 +147,11 @@ int main(int argc, char *argv[], char *envp[])
 	/* We must not open imgs dir, if service is called */
 	if (strcmp(argv[optind], "service")) {
 		ret = open_image_dir(opts.imgs_dir);
-		if (ret < 0)
+		if (ret < 0) {
+			pr_msg("Error: Can't open images directory %s: %s\n",
+			       opts.imgs_dir, strerror(errno));
 			return 1;
+		}
 	}
 
 	/*
@@ -162,7 +165,8 @@ int main(int argc, char *argv[], char *envp[])
 		pr_warn("Stopped and detached shell job will get SIGHUP from OS.\n");
 
 	if (chdir(opts.work_dir)) {
-		pr_perror("Can't change directory to %s", opts.work_dir);
+		pr_msg("Error: Can't change directory to %s: %s\n",
+		       opts.work_dir, strerror(errno));
 		return 1;
 	}
 
