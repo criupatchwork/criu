@@ -58,11 +58,13 @@ CoreEntry *core_entry_alloc(int th, int tsk)
 		CredsEntry *ce = NULL;
 
 		sz += sizeof(ThreadCoreEntry) + sizeof(ThreadSasEntry) + sizeof(CredsEntry);
+		sz += sizeof(ThreadCpuallowEntry);
 
 		sz += CR_CAP_SIZE * sizeof(ce->cap_inh[0]);
 		sz += CR_CAP_SIZE * sizeof(ce->cap_prm[0]);
 		sz += CR_CAP_SIZE * sizeof(ce->cap_eff[0]);
 		sz += CR_CAP_SIZE * sizeof(ce->cap_bnd[0]);
+		sz += __CPU_SETSIZE;
 		/*
 		 * @groups are dynamic and allocated
 		 * on demand.
@@ -126,6 +128,11 @@ CoreEntry *core_entry_alloc(int th, int tsk)
 			ce->cap_prm	= xptr_pull_s(&m, CR_CAP_SIZE * sizeof(ce->cap_prm[0]));
 			ce->cap_eff	= xptr_pull_s(&m, CR_CAP_SIZE * sizeof(ce->cap_eff[0]));
 			ce->cap_bnd	= xptr_pull_s(&m, CR_CAP_SIZE * sizeof(ce->cap_bnd[0]));
+
+			core->thread_core->cpu_allowed = xptr_pull(&m, ThreadCpuallowEntry);
+			thread_cpuallow_entry__init(core->thread_core->cpu_allowed);
+			core->thread_core->cpu_allowed->n_cpumask = __CPU_SETSIZE / sizeof(uint64_t);
+			core->thread_core->cpu_allowed->cpumask = xptr_pull_s(&m, __CPU_SETSIZE);
 
 			if (arch_alloc_thread_info(core)) {
 				xfree(core);

@@ -140,6 +140,7 @@ static int dump_sched_info(int pid, ThreadCoreEntry *tc)
 {
 	int ret;
 	struct sched_param sp;
+	cpu_set_t cpumask;
 
 	BUILD_BUG_ON(SCHED_OTHER != 0); /* default in proto message */
 
@@ -184,6 +185,19 @@ static int dump_sched_info(int pid, ThreadCoreEntry *tc)
 	pr_info("\tdumping %d nice for %d\n", ret, pid);
 	tc->has_sched_nice = true;
 	tc->sched_nice = ret;
+
+	pr_info("\tdumping cpu_allowed for %d\n", pid);
+	ret = syscall(__NR_sched_getaffinity, pid, sizeof(cpumask), &cpumask);
+	if (ret < 0) {
+		pr_perror("Can't get sched affinity for %d", pid);
+		return -1;
+	}
+	memcpy(tc->cpu_allowed->cpumask, &cpumask, __CPU_SETSIZE);
+	pr_info("\t 0x%lx, 0x%lx, 0x%lx, 0x%lx\n",
+		tc->cpu_allowed->cpumask[3],
+		tc->cpu_allowed->cpumask[2],
+		tc->cpu_allowed->cpumask[1],
+		tc->cpu_allowed->cpumask[0]);
 
 	return 0;
 }

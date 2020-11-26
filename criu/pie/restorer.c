@@ -432,6 +432,31 @@ static int restore_signals(siginfo_t *ptr, int nr, bool group)
 	return 0;
 }
 
+static int restore_cpuallowed(struct task_restore_args *args)
+{
+	int i;
+	int pid;
+	int ret;
+	cpu_set_t *cpumask;
+
+	for (i = 0; i < args->nr_threads; i++) {
+		pid = args->thread_args[i].pid;
+		cpumask = &args->cpualloweds[i];
+		pr_info("Restoring %d cpu_allowed %lx, %lx, %lx, %lx\n", pid,
+			cpumask->__bits[3],
+			cpumask->__bits[2],
+			cpumask->__bits[1],
+			cpumask->__bits[0]);
+		ret = sys_sched_setaffinity(pid, sizeof(cpu_set_t), cpumask);
+		if (ret) {
+			pr_err("\t Restore %d cpumask failed.\n", pid);
+			return ret;
+		}
+	}
+
+	return 0;
+}
+
 static int restore_seccomp_filter(pid_t tid, struct thread_restore_args *args)
 {
 	unsigned int flags = args->seccomp_force_tsync ? SECCOMP_FILTER_FLAG_TSYNC : 0;
@@ -1897,6 +1922,10 @@ long __export_restore_task(struct task_restore_args *args)
 		goto core_restore_end;
 
 	ret = restore_signals(args->t->siginfo, args->t->siginfo_n, false);
+	if (ret)
+		goto core_restore_end;
+
+	ret = restore_cpuallowed(args);
 	if (ret)
 		goto core_restore_end;
 
